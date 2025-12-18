@@ -41,70 +41,72 @@ const VERIFIED_DRM = {
   // ⚠️ DENUVO GAMES - EXPANDED LIST (60+ games)
   denuvo: [
     // 2025 Games
-    3355140, // Football Manager 26
-    2494160, // Anno 117: Pax Romana
-    2737370, // Jurassic World Evolution 3
-    2923430, // DOOM: The Dark Ages
-    2919060, // F1 25
-    2780710, // Onimusha: Way of the Sword
-    2780700, // Onimusha 2: Samurai's Destiny
-    3011780, // Stellar Blade (PC)
-    2734950, // NBA 2K26
-    2947330, // EA Sports FC 26
-    2891950, // Dragon Quest I & II HD-2D
-    2735490, // Digimon Story: Time Stranger
-    2808710, // Borderlands 4
+    3551340, // Football Manager 26
+    3274580, // Anno 117: Pax Romana
+    2958130, // Jurassic World Evolution 3
+    3017860, // DOOM: The Dark Ages
+    3059520, // F1 25
+    2638890, // Onimusha: Way of the Sword
+    3046600, // Onimusha 2: Samurai's Destiny
+    3489700, // Stellar Blade (PC)
+    3472040, // NBA 2K26
+    3405690, // EA Sports FC 26
+    2893570, // Dragon Quest I & II HD-2D
+    1984270, // Digimon Story: Time Stranger
+    1285190, // Borderlands 4
     
     // 2024 Major Releases
-    2358720, // Mortal Kombat 1
-    2519830, // Tekken 8
-    2245450, // Black Myth: Wukong
-    2399830, // Dragon's Dogma 2
-    2050650, // Persona 3 Reload
-    1938090, // Call of Duty: Modern Warfare III
+    1971870, // Mortal Kombat 1
+    1778820, // Tekken 8
+    2358720, // Black Myth: Wukong
+    2054970, // Dragon's Dogma 2
+    2161700, // Persona 3 Reload
+    1687950, // Persona 5 Royal
+    3595270, // Call of Duty: Modern Warfare III
     2124490, // Silent Hill 2 Remake
-    1888930, // Star Wars Outlaws
-    1240440, // Hades II (Early Access)
+    2842040, // Star Wars Outlaws
+    3738540, // Hades II (Early Access)
     1174180, // Red Dead Redemption 2
-    2369390, // Suicide Squad: Kill the Justice League
-    2682880, // Prince of Persia: The Lost Crown
+    315210, // Suicide Squad: Kill the Justice League
+    2751000, // Prince of Persia: The Lost Crown
     1426210, // It Takes Two
-    
+    990080, // Hogwarts Legacy
+
     // Sports Games
-    2195250, // EA Sports FC 25
-    2338770, // F1 24
-    2732510, // TopSpin 2K25
-    2338760, // NBA 2K25
+    2669320, // EA Sports FC 25
+    2488620, // F1 24
+    1785650, // TopSpin 2K25
+    2878980, // NBA 2K25
     
     // Capcom Games
-    1948280, // Resident Evil 4 Remake
-    2371630, // Street Fighter 6
-    1716740, // Resident Evil Village
+    2050650, // Resident Evil 4 Remake
+    1364780, // Street Fighter 6
+    1196590, // Resident Evil Village
     
     // Square Enix
-    1966720, // Final Fantasy XVI
-    2679460, // Final Fantasy VII Rebirth
-    1462040, // Forspoken
+    2515020, // Final Fantasy XVI
+    2909400, // Final Fantasy VII Rebirth
+    1680880, // Forspoken
     
     // SEGA/Atlus
-    2161700, // Like a Dragon: Infinite Wealth
-    1888160, // Shin Megami Tensei V: Vengeance
-    2679450, // Metaphor: ReFantazio
+    2072450, // Like a Dragon: Infinite Wealth
+    1875830, // Shin Megami Tensei V: Vengeance
+    2679460, // Metaphor: ReFantazio
     
     // Ubisoft Games
-    2956080, // Skull and Bones
-    2514850, // Avatar: Frontiers of Pandora
+    2853730, // Skull and Bones
+    2840770, // Avatar: Frontiers of Pandora
     
     // Others
     1593500, // God of War
-    1817190, // Spider-Man Remastered
-    2215430, // Spider-Man: Miles Morales
+    1817070, // Spider-Man Remastered
+    1817190, // Spider-Man: Miles Morales
     1086940, // Baldur's Gate 3
-    2246460, // Monster Hunter Wilds
-    1938010, // Remnant II
-    2379780, // Starfield
-    2369390, // Dead Island 2
-    1971870, // The Callisto Protocol
+    2246340, // Monster Hunter Wilds
+    1282100, // Remnant II
+    1716740, // Starfield
+    934700, // Dead Island 2
+    1544020, // The Callisto Protocol
   ],
   
   // EasyAntiCheat Games
