@@ -1,0 +1,8 @@
+# File: .gitignore
+node_modules/
+database.json
+logs/
+*.log
+.env
+.DS_Store
+Thumbs.db

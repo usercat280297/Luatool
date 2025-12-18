@@ -1,0 +1,9 @@
+--actual game
+
+addappid(2138710)
+addappid(2138711, 1, "640993870daafc721632280e9e612a93f957d22bd8a16dcc526c3b8f73be0e33")
+setManifestid(2138711, "5282468403512316512", 0)
+
+--dlc
+
+addappid(2231950)

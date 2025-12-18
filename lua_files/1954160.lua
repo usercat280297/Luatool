@@ -1,0 +1,10 @@
+addappid(1954160)
+addappid(1954161,0,"332f2483767301ab094b5f487bec95a0d0595d293c04cc1a244f9af56736db56")
+--setManifestid(1954161,"7494595103221197310")
+
+
+
+--[[
+This file belongs to Ahmeds Bot Discord Server
+-----> join discord Server : https://discord.gg/sv6EGxCRnC
+]]

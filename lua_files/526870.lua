@@ -1,0 +1,8 @@
+-- manifest & lua provided by: https://www.piracybound.com/discord
+-- via manilua
+addappid(526870)
+addappid(526871, 1, "ae0ab673da3c9d0f444b1cd61fe8f2235d43e6c0401684a78f4fbdfc8f0d9bc1")
+setManifestid(526871, "6174522575690489880", 0)
+
+-- dlc
+addappid(3170070) -- Early Access supporter pack
