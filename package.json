@@ -8,7 +8,11 @@
     "download-lua": "node bulk_lua_downloader.js",
     "bot": "node lua_discord_bot.js"
   },
-  "keywords": ["discord", "bot", "lua"],
+  "keywords": [
+    "discord",
+    "bot",
+    "lua"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -16,8 +20,8 @@
     "axios": "^1.13.2",
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.3",
-    "node-fetch": "^3.3.2",
-    "express": "^4.18.2"
+    "express": "^4.22.1",
+    "node-fetch": "^3.3.2"
   },
   "engines": {
     "node": ">=16.0.0"

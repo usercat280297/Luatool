@@ -8,6 +8,8 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const express = require('express');
+const app = express();
 
 // ============================================
 // CẤU HÌNH - ĐIỀN THÔNG TIN CỦA BẠN
@@ -952,7 +954,19 @@ client.login(CONFIG.BOT_TOKEN).catch(error => {
   
   process.exit(1);
 });
-const express = require('express');
-const app = express();
-app.get('/', (req, res) => res.send('Bot is Alive!'));
-app.listen(process.env.PORT || 3000);
+// Thiết lập đường dẫn /health mà bạn muốn
+app.get('/health', (req, res) => {
+  res.status(200).send({
+    status: 'ok',
+    uptime: process.uptime(),
+    message: 'Bot is Alive!'
+  });
+});
+
+// Trang chủ (phòng trường hợp bạn ping vào link gốc)
+app.get('/', (req, res) => res.send('Bot is running!'));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`✅ Web server giữ bot sống tại /health trên port: ${PORT}`);
+});
