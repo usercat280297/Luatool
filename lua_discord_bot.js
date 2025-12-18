@@ -51,6 +51,16 @@ const VERIFIED_DRM = {
     3014320, // OCTOPATH TRAVELER 0
 
     // 2025 Games
+    2513280, // SONIC X SHADOW GENERATIONS
+    2527390, // Dead Rising Deluxe Remaster
+    1874000, // Life is Strange: Double Exposure
+    2304100, // Unknown 9: Awakening
+    2420110, // Horizon Zero Dawn Remastered
+    1774580, // STAR WARS Jedi: Survivor
+    1693980, // Dead Space Remake
+    1237320, // Sonic Frontiers
+    1142710, // Total War: WARHAMMER III
+    3035570, // Assassin's Creed Mirage
     3357650, // PRAGMATA
     1941540, // Mafia: The Old Country
     3551340, // Football Manager 26
@@ -102,15 +112,30 @@ const VERIFIED_DRM = {
     1680880, // Forspoken
     
     // SEGA/Atlus
+    2058180, // Judgment
+    2058190, // Lost Judgment
+    2254740, // Persona 5 Tactica
+    1805480, // Like a Dragon: Ishin!
+    1361510, // Sonic Frontiers
     2072450, // Like a Dragon: Infinite Wealth
     1875830, // Shin Megami Tensei V: Vengeance
     2679460, // Metaphor: ReFantazio
+    2058190, // Lost Judgment
     
     // Ubisoft Games
     2853730, // Skull and Bones
     2840770, // Avatar: Frontiers of Pandora
-    
+    1774580, // STAR WARS Jedi: Survivor
+    1693980, // Dead Space (Remake)
+    1142710, // Total War: WARHAMMER III
+    1551360, // Forza Horizon 5
+    1812800, // Sniper Elite 5
+    2400340, // The Rogue Prince of Persia
     // Others
+    1029690, // Sniper Elite 5
+    1407200, // Unknown 9: Awakening
+    1151640, // Horizon Zero Dawn Remastered (Kiểm tra lại nếu cần)
+    1446780, // Monster Hunter Rise
     1593500, // God of War
     1817070, // Spider-Man Remastered
     1817190, // Spider-Man: Miles Morales
@@ -157,6 +182,7 @@ const VERIFIED_DRM = {
   
   // 🌐 NEEDS ONLINE-FIX
   needsOnlineFix: [
+    3949040, // RV There Yet?
     2246460, // Monster Hunter Wilds
     1174180, // Red Dead Redemption 2
     1086940, // Baldur's Gate 3
