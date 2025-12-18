@@ -51,6 +51,7 @@ const VERIFIED_DRM = {
     3014320, // OCTOPATH TRAVELER 0
 
     // 2025 Games
+    1817230, // Hi-Fi RUSH
     2513280, // SONIC X SHADOW GENERATIONS
     2527390, // Dead Rising Deluxe Remaster
     1874000, // Life is Strange: Double Exposure
