@@ -361,7 +361,7 @@ async function handleGameCommand(message, appId) {
     // Thông tin game
     if (gameInfo) {
       embed.addFields(
-        { name: '🎉 DLCs Available', value: `${gameInfo.dlcCount}`, inline: true },
+        { name: '🎉 Manifests Available', value: `${gameInfo.dlcCount}`, inline: true },
         { name: '🌍 Languages Supported', value: `${gameInfo.languages}`, inline: true },
         { name: '\u200b', value: '\u200b', inline: true }
       );
