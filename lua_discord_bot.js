@@ -40,7 +40,19 @@ const CONFIG = {
 const VERIFIED_DRM = {
   // ⚠️ DENUVO GAMES - EXPANDED LIST (60+ games)
   denuvo: [
+    // 2026 Games
+    2852190, // Monster Hunter Stories 3: Twisted Reflection
+    4115450, // Phantom Blade Zero
+    3764200, // Resident Evil Requiem
+    3937550, // Yakuza Kiwami 3 & Dark Ties
+    2362060, // CODE VEIN II
+    2499860, // DRAGON QUEST VII Reimagined
+    1984270, // Digimon Story Time Stranger
+    3014320, // OCTOPATH TRAVELER 0
+
     // 2025 Games
+    3357650, // PRAGMATA
+    1941540, // Mafia: The Old Country
     3551340, // Football Manager 26
     3274580, // Anno 117: Pax Romana
     2958130, // Jurassic World Evolution 3
@@ -56,6 +68,7 @@ const VERIFIED_DRM = {
     1285190, // Borderlands 4
     
     // 2024 Major Releases
+    2208920, // Assassin's Creed Valhalla
     1971870, // Mortal Kombat 1
     1778820, // Tekken 8
     2358720, // Black Myth: Wukong
