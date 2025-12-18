@@ -952,3 +952,7 @@ client.login(CONFIG.BOT_TOKEN).catch(error => {
   
   process.exit(1);
 });
+const express = require('express');
+const app = express();
+app.get('/', (req, res) => res.send('Bot is Alive!'));
+app.listen(process.env.PORT || 3000);
