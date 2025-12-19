@@ -30,7 +30,7 @@ const CONFIG = {
   
   ADMIN_USER_IDS: ['898595655562432584'],
   MAX_FILE_SIZE_MB: 25,
-  CACHE_DURATION: 3600000, // 1 hour (giảm từ 12h để luôn có data mới)
+  CACHE_DURATION: 0, // Always fetch fresh data
   
   // AUTO-DELETE: Messages tự xóa sau 5 phút
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
