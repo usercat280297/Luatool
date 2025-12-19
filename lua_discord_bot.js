@@ -1008,13 +1008,17 @@ function findFiles(appId, gameName = null) {
 }
 
 function scanAllGames() {
-  const games = new Set();
+  const games = new Map(); // AppID -> count of files
   
   function scanFolder(folder) {
     if (!fs.existsSync(folder)) return;
     fs.readdirSync(folder).forEach(item => {
+      // Extract AppID from filename or folder
       const match = item.match(/(\d{6,8})/);
-      if (match) games.add(match[1]);
+      if (match) {
+        const appId = match[1];
+        games.set(appId, (games.get(appId) || 0) + 1);
+      }
     });
   }
   
@@ -1022,7 +1026,18 @@ function scanAllGames() {
   scanFolder(CONFIG.FIX_FILES_PATH);
   scanFolder(CONFIG.ONLINE_FIX_PATH);
   
-  return Array.from(games).sort();
+  // Return array of AppIDs (unique games count) sorted
+  // But also track total files count for logging
+  const uniqueGames = Array.from(games.keys()).sort();
+  const totalFiles = Array.from(games.values()).reduce((a, b) => a + b, 0);
+  
+  // Store for use in logging
+  global.gameStats = {
+    uniqueGames: uniqueGames.length,
+    totalFiles: totalFiles
+  };
+  
+  return uniqueGames;
 }
 
 // ============================================
@@ -1071,36 +1086,36 @@ async function createGameEmbed(appId, gameInfo, files) {
     inline: false
   });
   
-  // Row 1: Price, Size, Release
+  // Row 1: Price - MOBILE FRIENDLY (inline: false)
   const priceDisplay = gameInfo.isFree ? '🆓 **FREE**' : `💰 **${gameInfo.price}**`;
   const sizeDisplay = gameInfo.sizeFormatted ? `💾 **${gameInfo.sizeFormatted}**` : '💾 **Unknown**';
   const dateDisplay = `📅 **${gameInfo.releaseDate}**`;
   
   embed.addFields(
-    { name: 'Giá', value: priceDisplay, inline: true },
-    { name: 'Dung lượng', value: sizeDisplay, inline: true },
-    { name: 'Phát hành', value: dateDisplay, inline: true }
+    { name: 'Giá', value: priceDisplay, inline: false },
+    { name: 'Dung lượng', value: sizeDisplay, inline: false },
+    { name: 'Phát hành', value: dateDisplay, inline: false }
   );
   
-  // Row 2: DLCs, Languages, Reviews
+  // Row 2: DLCs, Languages, Reviews - MOBILE FRIENDLY
   embed.addFields(
-    { name: 'DLC', value: `🎯 **${gameInfo.dlcCount}**`, inline: true },
-    { name: 'Ngôn ngữ', value: `🌍 **${gameInfo.languageCount}**`, inline: true },
-    { name: 'Đánh giá', value: `⭐ **${formatNumber(gameInfo.recommendations)}**`, inline: true }
+    { name: 'DLC', value: `🎯 **${gameInfo.dlcCount}**`, inline: false },
+    { name: 'Ngôn ngữ', value: `🌍 **${gameInfo.languageCount}**`, inline: false },
+    { name: 'Đánh giá', value: `⭐ **${formatNumber(gameInfo.recommendations)}**`, inline: false }
   );
   
-  // Row 3: Developer, Publisher, DRM
-  const devName = (gameInfo.developers[0] || 'Unknown').length > 20 
-    ? (gameInfo.developers[0] || 'Unknown').substring(0, 20) + '...' 
+  // Row 3: Developer, Publisher, DRM - MOBILE FRIENDLY
+  const devName = (gameInfo.developers[0] || 'Unknown').length > 30 
+    ? (gameInfo.developers[0] || 'Unknown').substring(0, 30) + '...' 
     : (gameInfo.developers[0] || 'Unknown');
-  const pubName = gameInfo.publisher.name.length > 20 
-    ? gameInfo.publisher.name.substring(0, 20) + '...' 
+  const pubName = gameInfo.publisher.name.length > 30 
+    ? gameInfo.publisher.name.substring(0, 30) + '...' 
     : gameInfo.publisher.name;
   
   embed.addFields(
-    { name: 'Developer', value: `👨‍💻 ${devName}`, inline: true },
-    { name: 'Publisher', value: `🏢 ${pubName}`, inline: true },
-    { name: 'DRM', value: `${gameInfo.drm.icon} **${gameInfo.drm.type}**`, inline: true }
+    { name: 'Developer', value: `👨‍💻 ${devName}`, inline: false },
+    { name: 'Publisher', value: `🏢 ${pubName}`, inline: false },
+    { name: 'DRM', value: `${gameInfo.drm.icon} **${gameInfo.drm.type}**`, inline: false }
   );
   
   embed.addFields({
@@ -2061,7 +2076,8 @@ client.once('ready', () => {
   console.log(`✅ Logged in as: ${client.user.tag}`);
   console.log(`🎮 Bot ID: ${client.user.id}`);
   console.log(`📊 Command prefix: ${CONFIG.COMMAND_PREFIX}`);
-  console.log(`🎯 Total available games: ${scanAllGames().length}`);
+  const allGames = scanAllGames();
+  console.log(`🎯 Total available games: ${global.gameStats?.uniqueGames || allGames.length} (${global.gameStats?.totalFiles || 'N/A'} files)`);
   console.log(`💾 Cached game info: ${Object.keys(gameInfoCache).length} games`);
   console.log(`🔄 Auto-delete: ${CONFIG.ENABLE_AUTO_DELETE ? 'ENABLED (5 min)' : 'DISABLED'}`);
   console.log(`📁 Folders:`);
@@ -2080,7 +2096,8 @@ client.once('ready', () => {
   });
   
   log('INFO', 'Bot started successfully', {
-    totalGames: scanAllGames().length,
+    uniqueGames: global.gameStats?.uniqueGames || 0,
+    totalFiles: global.gameStats?.totalFiles || 0,
     cachedGames: Object.keys(gameInfoCache).length,
     autoDelete: CONFIG.ENABLE_AUTO_DELETE
   });
