@@ -38,20 +38,36 @@ async function scrapeSteamDB(appId) {
       }
     });
     
-    // Lấy dung lượng FULL (ưu tiên Total size on disk)
-    const fullSizeMatch = html.match(/Total\s+size\s+on\s+disk\s+is\s+([\d.]+)\s*(GiB|MiB)/i);
-    const downloadSizeMatch = html.match(/total\s+download\s+size\s+is\s+([\d.]+)\s*(GiB|MiB)/i);
+    // Lấy dung lượng với nhiều pattern
+    const patterns = [
+      /Total\s+size\s+on\s+disk\s+is\s+([\d.]+)\s*(GiB|MiB|GB|MB)/i,
+      /total\s+download\s+size\s+is\s+([\d.]+)\s*(GiB|MiB|GB|MB)/i,
+      /([\d.]+)\s*(GiB|MiB|GB|MB).*?total/i,
+      /<td>Size<\/td>\s*<td[^>]*>([\d.]+)\s*(GiB|MiB|GB|MB)/i,
+      /Disk\s+Space[:\s]+([\d.]+)\s*(GiB|MiB|GB|MB)/i
+    ];
     
-    const sizeMatch = fullSizeMatch || downloadSizeMatch;
+    let sizeMatch = null;
+    let isFull = false;
+    
+    for (let i = 0; i < patterns.length; i++) {
+      sizeMatch = html.match(patterns[i]);
+      if (sizeMatch) {
+        isFull = (i === 0); // First pattern is Total size
+        break;
+      }
+    }
     
     if (sizeMatch) {
       const size = parseFloat(sizeMatch[1]);
       const unit = sizeMatch[2];
-      info.size = unit.toLowerCase().includes('gib') || unit.toLowerCase().includes('gb')
-        ? size * 1024 * 1024 * 1024
-        : size * 1024 * 1024;
-      info.sizeFormatted = `${size} ${unit.replace('i', '')}`;
-      info.sizeType = fullSizeMatch ? 'FULL' : 'Base';
+      if (size > 0 && size < 2000) {
+        info.size = unit.toLowerCase().includes('gib') || unit.toLowerCase().includes('gb')
+          ? size * 1024 * 1024 * 1024
+          : size * 1024 * 1024;
+        info.sizeFormatted = `${size} ${unit.replace(/i/gi, '')}`;
+        info.sizeType = isFull ? 'FULL' : 'Base';
+      }
     }
     
     // Lấy rating từ Steam

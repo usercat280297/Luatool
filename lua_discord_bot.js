@@ -103,6 +103,7 @@ const VERIFIED_DRM = {
     3014320, // OCTOPATH TRAVELER 0
 
     // 2025 Games
+    1903340, // Clair Obscur: Expedition 33
     1817230, // Hi-Fi RUSH
     2513280, // SONIC X SHADOW GENERATIONS
     2527390, // Dead Rising Deluxe Remaster
@@ -165,6 +166,8 @@ const VERIFIED_DRM = {
     1680880, // Forspoken
     
     // SEGA/Atlus
+    2513280, // Sonic X Shadow Generations
+    2486820, // Sonic Racing: CrossWorlds
     2058180, // Judgment
     2058190, // Lost Judgment
     2254740, // Persona 5 Tactica
@@ -619,20 +622,21 @@ async function getGameNameFromSteamDB(appId) {
 }
 
 async function getAccurateGameSize(appId) {
-  // Try SteamDB first (most reliable)
-  const steamDBSize = await getSizeFromSteamDB(appId);
-  if (steamDBSize) return steamDBSize;
+  // Try all methods in parallel
+  const [steamDBSize, htmlSize, knownSize] = await Promise.all([
+    getSizeFromSteamDB(appId),
+    getSizeFromSteamHTML(appId),
+    Promise.resolve(getKnownGameSize(appId))
+  ]);
   
-  // Then try Steam HTML
-  const htmlSize = await getSizeFromSteamHTML(appId);
-  if (htmlSize) return htmlSize;
+  // Return first valid size
+  const size = steamDBSize || htmlSize || knownSize;
   
-  // Finally check known sizes
-  const knownSize = getKnownGameSize(appId);
-  if (knownSize) return knownSize;
+  if (!size) {
+    log('WARN', `All size detection methods failed for ${appId}`);
+  }
   
-  log('WARN', `All size detection methods failed for ${appId}`);
-  return null;
+  return size;
 }
 
 async function getSizeFromSteamHTML(appId) {
