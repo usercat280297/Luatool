@@ -1485,12 +1485,36 @@ async function uploadToGitHub(filePath, fileName) {
     const base64Content = fileContent.toString('base64');
     const githubPath = `online-fix/${fileName}`;
     
+    // Check if file exists
+    let sha = null;
+    try {
+      const checkResponse = await axios.get(
+        `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
+        {
+          headers: {
+            Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
+          },
+        }
+      );
+      sha = checkResponse.data.sha;
+      log('INFO', 'File exists, will update', { fileName, sha });
+    } catch (error) {
+      log('INFO', 'File does not exist, will create new', { fileName });
+    }
+    
+    // Upload or update file
+    const payload = {
+      message: `Upload ${fileName}`,
+      content: base64Content,
+    };
+    
+    if (sha) {
+      payload.sha = sha;
+    }
+    
     const response = await axios.put(
       `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
-      {
-        message: `Upload ${fileName}`,
-        content: base64Content,
-      },
+      payload,
       {
         headers: {
           Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
@@ -1499,12 +1523,20 @@ async function uploadToGitHub(filePath, fileName) {
       }
     );
     
-    return response.data.content.download_url;
+    const downloadUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/main/${githubPath}`;
+    log('SUCCESS', 'Uploaded to GitHub', { fileName, downloadUrl });
+    return downloadUrl;
   } catch (error) {
-    log('ERROR', 'Failed to upload to GitHub', { error: error.message });
+    log('ERROR', 'Failed to upload to GitHub', { 
+      error: error.message,
+      response: error.response?.data 
+    });
     return null;
   }
 }
+
+// Track processed interactions to prevent double-click
+const processedInteractions = new Set();
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
@@ -1512,7 +1544,24 @@ client.on('interactionCreate', async (interaction) => {
   const [action, type, appId, fileIdx] = interaction.customId.split('_');
   if (action !== 'dl') return;
   
+  // Prevent double-click processing
+  const interactionKey = `${interaction.id}_${interaction.user.id}`;
+  if (processedInteractions.has(interactionKey)) {
+    log('WARN', 'Duplicate interaction ignored', { customId: interaction.customId });
+    return;
+  }
+  processedInteractions.add(interactionKey);
+  
+  // Clean up old interactions after 30 seconds
+  setTimeout(() => processedInteractions.delete(interactionKey), 30000);
+  
   try {
+    // Check if already replied or deferred
+    if (interaction.replied || interaction.deferred) {
+      log('WARN', 'Interaction already handled', { customId: interaction.customId });
+      return;
+    }
+    
     await interaction.deferReply({ ephemeral: true });
     
     // Get game info to find files by name
@@ -1533,8 +1582,7 @@ client.on('interactionCreate', async (interaction) => {
     
     if (!fileToSend || !fs.existsSync(fileToSend.path)) {
       return interaction.editReply({
-        content: `${ICONS.cross} File not found!`,
-        ephemeral: true
+        content: `${ICONS.cross} File not found!`
       });
     }
     
@@ -1544,24 +1592,21 @@ client.on('interactionCreate', async (interaction) => {
     if (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
       await interaction.editReply({
         content: `${ICONS.info} Uploading **${fileToSend.name}** to GitHub...\n` +
-                 `${ICONS.sparkles} Please wait...`,
-        ephemeral: true
+                 `${ICONS.sparkles} Please wait...`
       });
       
       const downloadUrl = await uploadToGitHub(fileToSend.path, fileToSend.name);
       
       if (!downloadUrl) {
         return interaction.editReply({
-          content: `${ICONS.cross} Failed to upload file to GitHub!`,
-          ephemeral: true
+          content: `${ICONS.cross} Failed to upload file to GitHub!`
         });
       }
       
       return interaction.editReply({
         content: `${ICONS.check} **${fileToSend.name}** (${fileToSend.sizeFormatted})\n\n` +
                  `${ICONS.download} **Download Link:**\n${downloadUrl}\n\n` +
-                 `${ICONS.info} Click the link above to download!`,
-        ephemeral: true
+                 `${ICONS.info} Click the link above to download!`
       });
     }
     
@@ -1572,8 +1617,7 @@ client.on('interactionCreate', async (interaction) => {
       files: [{ 
         attachment: fileToSend.path, 
         name: fileToSend.name 
-      }],
-      ephemeral: true
+      }]
     });
     
     // Update download statistics
@@ -1592,6 +1636,7 @@ client.on('interactionCreate', async (interaction) => {
     });
     
   } catch (error) {
+    console.error('❌ Button Handler Error:', error);
     log('ERROR', 'Error sending file', { 
       appId, 
       type,
@@ -1600,11 +1645,20 @@ client.on('interactionCreate', async (interaction) => {
     });
     
     try {
-      await interaction.editReply({
-        content: `${ICONS.cross} Error sending file! Please try again later.`,
-        ephemeral: true
-      });
+      // Only try to edit reply if interaction was deferred successfully
+      if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({
+          content: `${ICONS.cross} Error: ${error.message}`
+        });
+      } else if (!interaction.replied && !interaction.deferred) {
+        // If not deferred, try to reply directly
+        await interaction.reply({
+          content: `${ICONS.cross} Error: ${error.message}`,
+          ephemeral: true
+        });
+      }
     } catch (e) {
+      console.error('❌ Failed to send error message:', e);
       log('ERROR', 'Failed to send error message', { error: e.message });
     }
   }
