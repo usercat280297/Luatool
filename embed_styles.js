@@ -26,7 +26,12 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   // Set vibrant color based on DRM severity
   embed.setColor(COLORS[gameInfo.drm.severity] || COLORS.default);
   
-  // Title with game name
+  // Title with ACN branding + game name
+  embed.setAuthor({
+    name: 'ACN GAME LIBRARY',
+    iconURL: 'https://cdn.discordapp.com/emojis/1234567890.png'
+  });
+  
   embed.setTitle(`🎮 ${gameInfo.name}`);
   embed.setURL(`https://store.steampowered.com/app/${appId}`);
   
@@ -63,12 +68,16 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   // Row 2: DLC | Language | Rating
   const dlcDisplay = gameInfo.dlcCount > 0 ? `**${gameInfo.dlcCount}** DLC` : '**0** DLC';
   const langDisplay = `**${gameInfo.languageCount}** ngôn ngữ`;
-  const ratingDisplay = gameInfo.recommendations > 0 ? `⭐ **${formatNumber(gameInfo.recommendations)}**` : '**N/A**';
+  const ratingDisplay = gameInfo.rating 
+    ? `👍 **${gameInfo.rating}** (${formatNumber(gameInfo.reviewCount)} reviews)`
+    : gameInfo.recommendations > 0 
+    ? `⭐ **${formatNumber(gameInfo.recommendations)}**` 
+    : '**N/A**';
   
   embed.addFields(
     { name: '🎯 DLC', value: dlcDisplay, inline: true },
     { name: '🌍 Ngôn ngữ', value: langDisplay, inline: true },
-    { name: '👍 Đánh giá', value: ratingDisplay, inline: true }
+    { name: '📊 Rating', value: ratingDisplay, inline: true }
   );
   
   // Row 3: Developer | Publisher | DRM

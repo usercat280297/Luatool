@@ -862,15 +862,16 @@ async function getFullGameInfo(appId, forceRefresh = false) {
   log('INFO', `Fetching fresh data for ${appId} from multiple sources...`);
   
   const steamData = await fetchSteamStoreData(appId);
-  if (!steamData) return null;
   
-  // Get additional info from SteamDB
-  const steamDBInfo = await getGameInfoFromSteamDB(appId);
+  // Get info from SteamDB (priority)
+  const steamDBInfo = await scrapeSteamDB(appId);
+  
+  if (!steamData && !steamDBInfo) return null;
   
   const steamSpyData = await fetchSteamSpyData(appId);
   const accurateSize = steamDBInfo?.size || await getAccurateGameSize(appId);
-  const drmInfo = detectDRMAccurate(appId, steamData);
-  const publisherInfo = detectPublisher(steamData.publishers);
+  const drmInfo = detectDRMAccurate(appId, steamData || {});
+  const publisherInfo = detectPublisher(steamData?.publishers || [steamDBInfo?.publisher]);
   
   const languageCount = steamData.supportedLanguages
     ? steamData.supportedLanguages.split(',').filter(l => l.trim()).length
@@ -878,13 +879,17 @@ async function getFullGameInfo(appId, forceRefresh = false) {
   
   const fullInfo = {
     ...steamData,
+    name: steamDBInfo?.name || steamData?.name,
+    developers: steamData?.developers || [steamDBInfo?.developer || 'Unknown'],
     drm: drmInfo,
     publisher: publisherInfo,
     size: accurateSize,
-    sizeFormatted: formatFileSize(accurateSize),
+    sizeFormatted: steamDBInfo?.sizeFormatted || formatFileSize(accurateSize),
     languageCount: languageCount,
     steamSpy: steamSpyData,
-    lastUpdate: steamDBInfo?.lastUpdate || steamData.releaseDate,
+    lastUpdate: steamDBInfo?.lastUpdate || steamData?.releaseDate,
+    rating: steamDBInfo?.rating,
+    reviewCount: steamDBInfo?.reviewCount,
     
     isEAGame: publisherInfo.isEA,
     hasMultiplayer: steamData.categories?.some(c => 
@@ -1116,6 +1121,7 @@ function scanAllGames() {
 // IMPROVED EMBED CREATION
 // ============================================
 const { createBeautifulGameEmbed } = require('./embed_styles');
+const { scrapeSteamDB } = require('./steamdb_scraper');
 
 async function createGameEmbed(appId, gameInfo, files) {
   // Use new beautiful embed
@@ -1272,12 +1278,18 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
 
 async function handleGameCommand(message, appId) {
   try {
-    const loadingMsg = await message.reply(`${ICONS.info} Loading game info from Steam API...`);
-    
-    // Schedule deletion of loading message
+    const loadingMsg = await message.reply(`🔍 **Đang tìm game AppID: ${appId}...**`);
     scheduleMessageDeletion(loadingMsg);
     
-    // First, get game info to know the game name
+    // BƯỚC 1: Lấy thông tin từ SteamDB trước
+    await loadingMsg.edit(`📊 **Đang quét SteamDB...**`);
+    const steamDBInfo = await scrapeSteamDB(appId);
+    
+    if (steamDBInfo?.name) {
+      await loadingMsg.edit(`✅ **Tìm thấy: ${steamDBInfo.name}**\n⏳ Đang lấy thông tin chi tiết...`);
+    }
+    
+    // BƯỚC 2: Lấy thông tin từ Steam API
     let gameInfo = await getFullGameInfo(appId);
     
     if (!gameInfo) {
