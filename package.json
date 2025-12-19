@@ -1,19 +1,24 @@
 {
   "name": "discord-lua-bot",
-  "version": "1.0.0",
-  "description": "Discord bot with bulk lua downloader",
+  "version": "2.0.0",
+  "description": "Discord bot with enhanced Lua game downloader, Online-Fix integration, and smart game search",
   "main": "lua_discord_bot.js",
   "scripts": {
     "start": "node lua_discord_bot.js",
+    "dev": "node lua_discord_bot.js",
     "download-lua": "node bulk_lua_downloader.js",
     "bot": "node lua_discord_bot.js"
   },
   "keywords": [
     "discord",
     "bot",
-    "lua"
+    "lua",
+    "game",
+    "steam",
+    "online-fix",
+    "drm"
   ],
-  "author": "",
+  "author": "Your Name",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {

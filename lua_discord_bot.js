@@ -426,6 +426,50 @@ async function fetchSteamSpyData(appId) {
   }
 }
 
+// Get game name from SteamDB.info
+async function getGameNameFromSteamDB(appId) {
+  try {
+    const response = await axios.get(`https://steamdb.info/app/${appId}/`, {
+      timeout: 10000,
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    const html = response.data;
+    
+    // Extract game name from title tag or header
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+    if (titleMatch) {
+      // Remove "- SteamDB" and other noise from title
+      let gameName = titleMatch[1]
+        .replace(/\s*-\s*SteamDB.*$/i, '')
+        .replace(/\s*\..*$/i, '')
+        .trim();
+      
+      if (gameName && gameName.length > 2) {
+        log('SUCCESS', `Got game name from SteamDB: ${gameName}`);
+        return gameName;
+      }
+    }
+    
+    // Try to extract from h1 header
+    const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+    if (h1Match) {
+      const gameName = h1Match[1].trim();
+      if (gameName && gameName.length > 2) {
+        log('SUCCESS', `Got game name from SteamDB h1: ${gameName}`);
+        return gameName;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    log('WARN', `Failed to get game name from SteamDB for ${appId}`, { error: error.message });
+    return null;
+  }
+}
+
 async function getAccurateGameSize(appId) {
   const htmlSize = await getSizeFromSteamHTML(appId);
   if (htmlSize) return htmlSize;
@@ -1106,13 +1150,45 @@ async function handleGameCommand(message, appId) {
     scheduleMessageDeletion(loadingMsg);
     
     // First, get game info to know the game name
-    const gameInfo = await getFullGameInfo(appId);
+    let gameInfo = await getFullGameInfo(appId);
     
     if (!gameInfo) {
-      return loadingMsg.edit(
-        `${ICONS.cross} Cannot fetch info from Steam for AppID: \`${appId}\`\n` +
-        `${ICONS.link} Link: https://store.steampowered.com/app/${appId}`
-      );
+      // Try to get name from SteamDB if Steam API fails
+      const steamDBName = await getGameNameFromSteamDB(appId);
+      
+      if (!steamDBName) {
+        return loadingMsg.edit(
+          `${ICONS.cross} Cannot fetch info from Steam for AppID: \`${appId}\`\n` +
+          `${ICONS.link} Link: https://store.steampowered.com/app/${appId}\n` +
+          `${ICONS.link} SteamDB: https://steamdb.info/app/${appId}/`
+        );
+      }
+      
+      // Create minimal game info from SteamDB name
+      gameInfo = {
+        name: steamDBName,
+        headerImage: null,
+        price: 'Unknown',
+        sizeFormatted: 'Unknown',
+        releaseDate: 'Unknown',
+        dlcCount: 0,
+        languageCount: 0,
+        recommendations: 0,
+        developers: ['Unknown'],
+        publishers: ['Unknown'],
+        shortDescription: 'Game information from SteamDB',
+        categories: [],
+        drm: {
+          type: 'Unknown',
+          severity: 'info',
+          icon: ICONS.question,
+          isDRMFree: false,
+          needsOnlineFix: false,
+        },
+        publisher: { name: 'Unknown', isEA: false },
+      };
+      
+      log('INFO', `Using SteamDB name for ${appId}: ${steamDBName}`);
     }
     
     // Now find files with game name for smart Online-Fix search
@@ -1403,6 +1479,10 @@ client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(CONFIG.COMMAND_PREFIX)) return;
   
+  // Prevent duplicate processing - exit if message is already being processed
+  if (message.processed) return;
+  message.processed = true;
+  
   const args = message.content.slice(CONFIG.COMMAND_PREFIX.length).trim().split(/ +/);
   const command = args[0].toLowerCase();
   
@@ -1481,9 +1561,23 @@ client.on('messageCreate', async (message) => {
 
 async function uploadToGitHub(filePath, fileName) {
   try {
+    // Validate file exists
+    if (!fs.existsSync(filePath)) {
+      log('ERROR', 'File not found for upload', { filePath, fileName });
+      return null;
+    }
+
     const fileContent = fs.readFileSync(filePath);
     const base64Content = fileContent.toString('base64');
-    const githubPath = `online-fix/${fileName}`;
+    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_'); // Sanitize filename for GitHub
+    const githubPath = `online-fix/${sanitizedFileName}`;
+    
+    log('INFO', 'Starting GitHub upload', { 
+      fileName, 
+      sanitizedFileName,
+      fileSizeBytes: fileContent.length,
+      fileSizeMB: (fileContent.length / (1024 * 1024)).toFixed(2)
+    });
     
     // Check if file exists
     let sha = null;
@@ -1493,24 +1587,33 @@ async function uploadToGitHub(filePath, fileName) {
         {
           headers: {
             Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
+            'User-Agent': 'Discord-Lua-Bot',
           },
+          timeout: 10000,
         }
       );
       sha = checkResponse.data.sha;
       log('INFO', 'File exists, will update', { fileName, sha });
     } catch (error) {
-      log('INFO', 'File does not exist, will create new', { fileName });
+      if (error.response?.status === 404) {
+        log('INFO', 'File does not exist, will create new', { fileName });
+      } else {
+        log('WARN', 'Error checking file status', { error: error.message });
+      }
     }
     
     // Upload or update file
     const payload = {
-      message: `Upload ${fileName}`,
+      message: `[Bot] Upload ${sanitizedFileName} via Discord`,
       content: base64Content,
+      branch: 'main',
     };
     
     if (sha) {
       payload.sha = sha;
     }
+    
+    log('INFO', 'Sending upload request to GitHub...', { githubPath });
     
     const response = await axios.put(
       `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
@@ -1518,18 +1621,37 @@ async function uploadToGitHub(filePath, fileName) {
       {
         headers: {
           Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
+          'User-Agent': 'Discord-Lua-Bot',
           'Content-Type': 'application/json',
         },
+        timeout: 30000,
       }
     );
     
-    const downloadUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/main/${githubPath}`;
-    log('SUCCESS', 'Uploaded to GitHub', { fileName, downloadUrl });
-    return downloadUrl;
+    // Verify upload
+    if (response.status === 200 || response.status === 201) {
+      const downloadUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/main/${githubPath}`;
+      log('SUCCESS', 'Uploaded to GitHub', { 
+        fileName, 
+        downloadUrl,
+        responseStatus: response.status 
+      });
+      return downloadUrl;
+    } else {
+      log('ERROR', 'Unexpected response from GitHub', { 
+        status: response.status,
+        data: response.data
+      });
+      return null;
+    }
   } catch (error) {
     log('ERROR', 'Failed to upload to GitHub', { 
+      fileName,
       error: error.message,
-      response: error.response?.data 
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      responseData: error.response?.data 
     });
     return null;
   }
@@ -1571,22 +1693,30 @@ client.on('interactionCreate', async (interaction) => {
     // For Online-Fix or large files, upload to GitHub
     if (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
       await interaction.editReply({
-        content: `${ICONS.info} Uploading **${fileToSend.name}** to GitHub...\n` +
-                 `${ICONS.sparkles} Please wait...`
+        content: `${ICONS.info} Processing **${fileToSend.name}**...\n` +
+                 `${ICONS.sparkles} Please wait a moment...`
       });
       
       const downloadUrl = await uploadToGitHub(fileToSend.path, fileToSend.name);
       
       if (!downloadUrl) {
         return interaction.editReply({
-          content: `${ICONS.cross} Failed to upload file to GitHub!`
+          content: `${ICONS.cross} Failed to process file for download!\n\n` +
+                   `${ICONS.info} **Troubleshooting:**\n` +
+                   `• Check if GitHub token is configured\n` +
+                   `• Check if repository exists and bot has access\n` +
+                   `• File size: ${fileToSend.sizeFormatted}\n\n` +
+                   `${ICONS.warning} Please contact admin if problem persists.`
         });
       }
       
       return interaction.editReply({
-        content: `${ICONS.check} **${fileToSend.name}** (${fileToSend.sizeFormatted})\n\n` +
-                 `${ICONS.download} **Download Link:**\n${downloadUrl}\n\n` +
-                 `${ICONS.info} Click the link above to download!`
+        content: `${ICONS.check} **Download Ready!**\n\n` +
+                 `📁 File: **${fileToSend.name}**\n` +
+                 `📊 Size: **${fileToSend.sizeFormatted}**\n\n` +
+                 `${ICONS.download} **[⬇️ CLICK HERE TO DOWNLOAD](${downloadUrl})**\n\n` +
+                 `${ICONS.info} Link sẽ không bao giờ hết hạn!\n` +
+                 `${ICONS.sparkles} Bạn có thể tải xuống lúc nào cũng được.`
       });
     }
     
