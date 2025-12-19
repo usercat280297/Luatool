@@ -38,6 +38,17 @@ const CONFIG = {
 };
 
 // ============================================
+// BOT VERSION & INSTANCE TRACKING
+// ============================================
+const BOT_VERSION = '2.0.0';
+const BOT_INSTANCE_ID = Math.random().toString(36).substring(7);
+const MESSAGE_HANDLERS = new Set(); // Track processed messages to prevent duplicates
+const PROCESS_TIMEOUT = 1000; // 1 second timeout for message processing
+
+console.log(`🚀 BOT INSTANCE: ${BOT_INSTANCE_ID} (v${BOT_VERSION})`);
+
+
+// ============================================
 // EXPANDED DRM DATABASE (2024-2025 Games)
 // ============================================
 const VERIFIED_DRM = {
@@ -1479,9 +1490,22 @@ client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(CONFIG.COMMAND_PREFIX)) return;
   
-  // Prevent duplicate processing - exit if message is already being processed
-  if (message.processed) return;
-  message.processed = true;
+  // ============================================
+  // PREVENT DUPLICATE MESSAGE PROCESSING
+  // ============================================
+  const messageKey = `${message.id}-${message.channelId}`;
+  
+  if (MESSAGE_HANDLERS.has(messageKey)) {
+    log('WARN', 'Duplicate message detected (ignored)', { messageId: message.id });
+    return;
+  }
+  
+  MESSAGE_HANDLERS.add(messageKey);
+  
+  // Auto-cleanup after timeout
+  setTimeout(() => {
+    MESSAGE_HANDLERS.delete(messageKey);
+  }, PROCESS_TIMEOUT);
   
   const args = message.content.slice(CONFIG.COMMAND_PREFIX.length).trim().split(/ +/);
   const command = args[0].toLowerCase();
@@ -1561,6 +1585,18 @@ client.on('messageCreate', async (message) => {
 
 async function uploadToGitHub(filePath, fileName) {
   try {
+    // ============================================
+    // VALIDATE GITHUB CREDENTIALS
+    // ============================================
+    if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO_OWNER || !CONFIG.GITHUB_REPO_NAME) {
+      log('ERROR', 'GitHub credentials not configured!', {
+        hasToken: !!CONFIG.GITHUB_TOKEN,
+        hasOwner: !!CONFIG.GITHUB_REPO_OWNER,
+        hasRepo: !!CONFIG.GITHUB_REPO_NAME
+      });
+      return null;
+    }
+    
     // Validate file exists
     if (!fs.existsSync(filePath)) {
       log('ERROR', 'File not found for upload', { filePath, fileName });
@@ -1576,7 +1612,8 @@ async function uploadToGitHub(filePath, fileName) {
       fileName, 
       sanitizedFileName,
       fileSizeBytes: fileContent.length,
-      fileSizeMB: (fileContent.length / (1024 * 1024)).toFixed(2)
+      fileSizeMB: (fileContent.length / (1024 * 1024)).toFixed(2),
+      repo: `${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}`
     });
     
     // Check if file exists
