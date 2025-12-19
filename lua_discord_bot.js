@@ -382,21 +382,30 @@ function formatNumber(num) {
 // AUTO-DELETE FUNCTION
 // ============================================
 function scheduleMessageDeletion(message) {
-  if (!CONFIG.ENABLE_AUTO_DELETE) return;
+  if (!CONFIG.ENABLE_AUTO_DELETE || !message) return;
   
-  setTimeout(async () => {
+  const timeout = setTimeout(async () => {
     try {
-      await message.delete();
-      log('INFO', 'Auto-deleted message', { 
-        messageId: message.id,
-        age: '5 minutes'
-      });
+      if (message.deletable) {
+        await message.delete();
+        log('INFO', 'Auto-deleted message', { 
+          messageId: message.id,
+          author: message.author?.tag || 'bot',
+          age: '5 minutes'
+        });
+      }
     } catch (error) {
       log('WARN', 'Failed to auto-delete message', { 
+        messageId: message.id,
         error: error.message 
       });
     }
   }, CONFIG.AUTO_DELETE_TIMEOUT);
+  
+  // Store timeout ID for potential manual cleanup
+  if (!message.deleteTimeout) {
+    message.deleteTimeout = timeout;
+  }
 }
 
 // Auto-delete for interaction replies
@@ -405,9 +414,35 @@ async function scheduleInteractionDeletion(interaction, replyOptions) {
     return interaction.editReply(replyOptions);
   }
   
-  const reply = await interaction.editReply(replyOptions);
-  scheduleMessageDeletion(reply);
-  return reply;
+  try {
+    const reply = await interaction.editReply(replyOptions);
+    
+    // Schedule deletion
+    const timeout = setTimeout(async () => {
+      try {
+        if (reply && reply.deletable) {
+          await reply.delete();
+          log('INFO', 'Auto-deleted interaction reply', { 
+            messageId: reply.id,
+            user: interaction.user.tag,
+            age: '5 minutes'
+          });
+        }
+      } catch (error) {
+        log('WARN', 'Failed to auto-delete interaction reply', { 
+          error: error.message 
+        });
+      }
+    }, CONFIG.AUTO_DELETE_TIMEOUT);
+    
+    return reply;
+  } catch (error) {
+    log('ERROR', 'scheduleInteractionDeletion failed', {
+      error: error.message,
+      user: interaction.user.tag
+    });
+    throw error;
+  }
 }
 
 // ============================================
