@@ -26,7 +26,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   // Set vibrant color based on DRM severity
   embed.setColor(COLORS[gameInfo.drm.severity] || COLORS.default);
   
-  // Title with ACN branding + game name
+  // ACN branding với GIF icon
   embed.setAuthor({
     name: 'ACN GAME LIBRARY',
     iconURL: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif'
@@ -35,10 +35,10 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   embed.setTitle(`🎮 ${gameInfo.name}`);
   embed.setURL(`https://store.steampowered.com/app/${appId}`);
   
-  // Thumbnail GIF ở góc trên phải
+  // Thumbnail GIF nhỏ ở góc trên phải
   embed.setThumbnail('https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dXFjb3lrc3pidTJ6cTEzaGc3enJreno0MjQ3bWxscDVibXQwZTZ3NSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif');
   
-  // Use header image as main image (larger display)
+  // Ảnh game lớn ở dưới
   if (gameInfo.headerImage) {
     embed.setImage(gameInfo.headerImage);
   }
