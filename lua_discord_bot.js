@@ -1535,33 +1535,13 @@ async function uploadToGitHub(filePath, fileName) {
   }
 }
 
-// Track processed interactions to prevent double-click
-const processedInteractions = new Set();
-
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
   
   const [action, type, appId, fileIdx] = interaction.customId.split('_');
   if (action !== 'dl') return;
   
-  // Prevent double-click processing
-  const interactionKey = `${interaction.id}_${interaction.user.id}`;
-  if (processedInteractions.has(interactionKey)) {
-    log('WARN', 'Duplicate interaction ignored', { customId: interaction.customId });
-    return;
-  }
-  processedInteractions.add(interactionKey);
-  
-  // Clean up old interactions after 30 seconds
-  setTimeout(() => processedInteractions.delete(interactionKey), 30000);
-  
   try {
-    // Check if already replied or deferred
-    if (interaction.replied || interaction.deferred) {
-      log('WARN', 'Interaction already handled', { customId: interaction.customId });
-      return;
-    }
-    
     await interaction.deferReply({ ephemeral: true });
     
     // Get game info to find files by name
@@ -1645,21 +1625,13 @@ client.on('interactionCreate', async (interaction) => {
     });
     
     try {
-      // Only try to edit reply if interaction was deferred successfully
-      if (interaction.deferred && !interaction.replied) {
+      if (!interaction.replied) {
         await interaction.editReply({
           content: `${ICONS.cross} Error: ${error.message}`
-        });
-      } else if (!interaction.replied && !interaction.deferred) {
-        // If not deferred, try to reply directly
-        await interaction.reply({
-          content: `${ICONS.cross} Error: ${error.message}`,
-          ephemeral: true
         });
       }
     } catch (e) {
       console.error('❌ Failed to send error message:', e);
-      log('ERROR', 'Failed to send error message', { error: e.message });
     }
   }
 });
