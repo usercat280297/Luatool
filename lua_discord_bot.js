@@ -38,6 +38,38 @@ const CONFIG = {
 };
 
 // ============================================
+// AGGRESSIVE DEDUPLICATION SYSTEM
+// ============================================
+const MESSAGE_PROCESSING_TIMEOUT = 2000; // 2 seconds
+const processed_messages = new Set(); // Track processed message IDs
+const processing_commands = new Map(); // Track commands being processed
+const DUPLICATE_THRESHOLD = 500; // ms between same command
+
+function isMessageAlreadyProcessed(messageId) {
+  return processed_messages.has(messageId);
+}
+
+function markMessageProcessed(messageId) {
+  processed_messages.add(messageId);
+  // Clean up old entries after 10 seconds
+  setTimeout(() => {
+    processed_messages.delete(messageId);
+  }, 10000);
+}
+
+function isDuplicateCommand(userId, command) {
+  const key = `${userId}:${command}`;
+  const lastTime = processing_commands.get(key);
+  
+  if (lastTime && Date.now() - lastTime < DUPLICATE_THRESHOLD) {
+    return true; // Duplicate command
+  }
+  
+  processing_commands.set(key, Date.now());
+  return false;
+}
+
+// ============================================
 // DEDUPLICATION SYSTEM - Prevent duplicate messages
 // ============================================
 const messageProcessingSet = new Set();
