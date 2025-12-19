@@ -1850,12 +1850,17 @@ client.on('interactionCreate', async (interaction) => {
       }
       
       await scheduleInteractionDeletion(interaction, {
-        content: `✅ **DOWNLOAD READY!**\n\n` +
-                 `📁 File: \`${fileToSend.name}\`\n` +
-                 `📊 Size: **${fileToSend.sizeFormatted}**\n\n` +
-                 `**[⬇️ CLICK HERE TO DOWNLOAD](${downloadUrl})**\n\n` +
-                 `⏱️ *Tin nhắn này sẽ tự động xóa sau 5 phút*\n` +
-                 `🔗 *Link GitHub không bao giờ hết hạn*`
+        embeds: [{
+          color: 0x00ff00,
+          title: '✅ DOWNLOAD READY!',
+          fields: [
+            { name: '📁 File', value: fileToSend.name, inline: false },
+            { name: '📊 Size', value: fileToSend.sizeFormatted, inline: false },
+            { name: '⏱️ Auto-Delete', value: 'Tin nhắn sẽ tự xóa sau 5 phút', inline: false },
+            { name: '🔗 Link', value: `[⬇️ CLICK HERE TO DOWNLOAD](${downloadUrl})`, inline: false }
+          ],
+          footer: { text: '✨ Link GitHub - Không bao giờ hết hạn' }
+        }]
       });
       return;
     }
