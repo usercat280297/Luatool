@@ -1057,7 +1057,7 @@ async function createGameEmbed(appId, gameInfo, files) {
   embed.setColor(colors[gameInfo.drm.severity] || 0x5865F2);
   
   // Title with game name
-  embed.setTitle(`${gameInfo.name}`);
+  embed.setTitle(`🎮 ${gameInfo.name}`);
   embed.setURL(`https://store.steampowered.com/app/${appId}`);
   
   // Thumbnail
@@ -1065,242 +1065,127 @@ async function createGameEmbed(appId, gameInfo, files) {
     embed.setThumbnail(gameInfo.headerImage);
   }
   
-  // Description with links
-  let description = `╔═══════════════════════════════╗\n`;
-  description += `║  **[🎮 Steam Store](https://store.steampowered.com/app/${appId})** • **[📊 SteamDB](https://steamdb.info/app/${appId})**  ║\n`;
-  description += `╚═══════════════════════════════╝\n\n`;
-  
+  // Short description in a compact format
+  let description = '';
   if (gameInfo.shortDescription) {
-    const desc = gameInfo.shortDescription.length > 150 
-      ? gameInfo.shortDescription.substring(0, 150) + '...'
+    const desc = gameInfo.shortDescription.length > 200 
+      ? gameInfo.shortDescription.substring(0, 200) + '...'
       : gameInfo.shortDescription;
-    description += `*${desc}*\n`;
+    description = `${desc}\n\n`;
   }
   
+  // Links in description
+  description += `[🔗 Steam Store](https://store.steampowered.com/app/${appId}) | [📊 SteamDB](https://steamdb.info/app/${appId})`;
   embed.setDescription(description);
   
-  // ═══ GAME INFO ═══
-  embed.addFields({
-    name: '\u200B',
-    value: '**╔═══════════ 📋 THÔNG TIN GAME ═══════════╗**',
-    inline: false
-  });
-  
-  // Row 1: Price - MOBILE FRIENDLY (inline: false)
-  const priceDisplay = gameInfo.isFree ? '🆓 **FREE**' : `💰 **${gameInfo.price}**`;
-  const sizeDisplay = gameInfo.sizeFormatted ? `💾 **${gameInfo.sizeFormatted}**` : '💾 **Unknown**';
-  const dateDisplay = `📅 **${gameInfo.releaseDate}**`;
+  // ═══ GAME INFO - Compact Layout ═══
+  // Row 1: Price | Size
+  const priceDisplay = gameInfo.isFree ? '🆓 Free' : gameInfo.price;
+  const sizeDisplay = gameInfo.sizeFormatted || 'N/A';
   
   embed.addFields(
-    { name: 'Giá', value: priceDisplay, inline: false },
-    { name: 'Dung lượng', value: sizeDisplay, inline: false },
-    { name: 'Phát hành', value: dateDisplay, inline: false }
+    { name: '💰 Giá', value: priceDisplay, inline: true },
+    { name: '💾 Dung lượng', value: sizeDisplay, inline: true },
+    { name: '📅 Phát hành', value: gameInfo.releaseDate, inline: true }
   );
   
-  // Row 2: DLCs, Languages, Reviews - MOBILE FRIENDLY
+  // Row 2: DLC | Language | Rating
   embed.addFields(
-    { name: 'DLC', value: `🎯 **${gameInfo.dlcCount}**`, inline: false },
-    { name: 'Ngôn ngữ', value: `🌍 **${gameInfo.languageCount}**`, inline: false },
-    { name: 'Đánh giá', value: `⭐ **${formatNumber(gameInfo.recommendations)}**`, inline: false }
+    { name: '🎯 DLC', value: `${gameInfo.dlcCount}`, inline: true },
+    { name: '🌍 Ngôn ngữ', value: `${gameInfo.languageCount}`, inline: true },
+    { name: '⭐ Đánh giá', value: `${formatNumber(gameInfo.recommendations)}`, inline: true }
   );
   
-  // Row 3: Developer, Publisher, DRM - MOBILE FRIENDLY
-  const devName = (gameInfo.developers[0] || 'Unknown').length > 30 
-    ? (gameInfo.developers[0] || 'Unknown').substring(0, 30) + '...' 
-    : (gameInfo.developers[0] || 'Unknown');
-  const pubName = gameInfo.publisher.name.length > 30 
-    ? gameInfo.publisher.name.substring(0, 30) + '...' 
-    : gameInfo.publisher.name;
+  // Row 3: Developer | Publisher | DRM
+  const devName = (gameInfo.developers[0] || 'Unknown').substring(0, 25);
+  const pubName = gameInfo.publisher.name.substring(0, 25);
+  const drmBadge = gameInfo.drm.isDRMFree ? '✅ Không DRM' : `${gameInfo.drm.icon} ${gameInfo.drm.type}`;
   
   embed.addFields(
-    { name: 'Developer', value: `👨‍💻 ${devName}`, inline: false },
-    { name: 'Publisher', value: `🏢 ${pubName}`, inline: false },
-    { name: 'DRM', value: `${gameInfo.drm.icon} **${gameInfo.drm.type}**`, inline: false }
+    { name: '👨‍💻 Dev', value: devName, inline: true },
+    { name: '🏢 Pub', value: pubName, inline: true },
+    { name: '🔐 DRM', value: drmBadge, inline: true }
   );
   
-  embed.addFields({
-    name: '\u200B',
-    value: '**╚═══════════════════════════════════════╝**',
-    inline: false
-  });
-  
-  // ═══ DRM WARNING ═══
+  // ═══ DRM WARNING SECTION ═══
   if (gameInfo.drm.severity === 'critical') {
     embed.addFields({
-      name: '\u200B',
-      value: '**╔═══════════ ⚠️ CẢNH BÁO DENUVO ═══════════╗**',
-      inline: false
-    });
-    embed.addFields({
-      name: '🚫 DENUVO ANTI-TAMPER DETECTED',
+      name: '⚠️ DENUVO - CÓ THỂ KHÓ CHƠI',
       value: 
-        '```diff\n' +
-        '- ❌ Game này có bảo vệ DENUVO\n' +
-        '- ⚠️  Có thể KHÔNG chơi được\n' +
-        '- 🔒 Denuvo rất khó bypass\n' +
-        '```\n' +
-        '> **Lưu ý:** Chỉ tải nếu bạn chắc chắn game đã bị crack!',
-      inline: false
-    });
-    embed.addFields({
-      name: '\u200B',
-      value: '**╚═══════════════════════════════════════╝**',
+        '❌ Game này có **DENUVO** - bảo vệ rất mạnh\n' +
+        '⏳ Có thể chưa bị crack hoặc crack chưa ổn định\n' +
+        '⚠️ Chỉ tải nếu bạn chắc chắn đã có crack!',
       inline: false
     });
   } else if (gameInfo.drm.severity === 'warning') {
     const acName = gameInfo.drm.hasEAC ? 'EasyAntiCheat' :
                    gameInfo.drm.hasBattlEye ? 'BattlEye' : 'Anti-Cheat';
     embed.addFields({
-      name: '\u200B',
-      value: '**╔═══════════ 🛡️ ANTI-CHEAT ═══════════╗**',
-      inline: false
-    });
-    embed.addFields({
-      name: `⚠️ ${acName} Detected`,
+      name: `🛡️ ${acName} - CẦN FIX ĐẶC BIỆT`,
       value: 
-        '```yaml\n' +
-        `Anti-Cheat: ${acName}\n` +
-        'Status: Cần bypass đặc biệt\n' +
-        '```\n' +
-        '> Cần file crack/fix để chơi được',
-      inline: false
-    });
-    embed.addFields({
-      name: '\u200B',
-      value: '**╚═══════════════════════════════════════╝**',
+        `Game dùng **${acName}** - cần bypass riêng\n` +
+        `Tải **Crack/Fix** để có thể chơi online/co-op`,
       inline: false
     });
   } else if (gameInfo.drm.isDRMFree) {
     embed.addFields({
-      name: '\u200B',
-      value: '**╔═══════════ ✅ DRM-FREE ═══════════╗**',
-      inline: false
-    });
-    embed.addFields({
-      name: '🆓 GAME KHÔNG CÓ BẢO VỆ DRM',
+      name: '✅ DRM-FREE - CHƠI ĐƯỢC NGAY',
       value: 
-        '```diff\n' +
-        '+ ✅ Không có DRM protection\n' +
-        '+ ✨ Chơi được ngay không cần crack\n' +
-        '+ 🎮 100% hoạt động tốt\n' +
-        '```',
-      inline: false
-    });
-    embed.addFields({
-      name: '\u200B',
-      value: '**╚═══════════════════════════════════════╝**',
+        '🎉 Game **KHÔNG CÓ BẢO VỆ DRM**\n' +
+        '✨ Tải game, giải nén, chơi luôn!',
       inline: false
     });
   }
   
-  // ═══ ONLINE-FIX STATUS ═══
+  // ═══ FILE STATUS ═══
   const hasMultiplayerFeatures = gameInfo.hasMultiplayer || 
                                   gameInfo.drm.needsOnlineFix ||
                                   gameInfo.categories?.some(c => 
                                     c.toLowerCase().includes('multi') || 
-                                    c.toLowerCase().includes('co-op') ||
-                                    c.toLowerCase().includes('online'));
+                                    c.toLowerCase().includes('co-op'));
   
-  if (hasMultiplayerFeatures) {
+  let fileInfo = [];
+  if (files.lua.length > 0) fileInfo.push('✅ **Lua** - ' + files.lua[0].sizeFormatted);
+  if (files.fix.length > 0) fileInfo.push('✅ **Crack/Fix** - ' + files.fix[0].sizeFormatted);
+  if (files.onlineFix.length > 0) {
+    fileInfo.push('✅ **Online-Fix** - ' + files.onlineFix[0].sizeFormatted);
+  } else if (hasMultiplayerFeatures) {
+    fileInfo.push('⚠️ **Online-Fix** - Chưa có');
+  }
+  
+  if (fileInfo.length > 0) {
     embed.addFields({
-      name: '\u200B',
-      value: '**╔═══════════ 🌐 ONLINE-FIX ═══════════╗**',
-      inline: false
-    });
-    
-    if (files.onlineFix.length > 0) {
-      embed.addFields({
-        name: '✅ CÓ ONLINE-FIX',
-        value: 
-          '```yaml\n' +
-          `File: ${files.onlineFix[0].name}\n` +
-          `Size: ${files.onlineFix[0].sizeFormatted}\n` +
-          'Status: Sẵn sàng tải\n' +
-          '```\n' +
-          '> 🎮 Tải Online-Fix để chơi Multiplayer/Co-op!',
-        inline: false
-      });
-    } else {
-      embed.addFields({
-        name: '⚠️ CHƯA CÓ ONLINE-FIX',
-        value: 
-          '```diff\n' +
-          '- ❌ Chưa có Online-Fix\n' +
-          '- 🌐 Multiplayer/Co-op không hoạt động\n' +
-          '+ ✅ Single-player vẫn chơi được\n' +
-          '```',
-        inline: false
-      });
-    }
-    
-    embed.addFields({
-      name: '\u200B',
-      value: '**╚═══════════════════════════════════════╝**',
+      name: '📦 FILE CÓ SẴN',
+      value: fileInfo.join('\n'),
       inline: false
     });
   }
   
-  // EA Game Notice
+  // EA Game Notice - inline
   if (gameInfo.isEAGame) {
     embed.addFields({
-      name: '⚠️ EA GAME',
-      value: '> Có thể cần Origin/EA App để chơi đầy đủ tính năng',
-      inline: false
+      name: '⚙️ EA GAME',
+      value: 'Cần Origin/EA App',
+      inline: true
     });
   }
   
-  // ═══ DOWNLOAD SECTION ═══
-  const fileStatus = [];
-  if (files.lua.length > 0) fileStatus.push('✅ 📜 **Lua Script**');
-  if (files.fix.length > 0) fileStatus.push('✅ 🔧 **Crack/Fix**');
-  if (files.onlineFix.length > 0) fileStatus.push(`✅ 🌐 **Online-Fix** (${files.onlineFix[0].sizeFormatted})`);
-  
-  if (fileStatus.length > 0) {
+  // Early Access Notice - inline
+  if (gameInfo.isEarlyAccess) {
     embed.addFields({
-      name: '\u200B',
-      value: '**╔═══════════ 📥 TẢI XUỐNG ═══════════╗**',
-      inline: false
-    });
-    
-    embed.addFields({
-      name: '📦 CÁC FILE KHẢ DỤNG',
-      value: fileStatus.join('\n'),
-      inline: false
-    });
-    
-    embed.addFields({
-      name: '⬇️ HƯỚNG DẪN',
-      value: '> **Nhấn nút bên dưới để tải file!**\n> Tin nhắn tự động xóa sau 5 phút',
-      inline: false
-    });
-    
-    embed.addFields({
-      name: '\u200B',
-      value: '**╚═══════════════════════════════════════╝**',
-      inline: false
-    });
-  } else {
-    embed.addFields({
-      name: '❌ KHÔNG CÓ FILE',
-      value: '> Không tìm thấy file nào cho game này',
-      inline: false
+      name: '🚧 EARLY ACCESS',
+      value: 'Game chưa hoàn thành',
+      inline: true
     });
   }
   
-  // Footer
-  const currentYear = new Date().getFullYear();
-  embed.setFooter({ 
-    text: `AppID: ${appId} | Bot v2.0 © ${currentYear} | Tự động xóa sau 5 phút` 
+  embed.setFooter({
+    text: `App ID: ${appId} | Cập nhật: ${new Date().toLocaleDateString('vi-VN')}`,
+    iconURL: 'https://steampowered-a.akamaihd.net/steamcommunity/public/images/clans/39049585/5371505ff1c79c7db43dccf05fe86b1933203ce3.png'
   });
   
-  embed.setTimestamp();
-  
-  // Screenshot as image
-  if (gameInfo.screenshots && gameInfo.screenshots[0]) {
-    embed.setImage(gameInfo.screenshots[0]);
-  }
-  
   return embed;
+}
 }
 
 // ============================================
@@ -1590,19 +1475,26 @@ async function handleStatsCommand(message) {
     return message.reply(`${ICONS.cross} Admin only!`);
   }
   
-  const totalGames = Object.keys(database.games).length;
+  const allGames = scanAllGames();
+  const uniqueGames = global.gameStats?.uniqueGames || allGames.length;
+  const totalFiles = global.gameStats?.totalFiles || 'N/A';
   const cachedGames = Object.keys(gameInfoCache).length;
   
   const embed = new EmbedBuilder()
     .setColor(0xFFAA00)
-    .setTitle(`${ICONS.fire} Bot Statistics`)
+    .setTitle(`📊 BOT STATISTICS`)
     .addFields(
-      { name: `${ICONS.game} Total Games`, value: `${totalGames}`, inline: true },
-      { name: `${ICONS.size} Cached Games`, value: `${cachedGames}`, inline: true },
-      { name: `${ICONS.download} Downloads`, value: `${database.stats.totalDownloads}`, inline: true },
-      { name: `${ICONS.info} Searches`, value: `${database.stats.totalSearches}`, inline: true }
+      { name: '🎮 Game Unique', value: `${uniqueGames}`, inline: true },
+      { name: '📁 Total Files', value: `${totalFiles}`, inline: true },
+      { name: '💾 Cached Info', value: `${cachedGames}`, inline: true },
+      { name: '⬇️ Downloads', value: `${database.stats.totalDownloads}`, inline: true },
+      { name: '🔍 Searches', value: `${database.stats.totalSearches}`, inline: true },
+      { name: '⏱️ Uptime', value: `${Math.floor(process.uptime() / 3600)}h`, inline: true }
     )
-    .setFooter({ text: `Bot Statistics • ${new Date().toLocaleDateString()}` })
+    .setFooter({ 
+      text: `Updated: ${new Date().toLocaleString('vi-VN')}`,
+      iconURL: client.user?.avatarURL()
+    })
     .setTimestamp();
   
   const statsMsg = await message.reply({ embeds: [embed] });
