@@ -1773,16 +1773,17 @@ client.on('interactionCreate', async (interaction) => {
     }
     
     if (!fileToSend || !fs.existsSync(fileToSend.path)) {
-      return interaction.editReply({
+      await scheduleInteractionDeletion(interaction, {
         content: `${ICONS.cross} File not found!`
       });
+      return;
     }
     
     const sizeMB = fileToSend.size / (1024 * 1024);
     
     // For Online-Fix files OR large files (>25MB), upload to GitHub
     if (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
-      await interaction.editReply({
+      await scheduleInteractionDeletion(interaction, {
         content: `${ICONS.info} Processing **${fileToSend.name}**...\n` +
                  `${ICONS.sparkles} Please wait...`
       });
@@ -1790,7 +1791,7 @@ client.on('interactionCreate', async (interaction) => {
       const downloadUrl = await uploadToGitHub(fileToSend.path, fileToSend.name);
       
       if (!downloadUrl) {
-        return interaction.editReply({
+        await scheduleInteractionDeletion(interaction, {
           content: `${ICONS.cross} Failed to process file for download!\n\n` +
                    `${ICONS.info} **Troubleshooting:**\n` +
                    `• Check if GitHub token is configured\n` +
@@ -1798,9 +1799,10 @@ client.on('interactionCreate', async (interaction) => {
                    `• File size: ${fileToSend.sizeFormatted}\n\n` +
                    `${ICONS.warning} Please contact admin if problem persists.`
         });
+        return;
       }
       
-      return interaction.editReply({
+      await scheduleInteractionDeletion(interaction, {
         content: `${ICONS.check} **Download Ready!**\n\n` +
                  `📁 File: **${fileToSend.name}**\n` +
                  `📊 Size: **${fileToSend.sizeFormatted}**\n\n` +
@@ -1808,10 +1810,11 @@ client.on('interactionCreate', async (interaction) => {
                  `${ICONS.info} Link sẽ không bao giờ hết hạn!\n` +
                  `${ICONS.sparkles} Bạn có thể tải xuống lúc nào cũng được.`
       });
+      return;
     }
     
     // Send small files directly via Discord
-    await interaction.editReply({
+    await scheduleInteractionDeletion(interaction, {
       content: `${ICONS.check} Sending **${fileToSend.name}** (${fileToSend.sizeFormatted})...\n` +
                `${ICONS.sparkles} Download started!`,
       files: [{ 
@@ -1846,7 +1849,7 @@ client.on('interactionCreate', async (interaction) => {
     
     try {
       if (!interaction.replied) {
-        await interaction.editReply({
+        await scheduleInteractionDeletion(interaction, {
           content: `${ICONS.cross} Error: ${error.message}`
         });
       }
