@@ -1427,44 +1427,75 @@ async function handleGameCommand(message, appId) {
 }
 
 // ============================================
-// COMMAND: SEARCH
+// COMMAND: SEARCH - STEAMDB DIRECT SEARCH
 // ============================================
+
+async function searchGameOnSteamDB(query) {
+  try {
+    const response = await axios.get('https://steamdb.info/search/', {
+      params: { a: 'app', q: query, type: 1 },
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    });
+    
+    const html = response.data;
+    const matches = [];
+    
+    // Parse search results from SteamDB HTML
+    const resultPattern = /<tr[^>]*data-appid="(\d+)"[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/gi;
+    let match;
+    
+    while ((match = resultPattern.exec(html)) !== null && matches.length < 20) {
+      const appId = match[1];
+      const gameName = match[2].trim();
+      
+      // Check if we have this game in our database
+      const files = findFiles(appId);
+      const hasFiles = files.lua.length > 0 || files.fix.length > 0 || files.onlineFix.length > 0;
+      
+      if (hasFiles) {
+        matches.push({ appId, name: gameName });
+      }
+    }
+    
+    return matches;
+  } catch (error) {
+    log('ERROR', 'SteamDB search failed', { query, error: error.message });
+    return [];
+  }
+}
 
 async function searchGameByName(query) {
   try {
+    // Method 1: Search directly on SteamDB (fast, no rate limit)
+    const steamDBResults = await searchGameOnSteamDB(query);
+    if (steamDBResults.length > 0) {
+      log('SUCCESS', `Found ${steamDBResults.length} games on SteamDB`, { query });
+      return steamDBResults;
+    }
+    
+    // Method 2: Fallback - search in cached games only (no API calls)
     const normalizedQuery = normalizeGameName(query);
-    const allGames = scanAllGames();
     const matches = [];
     
-    // Search through all AppIDs and fetch names on-demand
-    for (const appId of allGames) {
-      let gameName = gameInfoCache[appId]?.data?.name;
-      
-      // If not cached, fetch from SteamDB quickly
-      if (!gameName) {
-        gameName = await getGameNameFromSteamDB(appId);
-        if (gameName && !gameInfoCache[appId]) {
-          gameInfoCache[appId] = { data: { name: gameName }, timestamp: Date.now() };
-        }
-      }
-      
-      if (gameName) {
-        const normalizedName = normalizeGameName(gameName);
+    for (const [appId, cache] of Object.entries(gameInfoCache)) {
+      if (cache?.data?.name) {
+        const normalizedName = normalizeGameName(cache.data.name);
         if (normalizedName.includes(normalizedQuery)) {
-          matches.push({
-            appId: appId,
-            name: gameName,
-            matchScore: calculateMatchScore(normalizedQuery, normalizedName)
-          });
+          const files = findFiles(appId);
+          if (files.lua.length > 0 || files.fix.length > 0 || files.onlineFix.length > 0) {
+            matches.push({
+              appId,
+              name: cache.data.name,
+              matchScore: calculateMatchScore(normalizedQuery, normalizedName)
+            });
+          }
         }
       }
-      
-      // Stop after finding 20 matches to avoid timeout
-      if (matches.length >= 20) break;
     }
     
     matches.sort((a, b) => b.matchScore - a.matchScore);
-    return matches;
+    return matches.slice(0, 20);
     
   } catch (error) {
     log('ERROR', 'Failed to search games', { query, error: error.message });
@@ -1474,7 +1505,7 @@ async function searchGameByName(query) {
 
 async function handleSearchCommand(message, query) {
   try {
-    const loadingMsg = await message.reply(`${ICONS.info} Đang tìm kiếm trong 20k+ games...`);
+    const loadingMsg = await message.reply(`${ICONS.info} Đang tìm kiếm trên SteamDB...`);
     scheduleMessageDeletion(loadingMsg);
     
     const results = await searchGameByName(query);

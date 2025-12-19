@@ -57,22 +57,20 @@ function scanAllGamesImproved() {
             } else {
               // File - extract AppID từ tên
               // Patterns: 123456.lua, game_123456.rar, 123456_fix.zip, etc.
-              const matches = item.match(/(\d{4,8})/g);
+              const matches = item.match(/(\d+)/g);
               
               if (matches) {
                 matches.forEach(appId => {
-                  // Chỉ lấy AppID có độ dài hợp lý (4-8 chữ số)
-                  if (appId.length >= 4 && appId.length <= 8) {
-                    if (!gamesData.has(appId)) {
-                      gamesData.set(appId, { appId, files: [] });
-                    }
-                    gamesData.get(appId).files.push({
-                      type,
-                      path: fullPath,
-                      name: item,
-                      size: stat.size
-                    });
+                  // Lấy tất cả AppID (bỏ giới hạn độ dài)
+                  if (!gamesData.has(appId)) {
+                    gamesData.set(appId, { appId, files: [] });
                   }
+                  gamesData.get(appId).files.push({
+                    type,
+                    path: fullPath,
+                    name: item,
+                    size: stat.size
+                  });
                 });
               }
             }
@@ -136,13 +134,7 @@ function analyzeGames(gamesData) {
     if (!hasLua && (hasFix || hasOnline)) stats.fixOnly++;
     if (hasLua && (hasFix || hasOnline)) stats.complete++;
     
-    // Kiểm tra issues
-    if (appId.length < 5) {
-      issues.shortAppId.push({ appId, files: data.files.length });
-    }
-    if (appId.length > 7) {
-      issues.longAppId.push({ appId, files: data.files.length });
-    }
+    // Kiểm tra issues (bỏ check độ dài AppID)
     if (data.files.length === 0) {
       issues.noFiles.push(appId);
     }
@@ -157,23 +149,10 @@ function analyzeGames(gamesData) {
   console.log(`   🔨 Chỉ có Fix: ${stats.fixOnly}`);
   console.log(`   ⭐ Complete (Lua + Fix/Online): ${stats.complete}`);
   
-  // Issues
-  console.log(`\n⚠️ Vấn đề phát hiện:`);
-  
-  if (issues.shortAppId.length > 0) {
-    console.log(`\n   🔴 AppID quá ngắn (<5 chữ số): ${issues.shortAppId.length}`);
-    console.log(`      Top 10 ví dụ:`);
-    issues.shortAppId.slice(0, 10).forEach(({ appId, files }) => {
-      console.log(`         - ${appId} (${files} files)`);
-    });
-  }
-  
-  if (issues.longAppId.length > 0) {
-    console.log(`\n   🟡 AppID quá dài (>7 chữ số): ${issues.longAppId.length}`);
-    console.log(`      Top 10 ví dụ:`);
-    issues.longAppId.slice(0, 10).forEach(({ appId, files }) => {
-      console.log(`         - ${appId} (${files} files)`);
-    });
+  // Issues (bỏ hiển thị cảnh báo độ dài)
+  if (issues.noFiles.length > 0) {
+    console.log(`\n⚠️ Vấn đề phát hiện:`);
+    console.log(`\n   🔴 AppID không có files: ${issues.noFiles.length}`);
   }
   
   return { stats, issues };
@@ -244,7 +223,7 @@ function findUnmatchedFiles() {
           scan(fullPath);
         } else {
           // Kiểm tra xem có match pattern không
-          const hasAppId = /(\d{4,8})/.test(item);
+          const hasAppId = /(\d+)/.test(item);
           if (!hasAppId) {
             unmatched[type].push({
               name: item,
@@ -315,16 +294,6 @@ async function main() {
   console.log('\n' + '='.repeat(60));
   console.log('💡 GỢI Ý KHẮC PHỤC');
   console.log('='.repeat(60));
-  
-  if (analysis.issues.shortAppId.length > 0) {
-    console.log(`\n⚠️ ${analysis.issues.shortAppId.length} games có AppID quá ngắn (<5 chữ số)`);
-    console.log(`   → Có thể là files test hoặc tên file không đúng format`);
-  }
-  
-  if (analysis.issues.longAppId.length > 0) {
-    console.log(`\n⚠️ ${analysis.issues.longAppId.length} games có AppID quá dài (>7 chữ số)`);
-    console.log(`   → Kiểm tra xem có phải là timestamp hay version number không`);
-  }
   
   const totalUnmatched = unmatched.lua.length + unmatched.fix.length + unmatched.online.length;
   if (totalUnmatched > 0) {
