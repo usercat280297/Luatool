@@ -1785,7 +1785,8 @@ client.on('interactionCreate', async (interaction) => {
     
     if (!fileToSend || !fs.existsSync(fileToSend.path)) {
       await scheduleInteractionDeletion(interaction, {
-        content: `${ICONS.cross} File not found!`
+        content: `❌ **File not found!**\n\n` +
+                 `⏱️ *Tin nhắn này sẽ tự động xóa sau 5 phút*`
       });
       return;
     }
@@ -1795,39 +1796,39 @@ client.on('interactionCreate', async (interaction) => {
     // For Online-Fix files OR large files (>25MB), upload to GitHub
     if (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
       await scheduleInteractionDeletion(interaction, {
-        content: `${ICONS.info} Processing **${fileToSend.name}**...\n` +
-                 `${ICONS.sparkles} Please wait...`
+        content: `⏳ **Processing** \`${fileToSend.name}\`...\n\n` +
+                 `✨ Please wait...`
       });
       
       const downloadUrl = await uploadToGitHub(fileToSend.path, fileToSend.name);
       
       if (!downloadUrl) {
         await scheduleInteractionDeletion(interaction, {
-          content: `${ICONS.cross} Failed to process file for download!\n\n` +
-                   `${ICONS.info} **Troubleshooting:**\n` +
+          content: `❌ **Failed to process file for download!**\n\n` +
+                   `🔧 **Troubleshooting:**\n` +
                    `• Check if GitHub token is configured\n` +
                    `• Check if repository exists and bot has access\n` +
                    `• File size: ${fileToSend.sizeFormatted}\n\n` +
-                   `${ICONS.warning} Please contact admin if problem persists.`
+                   `⏱️ *Tin nhắn này sẽ tự động xóa sau 5 phút*`
         });
         return;
       }
       
       await scheduleInteractionDeletion(interaction, {
-        content: `${ICONS.check} **Download Ready!**\n\n` +
-                 `📁 File: **${fileToSend.name}**\n` +
+        content: `✅ **DOWNLOAD READY!**\n\n` +
+                 `📁 File: \`${fileToSend.name}\`\n` +
                  `📊 Size: **${fileToSend.sizeFormatted}**\n\n` +
-                 `${ICONS.download} **[⬇️ CLICK HERE TO DOWNLOAD](${downloadUrl})**\n\n` +
-                 `${ICONS.info} Link sẽ không bao giờ hết hạn!\n` +
-                 `${ICONS.sparkles} Bạn có thể tải xuống lúc nào cũng được.`
+                 `**[⬇️ CLICK HERE TO DOWNLOAD](${downloadUrl})**\n\n` +
+                 `⏱️ *Tin nhắn này sẽ tự động xóa sau 5 phút*\n` +
+                 `🔗 *Link GitHub không bao giờ hết hạn*`
       });
       return;
     }
     
     // Send small files directly via Discord
     await scheduleInteractionDeletion(interaction, {
-      content: `${ICONS.check} Sending **${fileToSend.name}** (${fileToSend.sizeFormatted})...\n` +
-               `${ICONS.sparkles} Download started!`,
+      content: `✅ **Sending** \`${fileToSend.name}\` (\`${fileToSend.sizeFormatted}\`)\n\n` +
+               `🚀 Download started!`,
       files: [{ 
         attachment: fileToSend.path, 
         name: fileToSend.name 
@@ -1861,7 +1862,8 @@ client.on('interactionCreate', async (interaction) => {
     try {
       if (!interaction.replied) {
         await scheduleInteractionDeletion(interaction, {
-          content: `${ICONS.cross} Error: ${error.message}`
+          content: `❌ **Error:** \`${error.message}\`\n\n` +
+                   `⏱️ *Tin nhắn này sẽ tự động xóa sau 5 phút*`
         });
       }
     } catch (e) {
