@@ -1186,7 +1186,6 @@ async function createGameEmbed(appId, gameInfo, files) {
   
   return embed;
 }
-}
 
 // ============================================
 // COMMAND: GAME INFO
