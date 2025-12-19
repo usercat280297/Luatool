@@ -1780,21 +1780,10 @@ client.on('interactionCreate', async (interaction) => {
     
     const sizeMB = fileToSend.size / (1024 * 1024);
     
-    // DEBUG: Log file info
-    log('INFO', `Button clicked - file info`, {
-      fileName: fileToSend.name,
-      fileSizeMB: sizeMB,
-      MAX_FILE_SIZE_MB: CONFIG.MAX_FILE_SIZE_MB,
-      type: type,
-      willUploadToGitHub: (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB)
-    });
-    
-    // For large files (>25MB), upload to GitHub
-    // For online-fix files <25MB, send directly via Discord
-    if (sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
-      // File too large for Discord - upload to GitHub
+    // For Online-Fix files OR large files (>25MB), upload to GitHub
+    if (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
       await interaction.editReply({
-        content: `${ICONS.info} File quá lớn (${sizeMB.toFixed(2)}MB) - uploading to GitHub...\n` +
+        content: `${ICONS.info} Processing **${fileToSend.name}**...\n` +
                  `${ICONS.sparkles} Please wait...`
       });
       
