@@ -38,6 +38,12 @@ const CONFIG = {
 };
 
 // ============================================
+// DEDUPLICATION SYSTEM - Prevent duplicate messages
+// ============================================
+const messageProcessingSet = new Set();
+const MESSAGE_DEDUP_TIMEOUT = 2000; // 2 seconds
+
+// ============================================
 // BOT VERSION & INSTANCE TRACKING
 // ============================================
 const BOT_VERSION = '2.0.0';
@@ -1624,7 +1630,8 @@ async function uploadToGitHub(filePath, fileName) {
         {
           headers: {
             Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
-            'User-Agent': 'Discord-Lua-Bot',
+            'User-Agent': 'Discord-Lua-Bot/2.0',
+            'Accept': 'application/vnd.github.v3+json'
           },
           timeout: 10000,
         }
@@ -1634,8 +1641,17 @@ async function uploadToGitHub(filePath, fileName) {
     } catch (error) {
       if (error.response?.status === 404) {
         log('INFO', 'File does not exist, will create new', { fileName });
+      } else if (error.response?.status === 401) {
+        log('ERROR', 'GitHub authentication failed! Token may be invalid or expired', { 
+          error: error.message,
+          hint: 'Check your GITHUB_TOKEN in .env file'
+        });
+        return null;
       } else {
-        log('WARN', 'Error checking file status', { error: error.message });
+        log('WARN', 'Error checking file status', { 
+          status: error.response?.status,
+          error: error.message 
+        });
       }
     }
     
@@ -1650,7 +1666,10 @@ async function uploadToGitHub(filePath, fileName) {
       payload.sha = sha;
     }
     
-    log('INFO', 'Sending upload request to GitHub...', { githubPath });
+    log('INFO', 'Sending upload request to GitHub...', { 
+      githubPath,
+      url: `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`
+    });
     
     const response = await axios.put(
       `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
@@ -1658,7 +1677,8 @@ async function uploadToGitHub(filePath, fileName) {
       {
         headers: {
           Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
-          'User-Agent': 'Discord-Lua-Bot',
+          'User-Agent': 'Discord-Lua-Bot/2.0',
+          'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
         },
         timeout: 30000,
@@ -1688,7 +1708,8 @@ async function uploadToGitHub(filePath, fileName) {
       code: error.code,
       status: error.response?.status,
       statusText: error.response?.statusText,
-      responseData: error.response?.data 
+      responseData: error.response?.data,
+      hint: 'Check GitHub token, repo exists, and you have push access'
     });
     return null;
   }
