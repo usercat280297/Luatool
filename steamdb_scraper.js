@@ -38,10 +38,11 @@ async function scrapeSteamDB(appId) {
       }
     });
     
-    // Lấy dung lượng từ text
-    const sizeMatch = html.match(/Total\s+size\s+on\s+disk\s+is\s+([\d.]+)\s*(GiB|MiB)/i) ||
-                     html.match(/total\s+download\s+size\s+is\s+([\d.]+)\s*(GiB|MiB)/i) ||
-                     html.match(/when\s+filtered.*?([\d.]+)\s*(GiB|MiB)/i);
+    // Lấy dung lượng FULL (ưu tiên Total size on disk)
+    const fullSizeMatch = html.match(/Total\s+size\s+on\s+disk\s+is\s+([\d.]+)\s*(GiB|MiB)/i);
+    const downloadSizeMatch = html.match(/total\s+download\s+size\s+is\s+([\d.]+)\s*(GiB|MiB)/i);
+    
+    const sizeMatch = fullSizeMatch || downloadSizeMatch;
     
     if (sizeMatch) {
       const size = parseFloat(sizeMatch[1]);
@@ -50,6 +51,7 @@ async function scrapeSteamDB(appId) {
         ? size * 1024 * 1024 * 1024
         : size * 1024 * 1024;
       info.sizeFormatted = `${size} ${unit.replace('i', '')}`;
+      info.sizeType = fullSizeMatch ? 'FULL' : 'Base';
     }
     
     // Lấy rating từ Steam

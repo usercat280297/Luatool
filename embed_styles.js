@@ -56,7 +56,9 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   // ═══ GAME INFO - Beautiful Layout ═══
   // Row 1: Price | Size | Last Update
   const priceDisplay = gameInfo.isFree ? '🆓 **Free**' : `**${gameInfo.price}**`;
-  const sizeDisplay = gameInfo.sizeFormatted ? `**${gameInfo.sizeFormatted}**` : '**N/A**';
+  const sizeDisplay = gameInfo.sizeFormatted 
+    ? `**${gameInfo.sizeFormatted}**${gameInfo.sizeType === 'FULL' ? ' *(+DLC)*' : ''}`
+    : '**N/A**';
   const releaseDisplay = `**${gameInfo.lastUpdate || gameInfo.releaseDate}**`;
   
   embed.addFields(

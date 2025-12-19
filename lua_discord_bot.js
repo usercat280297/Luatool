@@ -885,6 +885,7 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     publisher: publisherInfo,
     size: accurateSize,
     sizeFormatted: steamDBInfo?.sizeFormatted || formatFileSize(accurateSize),
+    sizeType: steamDBInfo?.sizeType,
     languageCount: languageCount,
     steamSpy: steamSpyData,
     lastUpdate: steamDBInfo?.lastUpdate || steamData?.releaseDate,
