@@ -1,72 +1,83 @@
-# 🚀 Quick Start Guide
+# Quick Start Guide - Game Crawler
 
-## ⚡ 3 Bước Nhanh
+## Đã tạo 65 games với Lua support!
 
-### 1️⃣ Cài đặt
+### Files quan trọng:
+- `games_list_final.csv` - Danh sách chính (format chuẩn)
+- `games_list_final_names.csv` - Có tên game
+- `games_list_final.json` - JSON format
+
+### Cách sử dụng:
+
+#### 1. Chạy nhanh (65 games có sẵn):
 ```bash
-cd "e:\bot ngu luatool1.1\discord-lua-bot"
-npm install
+python master_crawler.py
 ```
 
-### 2️⃣ Chạy bot
+#### 2. Cập nhật thêm games:
+Thêm vào `known_games.py`:
+```python
+KNOWN_LUA_GAMES = {
+    123456: "Your Game Name",
+    # ...
+}
+```
+
+#### 3. Tự động cập nhật:
 ```bash
-npm start
+python auto_update.py
 ```
 
-### 3️⃣ Test trong Discord
+### Các nguồn dữ liệu:
+
+1. **Known Games** (65 games)
+   - Garry's Mod, Arma 3, RimWorld
+   - GTA V, Cities Skylines, Terraria
+   - Source Engine games
+   - Strategy games (Civ, Stellaris, HOI4)
+
+2. **Steam API** (có thể mở rộng)
+   - Tìm theo keywords: lua, modding, scripting
+   - Rate limit: 1 req/s
+
+3. **Workshop** (15+ games)
+   - Games có Workshop support
+   - Community mods
+
+4. **GitHub** (tự động search)
+   - Lua mod repositories
+
+### Mở rộng thêm:
+
+#### Thêm từ SteamDB:
+1. Vào https://steamdb.info
+2. Search "lua" hoặc "modding"
+3. Copy AppIDs
+4. Thêm vào `known_games.py`
+
+#### Thêm từ PCGamingWiki:
+1. Vào https://www.pcgamingwiki.com
+2. Tìm games có "Lua scripting"
+3. Lấy AppID từ Steam link
+
+### Stats hiện tại:
+- **Total: 65 games**
+- Source Engine: 10 games
+- Strategy/Sim: 15 games
+- Survival: 10 games
+- RPG/Action: 20 games
+- Other: 10 games
+
+### Chạy định kỳ:
+Windows Task Scheduler:
 ```
-!help
-!1623730
-!search palworld
+Program: python
+Arguments: master_crawler.py
+Start in: e:\bot ngu luatool1.1\discord-lua-bot
+Trigger: Weekly
 ```
 
----
-
-## 🎯 Lệnh Quan Trọng
-
-### Người dùng:
-```bash
-!<appid>              # Xem game
-!search <tên>         # Tìm game
-!refresh <appid>      # Làm mới data
-```
-
-### Admin:
-```bash
-!collectlua           # Thu thập lua mới
-!stats                # Xem thống kê
-```
-
----
-
-## 🔧 Tính Năng Mới v2.0
-
-✅ **UI đẹp hơn** - Box design, responsive  
-✅ **Data mới nhất** - Cache 1h, refresh được  
-✅ **Thu thập lua** - Tự động từ GitHub  
-
----
-
-## 📊 Kiểm tra
-
-```bash
-node test_features.js
-```
-
----
-
-## 🆘 Lỗi thường gặp
-
-**Bot không start?**
-→ Kiểm tra `BOT_TOKEN` trong `.env`
-
-**Không tìm thấy game?**
-→ Chạy `!collectlua` để thu thập thêm
-
-**Thông tin cũ?**
-→ Dùng `!refresh <appid>`
-
----
-
-**Xem chi tiết**: `USAGE_GUIDE.md`  
-**Changelog**: `CHANGELOG_v2.0.md`
+### Troubleshooting:
+- Lỗi encoding: Đã fix (dùng ASCII thay Unicode)
+- Rate limit: Thêm `time.sleep()` trong crawler
+- Cache: Xóa `game_cache.json` để refresh

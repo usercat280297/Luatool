@@ -292,6 +292,7 @@ const ICONS = {
 
 let database = { games: {}, stats: { totalDownloads: 0, totalSearches: 0 } };
 let gameInfoCache = {};
+let gameNamesIndex = {}; // Index tên games
 
 const client = new Client({
   intents: [
@@ -334,6 +335,16 @@ function loadGameInfoCache() {
       console.log(`✅ Loaded ${Object.keys(gameInfoCache).length} cached games`);
     } catch (error) {
       console.error('❌ Error loading cache:', error);
+    }
+  }
+  
+  // Load game names index
+  if (fs.existsSync('./game_names_index.json')) {
+    try {
+      gameNamesIndex = JSON.parse(fs.readFileSync('./game_names_index.json', 'utf8'));
+      console.log(`✅ Loaded ${Object.keys(gameNamesIndex).length} game names from index`);
+    } catch (error) {
+      console.error('❌ Error loading game names index:', error);
     }
   }
 }
@@ -1427,75 +1438,54 @@ async function handleGameCommand(message, appId) {
 }
 
 // ============================================
-// COMMAND: SEARCH - STEAMDB DIRECT SEARCH
+// COMMAND: SEARCH - STEAM API REAL-TIME
 // ============================================
-
-async function searchGameOnSteamDB(query) {
-  try {
-    const response = await axios.get('https://steamdb.info/search/', {
-      params: { a: 'app', q: query, type: 1 },
-      timeout: 15000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-    });
-    
-    const html = response.data;
-    const matches = [];
-    
-    // Parse search results from SteamDB HTML
-    const resultPattern = /<tr[^>]*data-appid="(\d+)"[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/gi;
-    let match;
-    
-    while ((match = resultPattern.exec(html)) !== null && matches.length < 20) {
-      const appId = match[1];
-      const gameName = match[2].trim();
-      
-      // Check if we have this game in our database
-      const files = findFiles(appId);
-      const hasFiles = files.lua.length > 0 || files.fix.length > 0 || files.onlineFix.length > 0;
-      
-      if (hasFiles) {
-        matches.push({ appId, name: gameName });
-      }
-    }
-    
-    return matches;
-  } catch (error) {
-    log('ERROR', 'SteamDB search failed', { query, error: error.message });
-    return [];
-  }
-}
+const { searchSteamStore } = require('./steam_search');
 
 async function searchGameByName(query) {
   try {
-    // Method 1: Search directly on SteamDB (fast, no rate limit)
-    const steamDBResults = await searchGameOnSteamDB(query);
-    if (steamDBResults.length > 0) {
-      log('SUCCESS', `Found ${steamDBResults.length} games on SteamDB`, { query });
-      return steamDBResults;
+    // Search directly from Steam Store API
+    const steamResults = await searchSteamStore(query);
+    
+    if (steamResults.length > 0) {
+      return steamResults.slice(0, 20).map(game => ({
+        appId: game.appId,
+        name: game.name,
+        matchScore: 90
+      }));
     }
     
-    // Method 2: Fallback - search in cached games only (no API calls)
+    // Fallback: search in local files
     const normalizedQuery = normalizeGameName(query);
+    const allGames = scanAllGames();
     const matches = [];
     
-    for (const [appId, cache] of Object.entries(gameInfoCache)) {
-      if (cache?.data?.name) {
-        const normalizedName = normalizeGameName(cache.data.name);
-        if (normalizedName.includes(normalizedQuery)) {
-          const files = findFiles(appId);
-          if (files.lua.length > 0 || files.fix.length > 0 || files.onlineFix.length > 0) {
-            matches.push({
-              appId,
-              name: cache.data.name,
-              matchScore: calculateMatchScore(normalizedQuery, normalizedName)
-            });
-          }
+    for (const appId of allGames) {
+      let gameName = gameNamesIndex[appId] || gameInfoCache[appId]?.data?.name;
+      
+      if (!gameName && matches.length < 20) {
+        gameName = await getGameNameFromSteamDB(appId);
+        if (gameName) {
+          gameNamesIndex[appId] = gameName;
         }
       }
+      
+      if (gameName) {
+        const normalizedName = normalizeGameName(gameName);
+        if (normalizedName.includes(normalizedQuery)) {
+          matches.push({
+            appId,
+            name: gameName,
+            matchScore: calculateMatchScore(normalizedQuery, normalizedName)
+          });
+        }
+      }
+      
+      if (matches.length >= 20) break;
     }
     
     matches.sort((a, b) => b.matchScore - a.matchScore);
-    return matches.slice(0, 20);
+    return matches;
     
   } catch (error) {
     log('ERROR', 'Failed to search games', { query, error: error.message });
@@ -1505,7 +1495,7 @@ async function searchGameByName(query) {
 
 async function handleSearchCommand(message, query) {
   try {
-    const loadingMsg = await message.reply(`${ICONS.info} Đang tìm kiếm trên SteamDB...`);
+    const loadingMsg = await message.reply(`${ICONS.info} Đang tìm trên Steam...`);
     scheduleMessageDeletion(loadingMsg);
     
     const results = await searchGameByName(query);
@@ -1850,7 +1840,7 @@ client.on('messageCreate', async (message) => {
     
     // Default: treat as AppID
     const appId = command.replace(/\D/g, ''); // Remove non-digits
-    if (appId && appId.length >= 4) {
+    if (appId && appId.length >= 1 && /^\d+$/.test(appId)) {
       return handleGameCommand(message, appId);
     }
     
