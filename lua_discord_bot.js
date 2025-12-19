@@ -1173,10 +1173,12 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
   const priceDisplay = gameInfo.isFree ? '🆓 Free' : gameInfo.price;
   const sizeDisplay = gameInfo.sizeFormatted || 'N/A';
   
+  const updateDate = gameInfo.lastUpdate || gameInfo.releaseDate || 'N/A';
+  
   embed.addFields(
     { name: '💰 Giá', value: priceDisplay, inline: true },
     { name: '💾 Dung lượng', value: sizeDisplay, inline: true },
-    { name: '📅 Phát hành', value: gameInfo.releaseDate, inline: true }
+    { name: '🔄 Cập nhật', value: updateDate, inline: true }
   );
   
   // Row 2: DLC | Language | Rating
@@ -1430,17 +1432,40 @@ async function handleGameCommand(message, appId) {
 
 async function searchGameByName(query) {
   try {
-    const searchUrl = `https://steamcommunity.com/actions/SearchApps/${encodeURIComponent(query)}`;
-    const response = await axios.get(searchUrl, { timeout: 10000 });
+    const normalizedQuery = normalizeGameName(query);
+    const allGames = scanAllGames();
+    const matches = [];
     
-    if (response.data && response.data.length > 0) {
-      return response.data.slice(0, 5).map(game => ({
-        appId: game.appid,
-        name: game.name,
-      }));
+    // Search through all AppIDs and fetch names on-demand
+    for (const appId of allGames) {
+      let gameName = gameInfoCache[appId]?.data?.name;
+      
+      // If not cached, fetch from SteamDB quickly
+      if (!gameName) {
+        gameName = await getGameNameFromSteamDB(appId);
+        if (gameName && !gameInfoCache[appId]) {
+          gameInfoCache[appId] = { data: { name: gameName }, timestamp: Date.now() };
+        }
+      }
+      
+      if (gameName) {
+        const normalizedName = normalizeGameName(gameName);
+        if (normalizedName.includes(normalizedQuery)) {
+          matches.push({
+            appId: appId,
+            name: gameName,
+            matchScore: calculateMatchScore(normalizedQuery, normalizedName)
+          });
+        }
+      }
+      
+      // Stop after finding 20 matches to avoid timeout
+      if (matches.length >= 20) break;
     }
     
-    return [];
+    matches.sort((a, b) => b.matchScore - a.matchScore);
+    return matches;
+    
   } catch (error) {
     log('ERROR', 'Failed to search games', { query, error: error.message });
     return [];
@@ -1449,13 +1474,13 @@ async function searchGameByName(query) {
 
 async function handleSearchCommand(message, query) {
   try {
-    const loadingMsg = await message.reply(`${ICONS.info} Searching...`);
+    const loadingMsg = await message.reply(`${ICONS.info} Đang tìm kiếm trong 20k+ games...`);
     scheduleMessageDeletion(loadingMsg);
     
     const results = await searchGameByName(query);
     
     if (results.length === 0) {
-      return loadingMsg.edit(`${ICONS.cross} No games found: "${query}"`);
+      return loadingMsg.edit(`${ICONS.cross} Không tìm thấy game: "${query}"`);
     }
     
     const embed = new EmbedBuilder()
@@ -1463,7 +1488,11 @@ async function handleSearchCommand(message, query) {
       .setTitle(`${ICONS.game} Search Results: "${query}"`)
       .setDescription(`Found ${results.length} game(s). Use \`!<appid>\` to view details.`);
     
-    results.forEach((game, index) => {
+    // Show results in pages if too many
+    const maxDisplay = 15;
+    const displayResults = results.slice(0, maxDisplay);
+    
+    displayResults.forEach((game, index) => {
       embed.addFields({
         name: `${index + 1}. ${game.name}`,
         value: `AppID: \`${game.appId}\` • Command: \`!${game.appId}\``,
@@ -1471,12 +1500,22 @@ async function handleSearchCommand(message, query) {
       });
     });
     
+    if (results.length > maxDisplay) {
+      embed.addFields({
+        name: '📋 More Results',
+        value: `... and ${results.length - maxDisplay} more games. Refine your search for better results.`,
+        inline: false
+      });
+    }
+    
     embed.setFooter({ text: 'Click AppID to view full info • Auto-deletes in 5min' });
     
     await loadingMsg.edit({ embeds: [embed] });
     
     database.stats.totalSearches++;
     saveDatabase();
+    
+    log('INFO', 'Search completed', { query, resultsCount: results.length });
     
   } catch (error) {
     log('ERROR', 'Error in handleSearchCommand', { query, error: error.message });
