@@ -161,26 +161,23 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
     });
   }
   
-  // EA Game Notice - inline
-  if (gameInfo.isEAGame) {
+  // Hướng dẫn cài Online-Fix
+  if (files.onlineFix.length > 0) {
     embed.addFields({
-      name: '⚙️ EA GAME',
-      value: 'Cần Origin/EA App',
-      inline: true
+      name: '📖 HƯỚNG DẪN CÀI ONLINE-FIX',
+      value: '```\n1. Tải xuống Online-Fix\n2. Giải nén file\n3. Copy vào thư mục game gốc\n```',
+      inline: false
     });
   }
   
-  // Early Access Notice - inline
-  if (gameInfo.isEarlyAccess) {
-    embed.addFields({
-      name: '🚧 EARLY ACCESS',
-      value: 'Game chưa hoàn thành',
-      inline: true
-    });
-  }
+  // EA Game & Early Access notices
+  const notices = [];
+  if (gameInfo.isEAGame) notices.push({ name: '⚙️ EA GAME', value: 'Cần Origin/EA App', inline: true });
+  if (gameInfo.isEarlyAccess) notices.push({ name: '🚧 EARLY ACCESS', value: 'Game chưa hoàn thành', inline: true });
+  if (notices.length > 0) embed.addFields(...notices);
   
   embed.setFooter({
-    text: `App ID: ${appId} • Cập nhật: ${new Date().toLocaleDateString('vi-VN')} • Auto-delete: 5 phút`,
+    text: `App ID: ${appId} • ${new Date().toLocaleDateString('vi-VN')} • Tự động xóa sau 5 phút`,
     iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
   });
   

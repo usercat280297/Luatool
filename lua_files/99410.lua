@@ -1,0 +1,5 @@
+addappid(99410)
+addappid(99411,0,"3fb11f157846afbf33dc385d6ab67c94f4eee9211c9300503f337cd8cedd8789")
+setManifestid(99411,"5576948621224843729")
+
+-- credits to v80qk on discord dont put on ur own bot have some shame (yk urself)
