@@ -399,6 +399,17 @@ function scheduleMessageDeletion(message) {
   }, CONFIG.AUTO_DELETE_TIMEOUT);
 }
 
+// Auto-delete for interaction replies
+async function scheduleInteractionDeletion(interaction, replyOptions) {
+  if (!CONFIG.ENABLE_AUTO_DELETE) {
+    return interaction.editReply(replyOptions);
+  }
+  
+  const reply = await interaction.editReply(replyOptions);
+  scheduleMessageDeletion(reply);
+  return reply;
+}
+
 // ============================================
 // API SOURCES
 // ============================================
