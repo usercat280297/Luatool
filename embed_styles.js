@@ -29,11 +29,14 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   // Title with ACN branding + game name
   embed.setAuthor({
     name: 'ACN GAME LIBRARY',
-    iconURL: 'https://cdn.discordapp.com/emojis/1234567890.png'
+    iconURL: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif'
   });
   
   embed.setTitle(`🎮 ${gameInfo.name}`);
   embed.setURL(`https://store.steampowered.com/app/${appId}`);
+  
+  // Thumbnail GIF ở góc trên phải
+  embed.setThumbnail('https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dXFjb3lrc3pidTJ6cTEzaGc3enJreno0MjQ3bWxscDVibXQwZTZ3NSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif');
   
   // Use header image as main image (larger display)
   if (gameInfo.headerImage) {
