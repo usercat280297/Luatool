@@ -16,6 +16,9 @@ const app = express();
 const CONFIG = {
   BOT_TOKEN: process.env.BOT_TOKEN,
   STEAM_API_KEY: process.env.STEAM_API_KEY,
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+  GITHUB_REPO_OWNER: process.env.GITHUB_REPO_OWNER,
+  GITHUB_REPO_NAME: process.env.GITHUB_REPO_NAME,
   COMMAND_PREFIX: '!',
   
   LUA_FILES_PATH: './lua_files',
@@ -702,39 +705,163 @@ async function getFullGameInfo(appId) {
 // FILE MANAGEMENT - ENHANCED WITH ONLINE-FIX
 // ============================================
 
-function findFiles(appId) {
-  const result = { lua: [], fix: [], onlineFix: [] };
+// Smart name matching function
+function normalizeGameName(name) {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '') // Remove special characters
+    .replace(/\s+/g, ''); // Remove spaces
+}
+
+function findOnlineFixByGameName(gameName) {
+  if (!gameName || !fs.existsSync(CONFIG.ONLINE_FIX_PATH)) return [];
   
-  const patterns = {
-    lua: [
-      path.join(CONFIG.LUA_FILES_PATH, `${appId}.lua`),
-      path.join(CONFIG.LUA_FILES_PATH, appId, 'game.lua'),
-    ],
-    fix: [
-      path.join(CONFIG.FIX_FILES_PATH, `${appId}.rar`),
-      path.join(CONFIG.FIX_FILES_PATH, `${appId}.zip`),
-      path.join(CONFIG.FIX_FILES_PATH, `${appId}.7z`),
-    ],
-    onlineFix: [
-      path.join(CONFIG.ONLINE_FIX_PATH, `${appId}.rar`),
-      path.join(CONFIG.ONLINE_FIX_PATH, `${appId}.zip`),
-      path.join(CONFIG.ONLINE_FIX_PATH, `${appId}.7z`),
-      path.join(CONFIG.ONLINE_FIX_PATH, appId, 'online-fix.rar'),
-      path.join(CONFIG.ONLINE_FIX_PATH, appId, 'online-fix.zip'),
-    ],
-  };
+  const normalizedGameName = normalizeGameName(gameName);
+  const foundFiles = [];
   
-  for (const [type, paths] of Object.entries(patterns)) {
-    for (const filePath of paths) {
-      if (fs.existsSync(filePath)) {
-        const stats = fs.statSync(filePath);
-        result[type].push({
+  try {
+    const files = fs.readdirSync(CONFIG.ONLINE_FIX_PATH);
+    
+    for (const file of files) {
+      const filePath = path.join(CONFIG.ONLINE_FIX_PATH, file);
+      const stats = fs.statSync(filePath);
+      
+      // Skip directories
+      if (stats.isDirectory()) continue;
+      
+      // Only check zip/rar/7z files
+      const ext = path.extname(file).toLowerCase();
+      if (!['.zip', '.rar', '.7z'].includes(ext)) continue;
+      
+      // Normalize filename for comparison
+      const normalizedFileName = normalizeGameName(file);
+      
+      // Check if game name is in filename
+      // Example: "EA SPORTS FC 25 online-fix.zip" matches "EA SPORTS FC 25"
+      if (normalizedFileName.includes(normalizedGameName) || 
+          normalizedGameName.includes(normalizedFileName.replace(/onlinefix|online-fix/gi, ''))) {
+        foundFiles.push({
           path: filePath,
-          name: path.basename(filePath),
+          name: file,
           size: stats.size,
           sizeFormatted: formatFileSize(stats.size),
+          matchScore: calculateMatchScore(normalizedGameName, normalizedFileName)
         });
       }
+    }
+    
+    // Sort by match score (best match first)
+    foundFiles.sort((a, b) => b.matchScore - a.matchScore);
+    
+  } catch (error) {
+    log('ERROR', 'Error scanning online-fix folder', { error: error.message });
+  }
+  
+  return foundFiles;
+}
+
+function calculateMatchScore(gameName, fileName) {
+  // Remove "online-fix" from filename for better matching
+  const cleanFileName = fileName.replace(/onlinefix|online-fix/gi, '');
+  
+  // Calculate how much of the game name is in the filename
+  let score = 0;
+  
+  // Exact match = highest score
+  if (cleanFileName === gameName) return 100;
+  
+  // Contains full game name = high score
+  if (cleanFileName.includes(gameName)) return 90;
+  if (gameName.includes(cleanFileName)) return 85;
+  
+  // Calculate partial match score
+  const gameWords = gameName.split(/\s+/);
+  const fileWords = cleanFileName.split(/\s+/);
+  
+  for (const gameWord of gameWords) {
+    if (gameWord.length < 3) continue; // Skip short words
+    for (const fileWord of fileWords) {
+      if (fileWord.includes(gameWord) || gameWord.includes(fileWord)) {
+        score += 10;
+      }
+    }
+  }
+  
+  return score;
+}
+
+function findFiles(appId, gameName = null) {
+  const result = { lua: [], fix: [], onlineFix: [] };
+  
+  // Find Lua files
+  const luaPatterns = [
+    path.join(CONFIG.LUA_FILES_PATH, `${appId}.lua`),
+    path.join(CONFIG.LUA_FILES_PATH, appId, 'game.lua'),
+  ];
+  
+  for (const filePath of luaPatterns) {
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath);
+      result.lua.push({
+        path: filePath,
+        name: path.basename(filePath),
+        size: stats.size,
+        sizeFormatted: formatFileSize(stats.size),
+      });
+    }
+  }
+  
+  // Find Fix files
+  const fixPatterns = [
+    path.join(CONFIG.FIX_FILES_PATH, `${appId}.rar`),
+    path.join(CONFIG.FIX_FILES_PATH, `${appId}.zip`),
+    path.join(CONFIG.FIX_FILES_PATH, `${appId}.7z`),
+  ];
+  
+  for (const filePath of fixPatterns) {
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath);
+      result.fix.push({
+        path: filePath,
+        name: path.basename(filePath),
+        size: stats.size,
+        sizeFormatted: formatFileSize(stats.size),
+      });
+    }
+  }
+  
+  // Find Online-Fix files
+  // Method 1: By AppID
+  const onlineFixPatterns = [
+    path.join(CONFIG.ONLINE_FIX_PATH, `${appId}.rar`),
+    path.join(CONFIG.ONLINE_FIX_PATH, `${appId}.zip`),
+    path.join(CONFIG.ONLINE_FIX_PATH, `${appId}.7z`),
+    path.join(CONFIG.ONLINE_FIX_PATH, appId, 'online-fix.rar'),
+    path.join(CONFIG.ONLINE_FIX_PATH, appId, 'online-fix.zip'),
+  ];
+  
+  for (const filePath of onlineFixPatterns) {
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath);
+      result.onlineFix.push({
+        path: filePath,
+        name: path.basename(filePath),
+        size: stats.size,
+        sizeFormatted: formatFileSize(stats.size),
+      });
+    }
+  }
+  
+  // Method 2: By Game Name (Smart Search)
+  if (gameName && result.onlineFix.length === 0) {
+    const foundByName = findOnlineFixByGameName(gameName);
+    if (foundByName.length > 0) {
+      log('SUCCESS', `Found Online-Fix by game name: ${gameName}`, {
+        file: foundByName[0].name,
+        matchScore: foundByName[0].matchScore
+      });
+      result.onlineFix = foundByName;
     }
   }
   
@@ -856,18 +983,28 @@ async function createGameEmbed(appId, gameInfo, files) {
     });
   }
   
-  // Online-Fix Status
-  if (gameInfo.drm.needsOnlineFix) {
+  // Online-Fix Status - Always show if game has multiplayer/co-op
+  const hasMultiplayerFeatures = gameInfo.hasMultiplayer || 
+                                  gameInfo.drm.needsOnlineFix ||
+                                  gameInfo.categories?.some(c => 
+                                    c.toLowerCase().includes('multi') || 
+                                    c.toLowerCase().includes('co-op') ||
+                                    c.toLowerCase().includes('online'));
+  
+  if (hasMultiplayerFeatures) {
     if (files.onlineFix.length > 0) {
       embed.addFields({
-        name: `${ICONS.onlineFix} **Online-Fix Available**`,
-        value: `${ICONS.check} Online-Fix file detected! Download below for multiplayer/co-op.`,
+        name: `${ICONS.onlineFix} **✅ Online-Fix Available**`,
+        value: `${ICONS.check} Online-Fix detected: **${files.onlineFix[0].name}**\n` +
+               `${ICONS.sparkles} Download below for multiplayer/co-op features!`,
         inline: false
       });
     } else {
       embed.addFields({
-        name: `${ICONS.online} **⚠️ Online Features Unavailable**`,
-        value: `${ICONS.cross} No Online-Fix available. Multiplayer/Co-op won't work.\n${ICONS.info} Single-player should work fine.`,
+        name: `${ICONS.online} **⚠️ Chưa có Online-Fix**`,
+        value: `${ICONS.cross} Chưa có Online-Fix cho game này.\n` +
+               `${ICONS.info} Multiplayer/Co-op sẽ không hoạt động.\n` +
+               `${ICONS.game} Single-player vẫn chơi được bình thường.`,
         inline: false
       });
     }
@@ -916,14 +1053,16 @@ async function createGameEmbed(appId, gameInfo, files) {
   
   // ===== DOWNLOAD SECTION =====
   const fileStatus = [];
-  if (files.lua.length > 0) fileStatus.push(`${ICONS.lua} Lua Script Available`);
-  if (files.fix.length > 0) fileStatus.push(`${ICONS.fix} Crack/Fix Available`);
-  if (files.onlineFix.length > 0) fileStatus.push(`${ICONS.onlineFix} Online-Fix Available`);
+  if (files.lua.length > 0) fileStatus.push(`${ICONS.check} ${ICONS.lua} Lua Script Available`);
+  if (files.fix.length > 0) fileStatus.push(`${ICONS.check} ${ICONS.fix} Crack/Fix Available`);
+  if (files.onlineFix.length > 0) {
+    fileStatus.push(`${ICONS.check} ${ICONS.onlineFix} Online-Fix Available (${files.onlineFix[0].sizeFormatted})`);
+  }
   
   if (fileStatus.length > 0) {
     embed.addFields({
       name: `${ICONS.download} **📥 AVAILABLE DOWNLOADS**`,
-      value: fileStatus.map(s => `✅ ${s}`).join('\n'),
+      value: fileStatus.join('\n'),
       inline: false
     });
     
@@ -966,22 +1105,24 @@ async function handleGameCommand(message, appId) {
     // Schedule deletion of loading message
     scheduleMessageDeletion(loadingMsg);
     
-    const files = findFiles(appId);
-    const hasFiles = files.lua.length > 0 || files.fix.length > 0 || files.onlineFix.length > 0;
-    
-    if (!hasFiles) {
-      return loadingMsg.edit(
-        `${ICONS.cross} No files found for AppID: \`${appId}\`\n` +
-        `${ICONS.info} Tip: Use \`!search <game name>\` to find games.`
-      );
-    }
-    
+    // First, get game info to know the game name
     const gameInfo = await getFullGameInfo(appId);
     
     if (!gameInfo) {
       return loadingMsg.edit(
         `${ICONS.cross} Cannot fetch info from Steam for AppID: \`${appId}\`\n` +
         `${ICONS.link} Link: https://store.steampowered.com/app/${appId}`
+      );
+    }
+    
+    // Now find files with game name for smart Online-Fix search
+    const files = findFiles(appId, gameInfo.name);
+    const hasFiles = files.lua.length > 0 || files.fix.length > 0 || files.onlineFix.length > 0;
+    
+    if (!hasFiles) {
+      return loadingMsg.edit(
+        `${ICONS.cross} No files found for **${gameInfo.name}** (AppID: \`${appId}\`)\n` +
+        `${ICONS.info} Tip: Use \`!search <game name>\` to find games.`
       );
     }
     
@@ -1338,6 +1479,33 @@ client.on('messageCreate', async (message) => {
 // BUTTON HANDLER (Download files)
 // ============================================
 
+async function uploadToGitHub(filePath, fileName) {
+  try {
+    const fileContent = fs.readFileSync(filePath);
+    const base64Content = fileContent.toString('base64');
+    const githubPath = `online-fix/${fileName}`;
+    
+    const response = await axios.put(
+      `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
+      {
+        message: `Upload ${fileName}`,
+        content: base64Content,
+      },
+      {
+        headers: {
+          Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    return response.data.content.download_url;
+  } catch (error) {
+    log('ERROR', 'Failed to upload to GitHub', { error: error.message });
+    return null;
+  }
+}
+
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
   
@@ -1347,7 +1515,9 @@ client.on('interactionCreate', async (interaction) => {
   try {
     await interaction.deferReply({ ephemeral: true });
     
-    const files = findFiles(appId);
+    // Get game info to find files by name
+    const gameInfo = await getFullGameInfo(appId);
+    const files = findFiles(appId, gameInfo?.name);
     let fileToSend = null;
     
     const idx = parseInt(fileIdx);
@@ -1368,18 +1538,34 @@ client.on('interactionCreate', async (interaction) => {
       });
     }
     
-    // Check file size limit (Discord limit: 25MB for non-nitro)
     const sizeMB = fileToSend.size / (1024 * 1024);
-    if (sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
+    
+    // For Online-Fix or large files, upload to GitHub
+    if (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
+      await interaction.editReply({
+        content: `${ICONS.info} Uploading **${fileToSend.name}** to GitHub...\n` +
+                 `${ICONS.sparkles} Please wait...`,
+        ephemeral: true
+      });
+      
+      const downloadUrl = await uploadToGitHub(fileToSend.path, fileToSend.name);
+      
+      if (!downloadUrl) {
+        return interaction.editReply({
+          content: `${ICONS.cross} Failed to upload file to GitHub!`,
+          ephemeral: true
+        });
+      }
+      
       return interaction.editReply({
-        content: `${ICONS.cross} File too large: **${fileToSend.sizeFormatted}**\n` +
-                 `${ICONS.info} Discord limit: ${CONFIG.MAX_FILE_SIZE_MB}MB\n` +
-                 `${ICONS.warning} Please contact admin for alternative download method.`,
+        content: `${ICONS.check} **${fileToSend.name}** (${fileToSend.sizeFormatted})\n\n` +
+                 `${ICONS.download} **Download Link:**\n${downloadUrl}\n\n` +
+                 `${ICONS.info} Click the link above to download!`,
         ephemeral: true
       });
     }
     
-    // Send file
+    // Send small files directly via Discord
     await interaction.editReply({
       content: `${ICONS.check} Sending **${fileToSend.name}** (${fileToSend.sizeFormatted})...\n` +
                `${ICONS.sparkles} Download started!`,
