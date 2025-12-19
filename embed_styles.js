@@ -49,15 +49,15 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   embed.setDescription(description);
   
   // ═══ GAME INFO - Beautiful Layout ═══
-  // Row 1: Price | Size | Release
+  // Row 1: Price | Size | Last Update
   const priceDisplay = gameInfo.isFree ? '🆓 **Free**' : `**${gameInfo.price}**`;
   const sizeDisplay = gameInfo.sizeFormatted ? `**${gameInfo.sizeFormatted}**` : '**N/A**';
-  const releaseDisplay = `**${gameInfo.releaseDate}**`;
+  const releaseDisplay = `**${gameInfo.lastUpdate || gameInfo.releaseDate}**`;
   
   embed.addFields(
     { name: '💰 Giá', value: priceDisplay, inline: true },
     { name: '💾 Dung lượng', value: sizeDisplay, inline: true },
-    { name: '📅 Phát hành', value: releaseDisplay, inline: true }
+    { name: '🔄 Cập nhật', value: releaseDisplay, inline: true }
   );
   
   // Row 2: DLC | Language | Rating

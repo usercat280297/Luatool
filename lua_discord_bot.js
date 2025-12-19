@@ -521,7 +521,60 @@ async function fetchSteamSpyData(appId) {
   }
 }
 
-// Get game name from SteamDB.info
+// Get game info from SteamDB.info (name, size, last update)
+async function getGameInfoFromSteamDB(appId) {
+  try {
+    const response = await axios.get(`https://steamdb.info/app/${appId}/`, {
+      timeout: 10000,
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    const html = response.data;
+    const info = {};
+    
+    // Extract game name
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+    if (titleMatch) {
+      info.name = titleMatch[1].replace(/\s*-\s*SteamDB.*$/i, '').trim();
+    }
+    
+    // Extract last update date
+    const updateMatch = html.match(/Last\s+Update[:\s]+<time[^>]*datetime="([^"]+)"/i) ||
+                       html.match(/Updated[:\s]+<time[^>]*datetime="([^"]+)"/i) ||
+                       html.match(/"last_updated"[:\s]+"([^"]+)"/i);
+    if (updateMatch) {
+      const date = new Date(updateMatch[1]);
+      info.lastUpdate = date.toLocaleDateString('vi-VN');
+    }
+    
+    // Extract size
+    const sizePatterns = [
+      /Download\s+Size[:\s]+(\d+(?:\.\d+)?)\s*(GB|MB)/i,
+      /Disk\s+Space[:\s]+(\d+(?:\.\d+)?)\s*(GB|MB)/i,
+    ];
+    
+    for (const pattern of sizePatterns) {
+      const sizeMatch = html.match(pattern);
+      if (sizeMatch) {
+        const size = parseFloat(sizeMatch[1]);
+        const unit = sizeMatch[2].toUpperCase();
+        if (size > 0 && size < 1000) {
+          info.size = unit === 'GB' ? size * 1024 * 1024 * 1024 : size * 1024 * 1024;
+          break;
+        }
+      }
+    }
+    
+    return Object.keys(info).length > 0 ? info : null;
+  } catch (error) {
+    log('WARN', `Failed to get info from SteamDB for ${appId}`, { error: error.message });
+    return null;
+  }
+}
+
+// Legacy function for backward compatibility
 async function getGameNameFromSteamDB(appId) {
   try {
     const response = await axios.get(`https://steamdb.info/app/${appId}/`, {
@@ -566,12 +619,15 @@ async function getGameNameFromSteamDB(appId) {
 }
 
 async function getAccurateGameSize(appId) {
-  const htmlSize = await getSizeFromSteamHTML(appId);
-  if (htmlSize) return htmlSize;
-  
+  // Try SteamDB first (most reliable)
   const steamDBSize = await getSizeFromSteamDB(appId);
   if (steamDBSize) return steamDBSize;
   
+  // Then try Steam HTML
+  const htmlSize = await getSizeFromSteamHTML(appId);
+  if (htmlSize) return htmlSize;
+  
+  // Finally check known sizes
   const knownSize = getKnownGameSize(appId);
   if (knownSize) return knownSize;
   
@@ -622,21 +678,33 @@ async function getSizeFromSteamHTML(appId) {
 async function getSizeFromSteamDB(appId) {
   try {
     const response = await axios.get(`https://steamdb.info/app/${appId}/`, {
-      timeout: 5000,
+      timeout: 8000,
       headers: { 
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
     
     const html = response.data;
-    const sizeMatch = html.match(/Download\s+Size[:\s]+(\d+(?:\.\d+)?)\s*(GB|MB)/i);
     
-    if (sizeMatch) {
-      const size = parseFloat(sizeMatch[1]);
-      const unit = sizeMatch[2].toUpperCase();
-      const bytes = unit === 'GB' ? size * 1024 * 1024 * 1024 : size * 1024 * 1024;
-      log('SUCCESS', `Got size from SteamDB: ${size} ${unit}`);
-      return bytes;
+    // Try multiple patterns for size
+    const patterns = [
+      /Download\s+Size[:\s]+(\d+(?:\.\d+)?)\s*(GB|MB)/i,
+      /Disk\s+Space[:\s]+(\d+(?:\.\d+)?)\s*(GB|MB)/i,
+      /<td>Size<\/td>\s*<td[^>]*>(\d+(?:\.\d+)?)\s*(GB|MB)/i,
+      /"size"[:\s]+"(\d+(?:\.\d+)?)\s*(GB|MB)"/i
+    ];
+    
+    for (const pattern of patterns) {
+      const sizeMatch = html.match(pattern);
+      if (sizeMatch) {
+        const size = parseFloat(sizeMatch[1]);
+        const unit = sizeMatch[2].toUpperCase();
+        if (size > 0 && size < 1000) {
+          const bytes = unit === 'GB' ? size * 1024 * 1024 * 1024 : size * 1024 * 1024;
+          log('SUCCESS', `Got size from SteamDB: ${size} ${unit}`);
+          return bytes;
+        }
+      }
     }
     
     return null;
@@ -796,8 +864,11 @@ async function getFullGameInfo(appId, forceRefresh = false) {
   const steamData = await fetchSteamStoreData(appId);
   if (!steamData) return null;
   
+  // Get additional info from SteamDB
+  const steamDBInfo = await getGameInfoFromSteamDB(appId);
+  
   const steamSpyData = await fetchSteamSpyData(appId);
-  const accurateSize = await getAccurateGameSize(appId);
+  const accurateSize = steamDBInfo?.size || await getAccurateGameSize(appId);
   const drmInfo = detectDRMAccurate(appId, steamData);
   const publisherInfo = detectPublisher(steamData.publishers);
   
@@ -813,6 +884,7 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     sizeFormatted: formatFileSize(accurateSize),
     languageCount: languageCount,
     steamSpy: steamSpyData,
+    lastUpdate: steamDBInfo?.lastUpdate || steamData.releaseDate,
     
     isEAGame: publisherInfo.isEA,
     hasMultiplayer: steamData.categories?.some(c => 
