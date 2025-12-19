@@ -7,7 +7,9 @@
     "start": "node lua_discord_bot.js",
     "dev": "node lua_discord_bot.js",
     "download-lua": "node bulk_lua_downloader.js",
-    "bot": "node lua_discord_bot.js"
+    "bot": "node lua_discord_bot.js",
+    "collect-lua": "node lua_collector.js",
+    "update-steamdb": "node steamdb_updater.js update-all"
   },
   "keywords": [
     "discord",
@@ -23,6 +25,7 @@
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.13.2",
+    "cheerio": "^1.1.2",
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.3",
     "express": "^4.22.1",
