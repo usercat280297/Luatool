@@ -1043,8 +1043,15 @@ function scanAllGames() {
 // ============================================
 // IMPROVED EMBED CREATION
 // ============================================
+const { createBeautifulGameEmbed } = require('./embed_styles');
 
 async function createGameEmbed(appId, gameInfo, files) {
+  // Use new beautiful embed
+  return createBeautifulGameEmbed(appId, gameInfo, files);
+}
+
+// Legacy embed function (backup)
+async function createGameEmbedLegacy(appId, gameInfo, files) {
   const embed = new EmbedBuilder();
   
   // Dynamic color based on DRM severity
@@ -1261,9 +1268,9 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_lua_${appId}_0`)
-          .setLabel(`📜 LUA SCRIPT`)
+          .setLabel(`Tải Lua (${files.lua[0].sizeFormatted})`)
           .setStyle(ButtonStyle.Primary)
-          .setEmoji('⬇️')
+          .setEmoji('📜')
       );
     }
     
@@ -1271,9 +1278,9 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_fix_${appId}_0`)
-          .setLabel(`🔧 CRACK/FIX`)
+          .setLabel(`Tải Crack (${files.fix[0].sizeFormatted})`)
           .setStyle(ButtonStyle.Success)
-          .setEmoji('⬇️')
+          .setEmoji('🔧')
       );
     }
     
@@ -1281,9 +1288,9 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_online_${appId}_0`)
-          .setLabel(`🌐 ONLINE-FIX`)
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('⬇️')
+          .setLabel(`Tải Online-Fix (${files.onlineFix[0].sizeFormatted})`)
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🌐')
       );
     }
     
