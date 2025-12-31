@@ -1,4 +1,4 @@
-***Before use this bot, make sure you have render.com account and uprobot to auto-deploy***
+***Before use this bot, make sure you have render.com account and uptimerobot to auto-deploy***
 
 # 🎮 Discord Lua Bot v2.0
 
