@@ -47,7 +47,26 @@ const CRACK_LINKS = {
   // Need for speed heat
   "1222680": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Need%20for%20Speed%20Heat%20crack.rar?download=true",
 
-  // 
+  // Assassin's Creed III
+  "208480": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassin's%20Creed%20III%20fix.zip?download=true",
+
+  // Assassin's Creed Mirage
+  "3035570": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassin's%20Creed%20Mirage%20FIX.zip?download=true",
+
+  // Assassin's Creed Valhalla
+  "2208920": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassin's%20Creed%20Valhalla%20fix.zip?download=true",
+
+  // Assassin's Creed Unity
+  "289650": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Unity%20fix.zip?download=true",
+
+  // Assassin's Creed Valhalla
+  "368500": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassins%20Creed%20Syndicate%20crack.rar?download=true",
+
+  // Assassin's Creed III Remastered
+  "911400": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassin's%20Creed%C2%AE%20III%20Remastered%20crack.rar?download=true",
+
+  // FC 25 SHOWCASE
+  "2963840": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FC%2025%20SHOWCASE.rar?download=true"
 };
 
 module.exports = CRACK_LINKS;
