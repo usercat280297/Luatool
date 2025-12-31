@@ -58,22 +58,27 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   description += `📊 [**SteamDB Info**](https://steamdb.info/app/${appId})`;
   embed.setDescription(description);
   
-  // ═══ MOBILE OPTIMIZED GRID LAYOUT ═══
-  // MOBILE FIX: Use inline:false for better mobile display
-  // Discord mobile doesn't render inline:true well - causes text to bunch on left side
+  // ═══ HYBRID LAYOUT - OPTIMIZED FOR BOTH PC & MOBILE ═══
+  // Strategy: Use 2 fields inline:true (side-by-side on PC, stacked on mobile)
+  // Then 1 field inline:false (full width) to prevent cramping
   
-  // Row 1: The Essentials (Price & Size)
+  // Row 1: Price & Size (2 fields side-by-side)
   const priceDisplay = gameInfo.isFree ? '`🆓 Free`' : `\`${gameInfo.price}\``;
   const sizeDisplay = gameInfo.sizeFormatted 
     ? `\`${gameInfo.sizeFormatted}\`${gameInfo.sizeType === 'FULL' ? ' *(+DLC)*' : ''}`
     : '`N/A`';
   
   embed.addFields(
-    { name: '💰 Price', value: priceDisplay, inline: false },
-    { name: '💾 Size', value: sizeDisplay, inline: false }
+    { name: '💰 Price', value: priceDisplay, inline: true },
+    { name: '💾 Size', value: sizeDisplay, inline: true }
   );
 
-  // Row 2: Quality Indicators
+  // Row 2: Updated (full width to prevent cramping)
+  embed.addFields(
+    { name: '🔄 Updated', value: `\`${gameInfo.lastUpdate || gameInfo.releaseDate}\``, inline: false }
+  );
+
+  // Row 3: Languages & Rating (2 fields side-by-side)
   const langDisplay = `\`${gameInfo.languageCount} Langs\``;
   const ratingDisplay = gameInfo.rating 
     ? `\`👍 ${gameInfo.rating}\` (${formatNumber(gameInfo.reviewCount)})`
@@ -82,16 +87,13 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
     : '`N/A`';
   
   embed.addFields(
-    { name: '🌍 Languages', value: langDisplay, inline: false },
-    { name: '📊 Rating', value: ratingDisplay, inline: false }
+    { name: '🌍 Languages', value: langDisplay, inline: true },
+    { name: '📊 Rating', value: ratingDisplay, inline: true }
   );
-  
-  // Row 3: Updates
-  const releaseDisplay = `\`${gameInfo.lastUpdate || gameInfo.releaseDate}\``;
+
+  // Row 4: DLC (full width)
   const dlcDisplay = gameInfo.dlcCount > 0 ? `\`${gameInfo.dlcCount} DLC\`` : '`0 DLC`';
-  
   embed.addFields(
-    { name: '🔄 Updated', value: releaseDisplay, inline: false },
     { name: '🎯 DLC', value: dlcDisplay, inline: false }
   );
 
@@ -193,7 +195,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
     });
   }
   
-  // Footer
+  // Footer - No GIF to keep it clean
   embed.setFooter({
     text: `ID: ${appId} • ${new Date().toLocaleDateString('en-US')} • Auto-delete: 5m`,
     iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'

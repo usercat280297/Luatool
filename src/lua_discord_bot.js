@@ -1229,13 +1229,14 @@ async function handleGameCommand(message, appId) {
       crack: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZtpgLSKicg4p1i8/giphy.gif"
     };
     
-    // 1. Download Lua (Priority)
+    // 1. Download Lua (Priority) - Green button
     if (files.lua.length > 0) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_lua_${appId}_0`)
           .setLabel(`📜 Download Lua (${files.lua[0].sizeFormatted})`)
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('📜')
       );
     }
     
@@ -1246,19 +1247,34 @@ async function handleGameCommand(message, appId) {
           .setCustomId(`dl_online_${appId}`)
           .setLabel(`🌐 Download Online-Fix`)
           .setStyle(ButtonStyle.Primary)
+          .setEmoji('🌐')
       );
     }
 
-    // 3. Download Crack (Link) - Support multiple links
+    // 3. Download Crack (Link) - Create separate button for each link
     if (crackLink) {
       const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
+      // Create separate button for each crack link
       crackLinks.forEach((link, idx) => {
-        row.addComponents(
-          new ButtonBuilder()
-            .setCustomId(`dl_crack_${appId}_${idx}`)
-            .setLabel(`🔥 ${crackLinks.length > 1 ? `Crack Link ${idx + 1}` : 'Download Crack'}`)
-            .setStyle(ButtonStyle.Danger)
-        );
+        // If we have more than 1 link, create multiple buttons
+        // But limit to max 2 buttons per row (Discord limit is 5 buttons per row)
+        if (crackLinks.length === 1) {
+          row.addComponents(
+            new ButtonBuilder()
+              .setCustomId(`dl_crack_${appId}_${idx}`)
+              .setLabel(`🔥 Download Crack`)
+              .setStyle(ButtonStyle.Danger)
+              .setEmoji('🔥')
+          );
+        } else {
+          row.addComponents(
+            new ButtonBuilder()
+              .setCustomId(`dl_crack_${appId}_${idx}`)
+              .setLabel(`🔥 Crack Link ${idx + 1}`)
+              .setStyle(ButtonStyle.Danger)
+              .setEmoji('🔥')
+          );
+        }
       });
     }
 
@@ -1930,18 +1946,27 @@ client.on('interactionCreate', async (interaction) => {
 
       // Support multiple crack links
       const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
-      const linksField = crackLinks.map((link, idx) => 
-        `**[🔗 LINK ${idx + 1}](${link})**`
-      ).join(' | ');
+      const linkIdx = parseInt(fileIdx || '0');
+      const selectedLink = crackLinks[linkIdx] || crackLinks[0];
+      
+      // GIF for crack button
+      const crackGif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZtpgLSKicg4p1i8/giphy.gif";
+      
+      const linksField = crackLinks.length > 1
+        ? `**[🔗 LINK ${linkIdx + 1}](${selectedLink})**\n${crackLinks.map((link, idx) => 
+            idx !== linkIdx ? `[🔗 LINK ${idx + 1}](${link})` : null
+          ).filter(Boolean).join(' | ')}`
+        : `**[🔗 CLICK ĐÂY ĐỂ TẢI](${selectedLink})**`;
 
       return interaction.reply({
         embeds: [{
           color: 0xFF0000,
           title: '🔥 ⬇️ CRACK DOWNLOAD - LINK AMAN',
           description: `Game: ***${gameInfo?.name || appId}***`,
+          thumbnail: { url: crackGif },
           fields: [
             {
-              name: `⬇️ ***TẢI XUỐNG*** (${crackLinks.length} link)`,
+              name: `⬇️ ***TẢI XUỐNG***${crackLinks.length > 1 ? ` (Link ${linkIdx + 1}/${crackLinks.length})` : ''}`,
               value: linksField,
               inline: false
             },
@@ -1974,11 +1999,15 @@ client.on('interactionCreate', async (interaction) => {
 
       const gameInfo = await getFullGameInfo(appId);
       
+      // GIF for online-fix button
+      const onlineFixGif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif";
+      
       return interaction.reply({
         embeds: [{
           color: 0x00FF00,
           title: '🌐 ⬇️ ONLINE-FIX DOWNLOAD - LINK AMAN',
           description: `Game: ***${gameInfo?.name || appId}***`,
+          thumbnail: { url: onlineFixGif },
           fields: [
             {
               name: '⬇️ ***TẢI XUỐNG***',
@@ -2076,15 +2105,38 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
     
+    // GIF for Lua button
+    const luaGif = type === 'lua' 
+      ? "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif"
+      : null;
+    
     // Send small files directly via Discord
-    await scheduleInteractionDeletion(interaction, {
+    const replyContent = {
       content: `✅ **Sending** \`${fileToSend.name}\` (\`${fileToSend.sizeFormatted}\`)\n\n` +
                `🚀 Download started!`,
       files: [{ 
         attachment: fileToSend.path, 
         name: fileToSend.name 
       }]
-    });
+    };
+    
+    // Add GIF thumbnail for Lua files
+    if (luaGif && type === 'lua') {
+      replyContent.embeds = [{
+        color: 0x2ECC71,
+        title: '📜 LUA FILE DOWNLOAD',
+        description: `Game: ***${gameInfo?.name || appId}***`,
+        thumbnail: { url: luaGif },
+        fields: [
+          { name: '📁 File', value: `\`${fileToSend.name}\``, inline: false },
+          { name: '📊 Size', value: fileToSend.sizeFormatted, inline: false }
+        ],
+        footer: { text: 'Tin nhắn này sẽ tự xóa sau 5 phút' }
+      }];
+      replyContent.content = null; // Remove text content when using embed
+    }
+    
+    await scheduleInteractionDeletion(interaction, replyContent);
     
     // Update download statistics
     database.stats.totalDownloads++;
