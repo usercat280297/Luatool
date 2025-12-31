@@ -21,12 +21,13 @@ const CONFIG = {
   GITHUB_REPO_NAME: process.env.GITHUB_REPO_NAME,
   COMMAND_PREFIX: '!',
   
-  LUA_FILES_PATH: '../lua_files',
-  FIX_FILES_PATH: '../fix_files',
-  ONLINE_FIX_PATH: '../online_fix',
-  LOGS_PATH: '../logs',
-  DATABASE_PATH: '../database.json',
-  GAME_INFO_CACHE_PATH: '../game_info_cache.json',
+  // FIXED: Correct paths from src/ directory
+  LUA_FILES_PATH: path.join(__dirname, '../lua_files'),
+  FIX_FILES_PATH: path.join(__dirname, '../fix_files'),
+  ONLINE_FIX_PATH: path.join(__dirname, '../online_fix'),
+  LOGS_PATH: path.join(__dirname, '../logs'),
+  DATABASE_PATH: path.join(__dirname, '../database.json'),
+  GAME_INFO_CACHE_PATH: path.join(__dirname, '../game_info_cache.json'),
   
   ADMIN_USER_IDS: ['898595655562432584'],
   MAX_FILE_SIZE_MB: 25,
