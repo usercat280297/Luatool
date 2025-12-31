@@ -66,7 +66,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   // Row 1: Price (full width)
   const priceDisplay = gameInfo.isFree ? '`🆓 Free`' : `\`${gameInfo.price}\``;
   embed.addFields(
-    { name: '💰 Price', value: priceDisplay, inline: false }
+    { name: '💰 Price', value: priceDisplay, inline: true }
   );
 
   // Row 2: Size (full width)
@@ -74,7 +74,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
     ? `\`${gameInfo.sizeFormatted}\`${gameInfo.sizeType === 'FULL' ? ' *(+DLC)*' : ''}`
     : '`N/A`';
   embed.addFields(
-    { name: '💾 Size', value: sizeDisplay, inline: false }
+    { name: '💾 Size', value: sizeDisplay, inline: true }
   );
 
   // Row 3: Updated (full width)
@@ -85,7 +85,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   // Row 4: Languages (full width)
   const langDisplay = `\`${gameInfo.languageCount} Langs\``;
   embed.addFields(
-    { name: '🌍 Languages', value: langDisplay, inline: false }
+    { name: '🌍 Languages', value: langDisplay, inline: true }
   );
 
   // Row 5: Rating (full width)
@@ -95,13 +95,13 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
     ? `\`⭐ ${formatNumber(gameInfo.recommendations)}\`` 
     : '`N/A`';
   embed.addFields(
-    { name: '📊 Rating', value: ratingDisplay, inline: false }
+    { name: '📊 Rating', value: ratingDisplay, inline: true }
   );
 
   // Row 6: DLC (full width)
   const dlcDisplay = gameInfo.dlcCount > 0 ? `\`${gameInfo.dlcCount} DLC\`` : '`0 DLC`';
   embed.addFields(
-    { name: '🎯 DLC', value: dlcDisplay, inline: false }
+    { name: '🎯 DLC', value: dlcDisplay, inline: true }
   );
 
   // Row 4: Credits (Merged for full width - prevents text wrapping on mobile)
