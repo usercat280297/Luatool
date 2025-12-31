@@ -202,7 +202,7 @@ CACHE_DURATION: 3600000, // 1 hour
 - 🌐 Get Online-Fix files
 
 ### For Developers
-- 📜 Access 4,000+ lua scripts
+- 📜 Access 30,000+ lua scripts
 - 🔄 Auto-update game data
 - 📊 Track game statistics
 - 🤖 Integrate with Discord
@@ -237,7 +237,7 @@ npm run dev
 
 ### After v2.0
 - ⚡ Cache: 1 hour
-- 📁 Lua files: 4,000+ (expandable)
+- 📁 Lua files: 30,000+ (expandable)
 - 🔄 Auto-refresh available
 - 📱 Beautiful responsive UI
 - 🎯 Real-time SteamDB data
@@ -333,7 +333,7 @@ ISC License - see [LICENSE](LICENSE) file for details
 
 ## 🎉 Thank You!
 
-Made with ❤️ by the Bot Development Team
+Made by crackvingheo
 
 **Star ⭐ this repo if you find it useful!**
 
