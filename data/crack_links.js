@@ -15,6 +15,7 @@ const CRACK_LINKS = {
   
   // Resident Evil 4
   "2050650": "https://github.com/usercat280297/MangaVNteam.github.io/releases/download/re4remake/Resident.evil.4.remake.Denuvo.Bypass.Files.zip",
+  "2050650": "https://github.com/usercat280297/MangaVNteam.github.io/releases/download/re4fix/Resident.Evil.4.Remake.Error.Fix.7z",
   
   // Shin Megami Tensei III Nocturne HD Remaster
   "1413480": "https://github.com/usercat280297/Xuanngoc/releases/download/Shin.Megami.Tensei.III.Nocturne.HD.Remaster.crack.zip/Shin.Megami.Tensei.III.Nocturne.HD.Remaster.crack.zip",
@@ -34,8 +35,16 @@ const CRACK_LINKS = {
   // Hi-Fi RUSH
   "1817230": "https://github.com/usercat280297/Xuanngoc/releases/download/hifirush/Hi-Fi.RUSH.Crack.denuvo.rar",
   
+  // Starlink Battle for Atlas
+  "950050": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Starlink%20Battle%20for%20Atlas%20crack%20denuvo.zip?download=true",
+
   // EA SPORTS™ FIFA 21
-  "1313860": "https://github.com/usercat280297/crackvingheolauncher/releases/download/fifa21crack/FIFA.21.Crack.zip"
+  "1313860": "https://github.com/usercat280297/crackvingheolauncher/releases/download/fifa21crack/FIFA.21.Crack.zip",
+
+  // Need for speed heat
+  "1222680": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Need%20for%20Speed%20Heat%20crack.rar?download=true",
+
+  // 
 };
 
 module.exports = CRACK_LINKS;
