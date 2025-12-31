@@ -1,9 +1,0 @@
-Fix 3 vấn đề:
-
-1. Số game: 3731 (đúng trong logs)
-2. Cache: Đổi từ 3600000 → 0 (line 33)
-3. Mobile: Đổi inline fields → text block (line 1074-1102)
-
-Thay đổi:
-Line 33: CACHE_DURATION: 0,
-Line 1074-1102: Bỏ inline fields, dùng text block

@@ -4,12 +4,13 @@
   "description": "Discord bot with enhanced Lua game downloader, Online-Fix integration, and smart game search",
   "main": "lua_discord_bot.js",
   "scripts": {
-    "start": "node lua_discord_bot.js",
-    "dev": "node lua_discord_bot.js",
-    "download-lua": "node bulk_lua_downloader.js",
-    "bot": "node lua_discord_bot.js",
-    "collect-lua": "node lua_collector.js",
-    "update-steamdb": "node steamdb_updater.js update-all"
+    "start": "node src/lua_discord_bot.js",
+    "dev": "node src/lua_discord_bot.js",
+    "test": "node tests/runner.js",
+    "download-lua": "node scripts/bulk_lua_downloader.js",
+    "bot": "node src/lua_discord_bot.js",
+    "collect-lua": "node scripts/lua_collector.js",
+    "update-steamdb": "node scripts/steamdb_updater.js update-all"
   },
   "keywords": [
     "discord",

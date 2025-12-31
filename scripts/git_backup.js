@@ -17,7 +17,8 @@ function log(message) {
 
 function runCommand(command) {
   return new Promise((resolve, reject) => {
-    exec(command, { cwd: __dirname }, (error, stdout, stderr) => {
+    // Execute in project root, not in scripts/ folder
+    exec(command, { cwd: path.join(__dirname, '..') }, (error, stdout, stderr) => {
       if (error) {
         reject({ error, stderr });
         return;
