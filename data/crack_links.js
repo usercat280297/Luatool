@@ -1,6 +1,7 @@
 // ============================================
 // CRACK LINKS DATABASE
 // Manual mapping of AppIDs to direct download links
+// Support single link (string) or multiple links (array)
 // ============================================
 
 const CRACK_LINKS = {
@@ -13,9 +14,11 @@ const CRACK_LINKS = {
   // STAR WARS Jedi: Fallen Order™
   "1172380": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Star%20Wars%20Jedi%20Fallen%20Order%20CW.FIX.rar?download=true",
   
-  // Resident Evil 4
-  "2050650": "https://github.com/usercat280297/MangaVNteam.github.io/releases/download/re4remake/Resident.evil.4.remake.Denuvo.Bypass.Files.zip",
-  "2050650": "https://github.com/usercat280297/MangaVNteam.github.io/releases/download/re4fix/Resident.Evil.4.Remake.Error.Fix.7z",
+  // Resident Evil 4 - Multiple links
+  "2050650": [
+    "https://github.com/usercat280297/MangaVNteam.github.io/releases/download/re4remake/Resident.evil.4.remake.Denuvo.Bypass.Files.zip",
+    "https://github.com/usercat280297/MangaVNteam.github.io/releases/download/re4fix/Resident.Evil.4.Remake.Error.Fix.7z"
+  ],
   
   // Shin Megami Tensei III Nocturne HD Remaster
   "1413480": "https://github.com/usercat280297/Xuanngoc/releases/download/Shin.Megami.Tensei.III.Nocturne.HD.Remaster.crack.zip/Shin.Megami.Tensei.III.Nocturne.HD.Remaster.crack.zip",

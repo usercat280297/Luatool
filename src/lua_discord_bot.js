@@ -1222,14 +1222,20 @@ async function handleGameCommand(message, appId) {
     const rows = [];
     const row = new ActionRowBuilder();
     
+    // GIF URLs for buttons
+    const gifUrls = {
+      lua: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif",
+      onlineFix: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif",
+      crack: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZtpgLSKicg4p1i8/giphy.gif"
+    };
+    
     // 1. Download Lua (Priority)
     if (files.lua.length > 0) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_lua_${appId}_0`)
-          .setLabel(`Download Lua (${files.lua[0].sizeFormatted})`)
+          .setLabel(`📜 Download Lua (${files.lua[0].sizeFormatted})`)
           .setStyle(ButtonStyle.Primary)
-          .setEmoji('📜')
       );
     }
     
@@ -1238,21 +1244,22 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_online_${appId}`)
-          .setLabel(`Download Online-Fix`)
+          .setLabel(`🌐 Download Online-Fix`)
           .setStyle(ButtonStyle.Primary)
-          .setEmoji('🌐')
       );
     }
 
-    // 3. Download Crack (Link)
+    // 3. Download Crack (Link) - Support multiple links
     if (crackLink) {
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`dl_crack_${appId}`)
-          .setLabel(`Download Crack (Direct)`)
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('🔥')
-      );
+      const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
+      crackLinks.forEach((link, idx) => {
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`dl_crack_${appId}_${idx}`)
+            .setLabel(`🔥 ${crackLinks.length > 1 ? `Crack Link ${idx + 1}` : 'Download Crack'}`)
+            .setStyle(ButtonStyle.Danger)
+        );
+      });
     }
 
     // 4. Download Crack (File) - REMOVED per user request
@@ -1908,7 +1915,6 @@ client.on('interactionCreate', async (interaction) => {
         });
       }
 
-      // Determine requirements based on game info
       const gameInfo = await getFullGameInfo(appId);
       let requirements = 'Extract and overwrite game folder.';
       
@@ -1922,6 +1928,12 @@ client.on('interactionCreate', async (interaction) => {
         }
       }
 
+      // Support multiple crack links
+      const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
+      const linksField = crackLinks.map((link, idx) => 
+        `**[🔗 LINK ${idx + 1}](${link})**`
+      ).join(' | ');
+
       return interaction.reply({
         embeds: [{
           color: 0xFF0000,
@@ -1929,8 +1941,8 @@ client.on('interactionCreate', async (interaction) => {
           description: `Game: ***${gameInfo?.name || appId}***`,
           fields: [
             {
-              name: '⬇️ ***TẢI XUỐNG***',
-              value: `**[🔗 CLICK ĐÂY ĐỂ TẢI](${crackLink})**`,
+              name: `⬇️ ***TẢI XUỐNG*** (${crackLinks.length} link)`,
+              value: linksField,
               inline: false
             },
             {
