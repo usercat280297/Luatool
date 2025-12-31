@@ -1923,10 +1923,29 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       return interaction.reply({
-        content: `🔥 **CRACK DOWNLOAD LINK FOR GAME: ${gameInfo?.name || appId}**\n` +
-                 `[**Download crack file here**](${crackLink})\n\n` +
-                 `${requirements}\n\n` +
-                 `⚠️ *This link is provided directly, use at your own risk.*`,
+        embeds: [{
+          color: 0xFF0000,
+          title: '🔥 ⬇️ CRACK DOWNLOAD - LINK AMAN',
+          description: `Game: ***${gameInfo?.name || appId}***`,
+          fields: [
+            {
+              name: '⬇️ ***TẢI XUỐNG***',
+              value: `**[🔗 CLICK ĐÂY ĐỂ TẢI](${crackLink})**`,
+              inline: false
+            },
+            {
+              name: '🛠️ Yêu Cầu',
+              value: requirements,
+              inline: false
+            },
+            {
+              name: '⚠️ Bảo Mật',
+              value: '***Link được cung cấp trực tiếp. Sử dụng theo rủi ro của bạn.***',
+              inline: false
+            }
+          ],
+          footer: { text: 'Tin nhắn này sẽ tự xóa sau 5 phút' }
+        }],
         ephemeral: true
       });
     }
@@ -1944,10 +1963,29 @@ client.on('interactionCreate', async (interaction) => {
       const gameInfo = await getFullGameInfo(appId);
       
       return interaction.reply({
-        content: `🌐 **ONLINE-FIX DOWNLOAD LINK FOR GAME: ${gameInfo?.name || appId}**\n` +
-                 `[**Download online-fix file here**](${onlineLink})\n\n` +
-                 `⚠️ *This link is provided directly, use at your own risk.*\n` +
-                 `🛠️ *Requires Steam to be open to play.*`,
+        embeds: [{
+          color: 0x00FF00,
+          title: '🌐 ⬇️ ONLINE-FIX DOWNLOAD - LINK AMAN',
+          description: `Game: ***${gameInfo?.name || appId}***`,
+          fields: [
+            {
+              name: '⬇️ ***TẢI XUỐNG***',
+              value: `**[🔗 CLICK ĐÂY ĐỂ TẢI](${onlineLink})**`,
+              inline: false
+            },
+            {
+              name: '⚙️ Lưu Ý',
+              value: '***Yêu cầu Steam phải mở để chơi.***',
+              inline: false
+            },
+            {
+              name: '⚠️ Bảo Mật',
+              value: '***Link được cung cấp trực tiếp. Sử dụng theo rủi ro của bạn.***',
+              inline: false
+            }
+          ],
+          footer: { text: 'Tin nhắn này sẽ tự xóa sau 5 phút' }
+        }],
         ephemeral: true
       });
     }
