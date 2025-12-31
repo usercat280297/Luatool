@@ -1252,7 +1252,8 @@ async function handleGameCommand(message, appId) {
     }
 
     // 3. Download Crack (Link) - Single button with all links inside
-    if (crackLink) {
+    // IMPORTANT: Only create ONE button, even if there are multiple links
+    if (crackLink && !row.components.some(btn => btn.data.custom_id?.includes('dl_crack'))) {
       const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
       // Create only ONE button for all crack links
       row.addComponents(
@@ -1262,6 +1263,11 @@ async function handleGameCommand(message, appId) {
           .setStyle(ButtonStyle.Danger)
           .setEmoji('🔥')
       );
+      
+      log('INFO', `Created crack button for ${appId}`, { 
+        linksCount: crackLinks.length,
+        buttonId: `dl_crack_${appId}_0`
+      });
     }
 
     // 4. Download Crack (File) - REMOVED per user request
@@ -1933,7 +1939,7 @@ client.on('interactionCreate', async (interaction) => {
       // Support multiple crack links - show all in one beautiful embed
       const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
       
-      // GIF for crack button
+      // GIF for crack button - use as image for better visibility
       const crackGif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZtpgLSKicg4p1i8/giphy.gif";
       
       // Beautiful formatted links
@@ -1946,7 +1952,7 @@ client.on('interactionCreate', async (interaction) => {
           color: 0xFF0000,
           title: '🔥 CRACK DOWNLOAD',
           description: `**Game:** ${gameInfo?.name || appId}\n\n${crackLinks.length > 1 ? `**${crackLinks.length} download links available:**` : '**Download link:**'}`,
-          thumbnail: { url: crackGif },
+          image: { url: crackGif }, // Use image instead of thumbnail for better GIF visibility
           fields: [
             {
               name: '⬇️ DOWNLOAD LINKS',
@@ -1982,7 +1988,7 @@ client.on('interactionCreate', async (interaction) => {
 
       const gameInfo = await getFullGameInfo(appId);
       
-      // GIF for online-fix button
+      // GIF for online-fix button - use as image for better visibility
       const onlineFixGif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif";
       
       return interaction.reply({
@@ -1990,7 +1996,7 @@ client.on('interactionCreate', async (interaction) => {
           color: 0x00FF00,
           title: '🌐 ONLINE-FIX DOWNLOAD',
           description: `**Game:** ${gameInfo?.name || appId}\n\n**Download link:**`,
-          thumbnail: { url: onlineFixGif },
+          image: { url: onlineFixGif }, // Use image instead of thumbnail for better GIF visibility
           fields: [
             {
               name: '⬇️ DOWNLOAD LINK',
@@ -2103,13 +2109,13 @@ client.on('interactionCreate', async (interaction) => {
       }]
     };
     
-    // Add GIF thumbnail for Lua files
+    // Add GIF image for Lua files - use image for better visibility
     if (luaGif && type === 'lua') {
       replyContent.embeds = [{
         color: 0x2ECC71,
         title: '📜 LUA FILE DOWNLOAD',
         description: `**Game:** ${gameInfo?.name || appId}\n\n**File ready for download:**`,
-        thumbnail: { url: luaGif },
+        image: { url: luaGif }, // Use image instead of thumbnail for better GIF visibility
         fields: [
           { name: '📁 File Name', value: `\`${fileToSend.name}\``, inline: false },
           { name: '📊 File Size', value: fileToSend.sizeFormatted, inline: false }
