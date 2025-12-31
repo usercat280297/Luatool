@@ -56,55 +56,64 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   description += `🔗 [Steam Store](https://store.steampowered.com/app/${appId}) • 📊 [SteamDB](https://steamdb.info/app/${appId})`;
   embed.setDescription(description);
   
-  // ═══ GAME INFO - Beautiful Layout ═══
-  // Row 1: Price | Size | Last Update
+  // ═══ GAME INFO - Beautiful Layout (Responsive 2-column) ═══
+  // Row 1
   const priceDisplay = gameInfo.isFree ? '🆓 **Free**' : `**${gameInfo.price}**`;
   const sizeDisplay = gameInfo.sizeFormatted 
     ? `**${gameInfo.sizeFormatted}**${gameInfo.sizeType === 'FULL' ? ' *(+DLC)*' : ''}`
     : '**N/A**';
-  const releaseDisplay = `**${gameInfo.lastUpdate || gameInfo.releaseDate}**`;
   
   embed.addFields(
     { name: '💰 Giá', value: priceDisplay, inline: true },
-    { name: '💾 Dung lượng', value: sizeDisplay, inline: true },
-    { name: '🔄 Cập nhật', value: releaseDisplay, inline: true }
+    { name: '💾 Dung lượng', value: sizeDisplay, inline: true }
+  );
+
+  // Row 2
+  const releaseDisplay = `**${gameInfo.lastUpdate || gameInfo.releaseDate}**`;
+  const dlcDisplay = gameInfo.dlcCount > 0 ? `**${gameInfo.dlcCount}** DLC` : '**0** DLC';
+  
+  embed.addFields(
+    { name: '🔄 Cập nhật', value: releaseDisplay, inline: true },
+    { name: '🎯 DLC', value: dlcDisplay, inline: true }
   );
   
-  // Row 2: DLC | Language | Rating
-  const dlcDisplay = gameInfo.dlcCount > 0 ? `**${gameInfo.dlcCount}** DLC` : '**0** DLC';
+  // Row 3
   const langDisplay = `**${gameInfo.languageCount}** ngôn ngữ`;
   const ratingDisplay = gameInfo.rating 
-    ? `👍 **${gameInfo.rating}** (${formatNumber(gameInfo.reviewCount)} reviews)`
+    ? `👍 **${gameInfo.rating}** (${formatNumber(gameInfo.reviewCount)})`
     : gameInfo.recommendations > 0 
     ? `⭐ **${formatNumber(gameInfo.recommendations)}**` 
     : '**N/A**';
   
   embed.addFields(
-    { name: '🎯 DLC', value: dlcDisplay, inline: true },
     { name: '🌍 Ngôn ngữ', value: langDisplay, inline: true },
     { name: '📊 Rating', value: ratingDisplay, inline: true }
   );
   
-  // Row 3: Developer | Publisher | DRM
+  // Row 4
   const devName = (gameInfo.developers[0] || 'Unknown').substring(0, 22);
   const pubName = gameInfo.publisher.name.substring(0, 22);
-  const drmBadge = gameInfo.drm.isDRMFree ? '✅ **DRM-Free**' : `${gameInfo.drm.icon} **${gameInfo.drm.type}**`;
   
   embed.addFields(
     { name: '👨‍💻 Developer', value: `**${devName}**`, inline: true },
-    { name: '🏢 Publisher', value: `**${pubName}**`, inline: true },
-    { name: '🔐 DRM', value: drmBadge, inline: true }
+    { name: '🏢 Publisher', value: `**${pubName}**`, inline: true }
   );
+
+  // DRM Row (Full width for visibility)
+  const drmBadge = gameInfo.drm.isDRMFree ? '✅ **DRM-Free**' : `${gameInfo.drm.icon} **${gameInfo.drm.type}**`;
+  embed.addFields({ name: '🔐 DRM Status', value: drmBadge, inline: false });
   
   // ═══ DRM WARNING SECTION - Enhanced ═══
   if (gameInfo.drm.severity === 'critical') {
+    const gameName = gameInfo.name || "Game này";
     embed.addFields({
       name: '🚫 ⚠️ CẢNH BÁO DENUVO',
       value: 
         '```diff\n' +
-        '- Game này có DENUVO - bảo vệ cực mạnh\n' +
-        '- Có thể chưa bị crack hoặc crack chưa ổn định\n' +
-        '! Chỉ tải nếu bạn chắc chắn đã có crack\n' +
+        `- [CRITICAL WARNING]\n` +
+        `- ${gameName} sử dụng DENUVO Anti-Tamper\n` +
+        '- Crack có thể không ổn định hoặc chưa có\n' +
+        '! Chỉ tải nếu bạn biết cách bypass hoặc đã có crack\n' +
         '```',
       inline: false
     });

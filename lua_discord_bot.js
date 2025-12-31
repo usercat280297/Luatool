@@ -89,118 +89,16 @@ console.log(`🚀 BOT INSTANCE: ${BOT_INSTANCE_ID} (v${BOT_VERSION})`);
 // ============================================
 // EXPANDED DRM DATABASE (2024-2025 Games)
 // ============================================
+
+const DENUVO_GAMES = require('./denuvo_data');
+
+// Extract IDs from DENUVO_GAMES
+const DENUVO_IDS = DENUVO_GAMES.map(game => game.id);
+
 const VERIFIED_DRM = {
-  // ⚠️ DENUVO GAMES - EXPANDED LIST (60+ games)
+  // ⚠️ DENUVO GAMES - EXPANDED LIST (Automatically populated)
   denuvo: [
-    // 2026 Games
-    2852190, // Monster Hunter Stories 3: Twisted Reflection
-    4115450, // Phantom Blade Zero
-    3764200, // Resident Evil Requiem
-    3937550, // Yakuza Kiwami 3 & Dark Ties
-    2362060, // CODE VEIN II
-    2499860, // DRAGON QUEST VII Reimagined
-    1984270, // Digimon Story Time Stranger
-    3014320, // OCTOPATH TRAVELER 0
-
-    // 2025 Games
-    1903340, // Clair Obscur: Expedition 33
-    1817230, // Hi-Fi RUSH
-    2513280, // SONIC X SHADOW GENERATIONS
-    2527390, // Dead Rising Deluxe Remaster
-    1874000, // Life is Strange: Double Exposure
-    2304100, // Unknown 9: Awakening
-    2420110, // Horizon Zero Dawn Remastered
-    1774580, // STAR WARS Jedi: Survivor
-    1693980, // Dead Space Remake
-    1237320, // Sonic Frontiers
-    1142710, // Total War: WARHAMMER III
-    3035570, // Assassin's Creed Mirage
-    3357650, // PRAGMATA
-    1941540, // Mafia: The Old Country
-    3551340, // Football Manager 26
-    3274580, // Anno 117: Pax Romana
-    2958130, // Jurassic World Evolution 3
-    3017860, // DOOM: The Dark Ages
-    3059520, // F1 25
-    2638890, // Onimusha: Way of the Sword
-    3046600, // Onimusha 2: Samurai's Destiny
-    3489700, // Stellar Blade (PC)
-    3472040, // NBA 2K26
-    3405690, // EA Sports FC 26
-    2893570, // Dragon Quest I & II HD-2D
-    1984270, // Digimon Story: Time Stranger
-    1285190, // Borderlands 4
-    
-    // 2024 Major Releases
-    2208920, // Assassin's Creed Valhalla
-    1971870, // Mortal Kombat 1
-    1778820, // Tekken 8
-    2358720, // Black Myth: Wukong
-    2054970, // Dragon's Dogma 2
-    2161700, // Persona 3 Reload
-    1687950, // Persona 5 Royal
-    3595270, // Call of Duty: Modern Warfare III
-    2124490, // Silent Hill 2 Remake
-    2842040, // Star Wars Outlaws
-    3738540, // Hades II (Early Access)
-    1174180, // Red Dead Redemption 2
-    315210, // Suicide Squad: Kill the Justice League
-    2751000, // Prince of Persia: The Lost Crown
-    1426210, // It Takes Two
-    990080, // Hogwarts Legacy
-
-    // Sports Games
-    2669320, // EA Sports FC 25
-    2488620, // F1 24
-    1785650, // TopSpin 2K25
-    2878980, // NBA 2K25
-    
-    // Capcom Games
-    2050650, // Resident Evil 4 Remake
-    1364780, // Street Fighter 6
-    1196590, // Resident Evil Village
-    
-    // Square Enix
-    2515020, // Final Fantasy XVI
-    2909400, // Final Fantasy VII Rebirth
-    1680880, // Forspoken
-    
-    // SEGA/Atlus
-    2513280, // Sonic X Shadow Generations
-    2486820, // Sonic Racing: CrossWorlds
-    2058180, // Judgment
-    2058190, // Lost Judgment
-    2254740, // Persona 5 Tactica
-    1805480, // Like a Dragon: Ishin!
-    1361510, // Sonic Frontiers
-    2072450, // Like a Dragon: Infinite Wealth
-    1875830, // Shin Megami Tensei V: Vengeance
-    2679460, // Metaphor: ReFantazio
-    2058190, // Lost Judgment
-    
-    // Ubisoft Games
-    2853730, // Skull and Bones
-    2840770, // Avatar: Frontiers of Pandora
-    1774580, // STAR WARS Jedi: Survivor
-    1693980, // Dead Space (Remake)
-    1142710, // Total War: WARHAMMER III
-    1551360, // Forza Horizon 5
-    1812800, // Sniper Elite 5
-    2400340, // The Rogue Prince of Persia
-    // Others
-    1029690, // Sniper Elite 5
-    1407200, // Unknown 9: Awakening
-    1151640, // Horizon Zero Dawn Remastered (Kiểm tra lại nếu cần)
-    1446780, // Monster Hunter Rise
-    1593500, // God of War
-    1817070, // Spider-Man Remastered
-    1817190, // Spider-Man: Miles Morales
-    1086940, // Baldur's Gate 3
-    2246340, // Monster Hunter Wilds
-    1282100, // Remnant II
-    1716740, // Starfield
-    934700, // Dead Island 2
-    1544020, // The Callisto Protocol
+    ...DENUVO_IDS,
   ],
   
   // EasyAntiCheat Games
@@ -650,6 +548,12 @@ async function getAccurateGameSize(appId) {
   return size;
 }
 
+// Helper to get name from DENUVO_GAMES
+function getDenuvoGameName(appId) {
+  const game = DENUVO_GAMES.find(g => g.id === parseInt(appId));
+  return game ? game.name : null;
+}
+
 async function getSizeFromSteamHTML(appId) {
   try {
     const response = await axios.get(`https://store.steampowered.com/app/${appId}`, {
@@ -894,7 +798,7 @@ async function getFullGameInfo(appId, forceRefresh = false) {
   
   const fullInfo = {
     ...steamData,
-    name: steamDBInfo?.name || steamData?.name,
+    name: steamDBInfo?.name || steamData?.name || getDenuvoGameName(appId),
     developers: steamData?.developers || [steamDBInfo?.developer || 'Unknown'],
     drm: drmInfo,
     publisher: publisherInfo,
@@ -1138,6 +1042,8 @@ function scanAllGames() {
 // ============================================
 const { createBeautifulGameEmbed } = require('./embed_styles');
 const { scrapeSteamDB } = require('./steamdb_scraper');
+const { backupToGitHub } = require('./git_backup');
+const CRACK_LINKS = require('./crack_links');
 
 async function createGameEmbed(appId, gameInfo, files) {
   // Use new beautiful embed
@@ -1311,10 +1217,13 @@ async function handleGameCommand(message, appId) {
     let gameInfo = await getFullGameInfo(appId);
     
     if (!gameInfo) {
-      // Try to get name from SteamDB if Steam API fails
+      // Try to get name from SteamDB or Denuvo Data if Steam API fails
       const steamDBName = await getGameNameFromSteamDB(appId);
+      const denuvoName = getDenuvoGameName(appId);
       
-      if (!steamDBName) {
+      const gameName = steamDBName || denuvoName;
+      
+      if (!gameName) {
         return loadingMsg.edit(
           `${ICONS.cross} Cannot fetch info from Steam for AppID: \`${appId}\`\n` +
           `${ICONS.link} Link: https://store.steampowered.com/app/${appId}\n` +
@@ -1324,7 +1233,7 @@ async function handleGameCommand(message, appId) {
       
       // Create minimal game info from SteamDB name
       gameInfo = {
-        name: steamDBName,
+        name: gameName,
         headerImage: null,
         price: 'Unknown',
         sizeFormatted: 'Unknown',
@@ -1346,7 +1255,7 @@ async function handleGameCommand(message, appId) {
         publisher: { name: 'Unknown', isEA: false },
       };
       
-      log('INFO', `Using SteamDB name for ${appId}: ${steamDBName}`);
+      log('INFO', `Using fallback name for ${appId}: ${gameName}`);
     }
     
     // Now find files with game name for smart Online-Fix search
@@ -1366,6 +1275,9 @@ async function handleGameCommand(message, appId) {
     const rows = [];
     const row = new ActionRowBuilder();
     
+    // Check for direct crack link
+    const crackLink = CRACK_LINKS[appId];
+
     if (files.lua.length > 0) {
       row.addComponents(
         new ButtonBuilder()
@@ -1383,6 +1295,17 @@ async function handleGameCommand(message, appId) {
           .setLabel(`Tải Crack (${files.fix[0].sizeFormatted})`)
           .setStyle(ButtonStyle.Success)
           .setEmoji('🔧')
+      );
+    }
+
+    // Add Direct Crack Link Button if available
+    if (crackLink) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`dl_crack_${appId}`)
+          .setLabel(`Tải Crack (Direct)`)
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🔥')
       );
     }
     
@@ -1595,6 +1518,7 @@ async function handleHelpCommand(message) {
         '`!clearcache` - Clear cache',
         '`!toggleautodelete` - Toggle auto-delete',
         '`!collectlua` - Thu thập Lua files mới',
+        '`!backup` - Backup project to GitHub',
       ].join('\n')
     });
   }
@@ -1733,6 +1657,29 @@ async function handleCollectLuaCommand(message) {
   }
 }
 
+async function handleBackupCommand(message) {
+  if (!isAdmin(message.author.id)) {
+    return message.reply(`${ICONS.cross} Admin only!`);
+  }
+
+  const loadingMsg = await message.reply(`${ICONS.info} **Starting backup to GitHub...** ⏳`);
+  
+  try {
+    const success = await backupToGitHub();
+    
+    if (success) {
+      await loadingMsg.edit(`${ICONS.check} **Backup successful!** Project source code pushed to GitHub.`);
+    } else {
+      await loadingMsg.edit(`${ICONS.cross} **Backup failed!** Check console logs for details.`);
+    }
+  } catch (error) {
+    log('ERROR', 'Backup command failed', { error: error.message });
+    await loadingMsg.edit(`${ICONS.cross} **Backup failed:** ${error.message}`);
+  }
+  
+  scheduleMessageDeletion(loadingMsg);
+}
+
 async function handleToggleAutoDeleteCommand(message) {
   if (!isAdmin(message.author.id)) {
     return message.reply(`${ICONS.cross} Admin only!`);
@@ -1835,6 +1782,10 @@ client.on('messageCreate', async (message) => {
       
       if (command === 'collectlua') {
         return handleCollectLuaCommand(message);
+      }
+      
+      if (command === 'backup') {
+        return handleBackupCommand(message);
       }
     }
     
@@ -1999,6 +1950,39 @@ client.on('interactionCreate', async (interaction) => {
   if (action !== 'dl') return;
   
   try {
+    // Handle Direct Crack Link
+    if (type === 'crack') {
+      const crackLink = CRACK_LINKS[appId];
+      if (!crackLink) {
+        return interaction.reply({
+          content: '❌ **Link không tồn tại hoặc đã bị xóa!**',
+          ephemeral: true
+        });
+      }
+
+      // Determine requirements based on game info
+      const gameInfo = await getFullGameInfo(appId);
+      let requirements = 'Giải nén và chép đè vào thư mục game.';
+      
+      if (gameInfo) {
+        if (gameInfo.publisher?.isUbisoft || gameInfo.name.toLowerCase().includes('assassin') || gameInfo.name.toLowerCase().includes('ubisoft')) {
+          requirements = '🛠️ **Yêu cầu:** Cần cài đặt **Ubisoft Connect** và đăng nhập tài khoản giả lập (nếu cần).';
+        } else if (gameInfo.isEAGame || gameInfo.name.toLowerCase().includes('fifa') || gameInfo.name.toLowerCase().includes('ea sports')) {
+          requirements = '🛠️ **Yêu cầu:** Cần cài đặt **EA App** để chạy game.';
+        } else if (gameInfo.publisher?.isRockstar || gameInfo.publisher?.name?.includes('Rockstar')) {
+          requirements = '🛠️ **Yêu cầu:** Cần cài đặt **Rockstar Games Launcher**.';
+        }
+      }
+
+      return interaction.reply({
+        content: `🔥 **LINK TẢI CRACK CHO GAME: ${gameInfo?.name || appId}**\n\n` +
+                 `🔗 **Link tải:** ${crackLink}\n\n` +
+                 `${requirements}\n\n` +
+                 `⚠️ *Link này được cung cấp trực tiếp, hãy tự chịu trách nhiệm khi sử dụng.*`,
+        ephemeral: true
+      });
+    }
+
     await interaction.deferReply({ ephemeral: true });
     
     // Get game info to find files by name
@@ -2328,9 +2312,23 @@ function formatUptime(seconds) {
   return parts.join(' ');
 }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ Health check server running on port ${PORT}`);
-  console.log(`🌐 Access at: http://localhost:${PORT}`);
-  console.log(`📊 Health endpoint: http://localhost:${PORT}/health\n`);
-});
+const START_PORT = process.env.PORT || 3000;
+
+function startServer(port) {
+  const server = app.listen(port, () => {
+    console.log(`✅ Health check server running on port ${port}`);
+    console.log(`🌐 Access at: http://localhost:${port}`);
+    console.log(`📊 Health endpoint: http://localhost:${port}/health\n`);
+  });
+
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.log(`⚠️ Port ${port} is in use, trying ${port + 1}...`);
+      startServer(port + 1);
+    } else {
+      console.error('❌ Server error:', error);
+    }
+  });
+}
+
+startServer(START_PORT);
