@@ -1,74 +1,74 @@
-# 🎮 Discord Lua Bot - Hướng Dẫn Sử Dụng
+# 🎮 Discord Lua Bot - Usage Guide
 
-## ✨ Tính Năng Mới v2.0
+## ✨ New Features v2.0
 
-### 1. **UI Tin Nhắn Đẹp Hơn**
-- ✅ Thiết kế box với ký tự đặc biệt
-- ✅ Responsive trên PC & Mobile
-- ✅ Code blocks với syntax highlighting
-- ✅ Phân chia section rõ ràng
-- ✅ Tiếng Việt hóa
+### 1. **Improved Message UI**
+- ✅ Box design with special characters
+- ✅ Responsive on PC & Mobile
+- ✅ Code blocks with syntax highlighting
+- ✅ Clear section division
+- ✅ English Localization
 
-### 2. **Thông Tin Luôn Mới Nhất**
-- ✅ Cache chỉ 1 giờ (thay vì 12 giờ)
-- ✅ Lệnh `!refresh <appid>` để cập nhật ngay
-- ✅ Tự động lấy data từ SteamDB
-- ✅ Hiển thị thông tin real-time
+### 2. **Always Fresh Information**
+- ✅ Cache duration reduced to 1 hour (from 12 hours)
+- ✅ `!refresh <appid>` command for instant update
+- ✅ Automatic data fetching from SteamDB
+- ✅ Real-time information display
 
-### 3. **Thu Thập Lua Files Tự Động**
-- ✅ Scrape từ GitHub repositories
-- ✅ Tìm kiếm GitHub Gists
-- ✅ Quét các repo đã biết
-- ✅ Tự động download và lưu
+### 3. **Automatic Lua File Collection**
+- ✅ Scrape from GitHub repositories
+- ✅ Search GitHub Gists
+- ✅ Scan known repositories
+- ✅ Auto download and save
 
 ---
 
-## 📋 Lệnh Bot
+## 📋 Bot Commands
 
-### **Lệnh Người Dùng**
+### **User Commands**
 
 ```bash
-!<appid>              # Xem thông tin game
-!search <tên game>    # Tìm kiếm game
-!refresh <appid>      # Làm mới thông tin từ SteamDB
-!list                 # Danh sách game có sẵn
-!help                 # Hiển thị trợ giúp
+!<appid>              # View game info
+!search <game name>   # Search for games
+!refresh <appid>      # Refresh info from SteamDB
+!list                 # List available games
+!help                 # Show help
 ```
 
-### **Lệnh Admin**
+### **Admin Commands**
 
 ```bash
-!stats                # Xem thống kê bot
+!stats                # View bot statistics
 !reload               # Reload database & cache
-!clearcache           # Xóa toàn bộ cache
-!toggleautodelete     # Bật/tắt tự động xóa tin nhắn
-!collectlua           # Thu thập Lua files mới
+!clearcache           # Clear all cache
+!toggleautodelete     # Toggle message auto-delete
+!collectlua           # Collect new Lua files
 ```
 
 ---
 
-## 🚀 Cài Đặt & Chạy
+## 🚀 Installation & Run
 
-### **1. Cài đặt dependencies**
+### **1. Install dependencies**
 
 ```bash
 cd "e:\bot ngu luatool1.1\discord-lua-bot"
 npm install
 ```
 
-### **2. Chạy bot**
+### **2. Run bot**
 
 ```bash
 npm start
 ```
 
-### **3. Thu thập Lua files (chạy riêng)**
+### **3. Collect Lua files (manual run)**
 
 ```bash
 npm run collect-lua
 ```
 
-### **4. Cập nhật thông tin từ SteamDB (chạy riêng)**
+### **4. Update SteamDB info (manual run)**
 
 ```bash
 npm run update-steamdb
@@ -76,99 +76,99 @@ npm run update-steamdb
 
 ---
 
-## 📊 Ví Dụ Sử Dụng
+## 📊 Usage Examples
 
-### **Xem thông tin game**
+### **View game info**
 ```
 !1623730
 ```
-→ Hiển thị thông tin Palworld với UI đẹp
+→ Displays Palworld information with beautiful UI
 
-### **Tìm kiếm game**
+### **Search for a game**
 ```
 !search tekken
 ```
-→ Tìm tất cả game Tekken
+→ Finds all Tekken games
 
-### **Làm mới thông tin**
+### **Refresh information**
 ```
 !refresh 1623730
 ```
-→ Lấy thông tin mới nhất từ SteamDB cho Palworld
+→ Fetches latest info from SteamDB for Palworld
 
-### **Thu thập Lua files mới (Admin)**
+### **Collect new Lua files (Admin)**
 ```
 !collectlua
 ```
-→ Tự động tìm và download lua files từ GitHub
+→ Automatically finds and downloads lua files from GitHub
 
 ---
 
-## 🔧 Cấu Hình
+## 🔧 Configuration
 
-### **Giảm thời gian cache**
+### **Reduce Cache Duration**
 
 File: `lua_discord_bot.js`
 ```javascript
 CACHE_DURATION: 3600000, // 1 hour
 ```
 
-Có thể giảm xuống:
-- `1800000` = 30 phút
-- `900000` = 15 phút
-- `300000` = 5 phút
+Can be reduced to:
+- `1800000` = 30 minutes
+- `900000` = 15 minutes
+- `300000` = 5 minutes
 
-### **Tăng số lượng kết quả tìm kiếm**
+### **Increase Search Results**
 
 File: `lua_collector.js`
 ```javascript
-per_page: 100, // Tăng lên 100 (max)
+per_page: 100, // Increase to 100 (max)
 ```
 
 ---
 
-## 📁 Cấu Trúc File
+## 📁 File Structure
 
 ```
 discord-lua-bot/
-├── lua_discord_bot.js      # Bot chính
-├── lua_collector.js        # Thu thập Lua files
-├── steamdb_updater.js      # Cập nhật từ SteamDB
-├── lua_files/              # Thư mục chứa 4000+ lua files
-├── online_fix/             # Thư mục Online-Fix
-├── fix_files/              # Thư mục Crack/Fix
-├── game_info_cache.json    # Cache thông tin game
-├── collected_lua_log.json  # Log thu thập lua
-└── .env                    # Cấu hình tokens
+├── lua_discord_bot.js      # Main Bot
+├── lua_collector.js        # Lua File Collector
+├── steamdb_updater.js      # SteamDB Updater
+├── lua_files/              # Folder containing 4000+ lua files
+├── online_fix/             # Online-Fix Folder
+├── fix_files/              # Crack/Fix Folder
+├── game_info_cache.json    # Game Info Cache
+├── collected_lua_log.json  # Lua Collection Log
+└── .env                    # Token Configuration
 ```
 
 ---
 
-## 🎯 Nguồn Thu Thập Lua
+## 🎯 Lua Collection Sources
 
 ### **1. GitHub Repositories**
-- Tìm kiếm: `addappid filename:.lua`
-- Tìm kiếm: `setManifestid filename:.lua`
-- Quét các repo công khai
+- Search: `addappid filename:.lua`
+- Search: `setManifestid filename:.lua`
+- Scans public repos
 
 ### **2. GitHub Gists**
-- Quét gists công khai
-- Tìm file `.lua` với pattern AppID
+- Scans public gists
+- Finds `.lua` files with AppID patterns
 
 ### **3. Known Repositories**
 - `usercat280297/Luatool`
 - `SteamRE/DepotDownloader`
-- Các repo đã biết khác
+- Other known repos
 
-### **4. cs.rin.ru** (Đang phát triển)
-- Cần authentication
-- Sẽ được thêm trong phiên bản sau
+### **4. cs.rin.ru** (In Development)
+- Requires authentication
+- Will be added in future versions
 
 ---
 
-## 📈 Thống Kê
+## 📈 Statistics
 
-Sau khi chạy `!collectlua`, xem log:
+After running `!collectlua`, check log:
 
 ```json
 {
@@ -184,48 +184,48 @@ Sau khi chạy `!collectlua`, xem log:
 
 ---
 
-## ⚠️ Lưu Ý
+## ⚠️ Notes
 
-1. **Rate Limiting**: GitHub API giới hạn 5000 requests/hour
-2. **Token**: Cần GitHub token hợp lệ trong `.env`
-3. **Delay**: Script tự động delay 2s giữa các request
-4. **Cache**: Thông tin cache 1 giờ, dùng `!refresh` để cập nhật ngay
+1. **Rate Limiting**: GitHub API limits 5000 requests/hour
+2. **Token**: Requires valid GitHub token in `.env`
+3. **Delay**: Script automatically delays 2s between requests
+4. **Cache**: Info cached for 1 hour, use `!refresh` to update immediately
 
 ---
 
 ## 🐛 Troubleshooting
 
-### **Lỗi: "GitHub authentication failed"**
-→ Kiểm tra `GITHUB_TOKEN` trong `.env`
+### **Error: "GitHub authentication failed"**
+→ Check `GITHUB_TOKEN` in `.env`
 
-### **Lỗi: "Failed to fetch from SteamDB"**
-→ SteamDB có thể block, thử lại sau vài phút
+### **Error: "Failed to fetch from SteamDB"**
+→ SteamDB might be blocking, try again in a few minutes
 
-### **Không tìm thấy lua files mới**
-→ Chạy `npm run collect-lua` để thu thập
+### **No new lua files found**
+→ Run `npm run collect-lua` to collect
 
-### **Thông tin game cũ**
-→ Dùng `!refresh <appid>` để cập nhật
-
----
-
-## 📞 Hỗ Trợ
-
-Nếu gặp vấn đề, kiểm tra:
-1. File `.env` có đầy đủ tokens
-2. `npm install` đã chạy thành công
-3. Folder `lua_files/` tồn tại
-4. Bot có quyền gửi tin nhắn trong channel
+### **Old game info**
+→ Use `!refresh <appid>` to update
 
 ---
 
-## 🎉 Kết Luận
+## 📞 Support
 
-Bot đã được nâng cấp với:
-- ✅ UI đẹp hơn, responsive
-- ✅ Thông tin luôn mới nhất (cache 1h)
-- ✅ Tự động thu thập lua files
-- ✅ Lệnh refresh thủ công
-- ✅ Tích hợp SteamDB real-time
+If you encounter issues, check:
+1. `.env` file has all tokens
+2. `npm install` ran successfully
+3. `lua_files/` folder exists
+4. Bot has permission to send messages in channel
 
-**Chúc bạn sử dụng vui vẻ! 🚀**
+---
+
+## 🎉 Conclusion
+
+Bot has been upgraded with:
+- ✅ Better, responsive UI
+- ✅ Always fresh info (1h cache)
+- ✅ Automatic lua file collection
+- ✅ Manual refresh command
+- ✅ Real-time SteamDB integration
+
+**Happy using! 🚀**

@@ -1,12 +1,12 @@
-***Before use this bot, make sure you have render.com account and uptimerobot to auto-deploy***
+***Before using this bot, ensure you have a render.com account and uptimerobot for auto-deployment***
 
 # 🎮 Discord Lua Bot v2.0
 
 > **Enhanced Discord bot for Steam game management with beautiful UI, real-time data, and automatic lua collection**
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/usercat280297/Luatool)
-[![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
-[![License](https://img.shields.io/badge/license-ISC-orange.svg)](LICENSE)
+[![**Version**](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/usercat280297/Luatool)
+[![**Node**](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
+[![**License**](https://img.shields.io/badge/license-ISC-orange.svg)](LICENSE)
 
 ---
 
@@ -17,7 +17,7 @@
 - **Box Layout** - Clean, organized information display
 - **Color Coding** - Visual DRM warnings (Red/Orange/Blue/Green)
 - **Code Blocks** - Syntax-highlighted important info
-- **Vietnamese Support** - Localized labels
+- **English Support** - Fully localized labels
 
 ### 🔄 Real-time Data
 - **SteamDB Integration** - Always fresh game information
@@ -49,7 +49,7 @@ npm start
 !help
 ```
 
-**📖 Full guide**: [QUICKSTART.md](QUICKSTART.md)
+**📖 Full guide**: [**QUICKSTART.md**](QUICKSTART.md)
 
 ---
 
@@ -94,10 +94,10 @@ npm start
 ║  🎮 Steam Store • 📊 SteamDB  ║
 ╚═══════════════════════════════╝
 
-**╔═══════════ 📋 THÔNG TIN GAME ═══════════╗**
-Giá: 💰 $29.99
-Dung lượng: 💾 25 GB
-Phát hành: 📅 2024-01-19
+**╔═══════════ 📋 GAME INFORMATION ═══════════╗**
+Price: 💰 $29.99
+Size: 💾 25 GB
+Released: 📅 2024-01-19
 ```
 
 ### 2. **Real-time Updates** 🔄
@@ -110,7 +110,7 @@ Phát hành: 📅 2024-01-19
 - Finds 100-500+ new files
 - Validates format before saving
 
-**📖 Full changelog**: [CHANGELOG_v2.0.md](CHANGELOG_v2.0.md)
+**📖 Full changelog**: [**CHANGELOG_v2.0.md**](CHANGELOG_v2.0.md)
 
 ---
 
@@ -189,9 +189,9 @@ CACHE_DURATION: 3600000, // 1 hour
 
 ## 📖 Documentation
 
-- **[Quick Start](QUICKSTART.md)** - Get started in 3 steps
-- **[Usage Guide](USAGE_GUIDE.md)** - Detailed usage instructions
-- **[Changelog](CHANGELOG_v2.0.md)** - What's new in v2.0
+- **[**Quick Start**](QUICKSTART.md)** - Get started in 3 steps
+- **[**Usage Guide**](USAGE_GUIDE.md)** - Detailed usage instructions
+- **[**Changelog**](CHANGELOG_v2.0.md)** - What's new in v2.0
 
 ---
 
@@ -261,7 +261,7 @@ Contributions are welcome! Please:
 ## 📞 Support
 
 ### Issues?
-1. Check [USAGE_GUIDE.md](USAGE_GUIDE.md)
+1. Check [**USAGE_GUIDE.md**](USAGE_GUIDE.md)
 2. Run `node test_features.js`
 3. Check logs in `logs/` folder
 4. Open an issue on GitHub
@@ -311,7 +311,7 @@ npm run collect-lua
 
 ## 📜 License
 
-ISC License - see [LICENSE](LICENSE) file for details
+ISC License - see [**LICENSE**](LICENSE) file for details
 
 ---
 
@@ -327,9 +327,9 @@ ISC License - see [LICENSE](LICENSE) file for details
 
 ## 📊 Stats
 
-![GitHub stars](https://img.shields.io/github/stars/usercat280297/Luatool?style=social)
-![GitHub forks](https://img.shields.io/github/forks/usercat280297/Luatool?style=social)
-![GitHub issues](https://img.shields.io/github/issues/usercat280297/Luatool)
+![**GitHub stars**](https://img.shields.io/github/stars/usercat280297/Luatool?style=social)
+![**GitHub forks**](https://img.shields.io/github/forks/usercat280297/Luatool?style=social)
+![**GitHub issues**](https://img.shields.io/github/issues/usercat280297/Luatool)
 
 ---
 

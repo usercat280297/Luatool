@@ -1,21 +1,21 @@
 # Quick Start Guide - Game Crawler
 
-## Đã tạo 65 games với Lua support!
+## 65 Games with Lua Support Created!
 
-### Files quan trọng:
-- `games_list_final.csv` - Danh sách chính (format chuẩn)
-- `games_list_final_names.csv` - Có tên game
+### Important Files:
+- `games_list_final.csv` - Main list (standard format)
+- `games_list_final_names.csv` - With game names
 - `games_list_final.json` - JSON format
 
-### Cách sử dụng:
+### Usage:
 
-#### 1. Chạy nhanh (65 games có sẵn):
+#### 1. Quick Run (65 pre-configured games):
 ```bash
 python master_crawler.py
 ```
 
-#### 2. Cập nhật thêm games:
-Thêm vào `known_games.py`:
+#### 2. Add More Games:
+Add to `known_games.py`:
 ```python
 KNOWN_LUA_GAMES = {
     123456: "Your Game Name",
@@ -23,12 +23,12 @@ KNOWN_LUA_GAMES = {
 }
 ```
 
-#### 3. Tự động cập nhật:
+#### 3. Auto Update:
 ```bash
 python auto_update.py
 ```
 
-### Các nguồn dữ liệu:
+### Data Sources:
 
 1. **Known Games** (65 games)
    - Garry's Mod, Arma 3, RimWorld
@@ -36,31 +36,31 @@ python auto_update.py
    - Source Engine games
    - Strategy games (Civ, Stellaris, HOI4)
 
-2. **Steam API** (có thể mở rộng)
-   - Tìm theo keywords: lua, modding, scripting
+2. **Steam API** (expandable)
+   - Search by keywords: lua, modding, scripting
    - Rate limit: 1 req/s
 
 3. **Workshop** (15+ games)
-   - Games có Workshop support
+   - Games with Workshop support
    - Community mods
 
-4. **GitHub** (tự động search)
+4. **GitHub** (auto search)
    - Lua mod repositories
 
-### Mở rộng thêm:
+### Expanding Coverage:
 
-#### Thêm từ SteamDB:
-1. Vào https://steamdb.info
-2. Search "lua" hoặc "modding"
+#### Add from SteamDB:
+1. Go to https://steamdb.info
+2. Search for "lua" or "modding"
 3. Copy AppIDs
-4. Thêm vào `known_games.py`
+4. Add to `known_games.py`
 
-#### Thêm từ PCGamingWiki:
-1. Vào https://www.pcgamingwiki.com
-2. Tìm games có "Lua scripting"
-3. Lấy AppID từ Steam link
+#### Add from PCGamingWiki:
+1. Go to https://www.pcgamingwiki.com
+2. Find games with "Lua scripting"
+3. Get AppID from Steam link
 
-### Stats hiện tại:
+### Current Stats:
 - **Total: 65 games**
 - Source Engine: 10 games
 - Strategy/Sim: 15 games
@@ -68,7 +68,7 @@ python auto_update.py
 - RPG/Action: 20 games
 - Other: 10 games
 
-### Chạy định kỳ:
+### Scheduled Run:
 Windows Task Scheduler:
 ```
 Program: python
@@ -78,6 +78,6 @@ Trigger: Weekly
 ```
 
 ### Troubleshooting:
-- Lỗi encoding: Đã fix (dùng ASCII thay Unicode)
-- Rate limit: Thêm `time.sleep()` trong crawler
-- Cache: Xóa `game_cache.json` để refresh
+- **Encoding Error**: Fixed (using ASCII instead of Unicode)
+- **Rate limit**: Added `time.sleep()` in crawler
+- **Cache**: Delete `game_cache.json` to refresh

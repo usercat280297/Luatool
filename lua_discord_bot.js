@@ -32,7 +32,7 @@ const CONFIG = {
   MAX_FILE_SIZE_MB: 25,
   CACHE_DURATION: 0, // Always fetch fresh data
   
-  // AUTO-DELETE: Messages tự xóa sau 5 phút
+  // AUTO-DELETE: Messages auto-delete after 5 minutes
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
   ENABLE_AUTO_DELETE: true,
 };
@@ -190,7 +190,7 @@ const ICONS = {
 
 let database = { games: {}, stats: { totalDownloads: 0, totalSearches: 0 } };
 let gameInfoCache = {};
-let gameNamesIndex = {}; // Index tên games
+let gameNamesIndex = {}; // Game names index
 
 const client = new Client({
   intents: [
@@ -1202,18 +1202,18 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
 
 async function handleGameCommand(message, appId) {
   try {
-    const loadingMsg = await message.reply(`🔍 **Đang tìm game AppID: ${appId}...**`);
+    const loadingMsg = await message.reply(`🔍 **Searching for AppID: ${appId}...**`);
     scheduleMessageDeletion(loadingMsg);
     
-    // BƯỚC 1: Lấy thông tin từ SteamDB trước
-    await loadingMsg.edit(`📊 **Đang quét SteamDB...**`);
+    // STEP 1: Get info from SteamDB first
+    await loadingMsg.edit(`📊 **Scanning SteamDB...**`);
     const steamDBInfo = await scrapeSteamDB(appId);
     
     if (steamDBInfo?.name) {
-      await loadingMsg.edit(`✅ **Tìm thấy: ${steamDBInfo.name}**\n⏳ Đang lấy thông tin chi tiết...`);
+      await loadingMsg.edit(`✅ **Found: ${steamDBInfo.name}**\n⏳ Fetching details...`);
     }
     
-    // BƯỚC 2: Lấy thông tin từ Steam API
+    // STEP 2: Get info from Steam API
     let gameInfo = await getFullGameInfo(appId);
     
     if (!gameInfo) {
@@ -1248,7 +1248,7 @@ async function handleGameCommand(message, appId) {
         drm: {
           type: 'Unknown',
           severity: 'info',
-          icon: ICONS.question,
+          icon: ICONS.info,
           isDRMFree: false,
           needsOnlineFix: false,
         },
@@ -1282,7 +1282,7 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_lua_${appId}_0`)
-          .setLabel(`Tải Lua (${files.lua[0].sizeFormatted})`)
+          .setLabel(`Download Lua (${files.lua[0].sizeFormatted})`)
           .setStyle(ButtonStyle.Primary)
           .setEmoji('📜')
       );
@@ -1292,7 +1292,7 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_fix_${appId}_0`)
-          .setLabel(`Tải Crack (${files.fix[0].sizeFormatted})`)
+          .setLabel(`Download Crack (${files.fix[0].sizeFormatted})`)
           .setStyle(ButtonStyle.Success)
           .setEmoji('🔧')
       );
@@ -1303,7 +1303,7 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_crack_${appId}`)
-          .setLabel(`Tải Crack (Direct)`)
+          .setLabel(`Download Crack (Direct)`)
           .setStyle(ButtonStyle.Danger)
           .setEmoji('🔥')
       );
@@ -1313,7 +1313,7 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_online_${appId}_0`)
-          .setLabel(`Tải Online-Fix (${files.onlineFix[0].sizeFormatted})`)
+          .setLabel(`Download Online-Fix (${files.onlineFix[0].sizeFormatted})`)
           .setStyle(ButtonStyle.Danger)
           .setEmoji('🌐')
       );
@@ -1418,19 +1418,19 @@ async function searchGameByName(query) {
 
 async function handleSearchCommand(message, query) {
   try {
-    const loadingMsg = await message.reply(`${ICONS.info} Đang tìm trên Steam...`);
+    const loadingMsg = await message.reply(`${ICONS.info} Searching on Steam...`);
     scheduleMessageDeletion(loadingMsg);
     
     const results = await searchGameByName(query);
     
     if (results.length === 0) {
-      return loadingMsg.edit(`${ICONS.cross} Không tìm thấy game: "${query}"`);
+      return loadingMsg.edit(`${ICONS.cross} Game not found: "**${query}**"`);
     }
     
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setTitle(`${ICONS.game} Search Results: "${query}"`)
-      .setDescription(`Found ${results.length} game(s). Use \`!<appid>\` to view details.`);
+      .setTitle(`${ICONS.game} Search Results: "**${query}**"`)
+      .setDescription(`Found ${results.length} game(s). Use \`!${CONFIG.COMMAND_PREFIX}<appid>\` to view details.`);
     
     // Show results in pages if too many
     const maxDisplay = 15;
@@ -1475,7 +1475,7 @@ async function handleHelpCommand(message) {
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle(`${ICONS.game} Discord Lua Bot - Enhanced v2.0`)
-    .setDescription('Bot với nhiều tính năng mới: Auto-delete, Online-Fix, Expanded DRM database')
+    .setDescription('Bot with new features: Auto-delete, Online-Fix, Expanded DRM database')
     .addFields(
       {
         name: `${ICONS.sparkles} Commands`,
@@ -1517,7 +1517,7 @@ async function handleHelpCommand(message) {
         '`!reload` - Reload database',
         '`!clearcache` - Clear cache',
         '`!toggleautodelete` - Toggle auto-delete',
-        '`!collectlua` - Thu thập Lua files mới',
+        '`!collectlua` - Collect new Lua files',
         '`!backup` - Backup project to GitHub',
       ].join('\n')
     });
@@ -1563,7 +1563,7 @@ async function handleStatsCommand(message) {
     .setColor(0xFFAA00)
     .setTitle(`📊 BOT STATISTICS`)
     .addFields(
-      { name: '🎮 Game Unique', value: `${uniqueGames}`, inline: true },
+      { name: '🎮 Unique Games', value: `${uniqueGames}`, inline: true },
       { name: '📁 Total Files', value: `${totalFiles}`, inline: true },
       { name: '💾 Cached Info', value: `${cachedGames}`, inline: true },
       { name: '⬇️ Downloads', value: `${database.stats.totalDownloads}`, inline: true },
@@ -1571,7 +1571,7 @@ async function handleStatsCommand(message) {
       { name: '⏱️ Uptime', value: `${Math.floor(process.uptime() / 3600)}h`, inline: true }
     )
     .setFooter({ 
-      text: `Updated: ${new Date().toLocaleString('vi-VN')}`,
+      text: `Updated: ${new Date().toLocaleString('en-US')}`,
       iconURL: client.user?.avatarURL()
     })
     .setTimestamp();
@@ -1594,28 +1594,28 @@ async function handleClearCacheCommand(message) {
 
 async function handleRefreshCommand(message, appId) {
   try {
-    const loadingMsg = await message.reply(`${ICONS.info} Đang làm mới thông tin từ SteamDB...`);
+    const loadingMsg = await message.reply(`${ICONS.info} Refreshing info from SteamDB...`);
     scheduleMessageDeletion(loadingMsg);
     
     // Force refresh from SteamDB
     const gameInfo = await getFullGameInfo(appId, true);
     
     if (!gameInfo) {
-      return loadingMsg.edit(`${ICONS.cross} Không thể lấy thông tin mới cho AppID: \`${appId}\``);
+      return loadingMsg.edit(`${ICONS.cross} Cannot fetch new info for AppID: \`${appId}\``);
     }
     
     const refreshMsg = await loadingMsg.edit(
-      `${ICONS.check} **Đã cập nhật thông tin mới!**\n\n` +
+      `${ICONS.check} **Info updated successfully!**\n\n` +
       `${ICONS.game} Game: **${gameInfo.name}**\n` +
       `${ICONS.size} Size: **${gameInfo.sizeFormatted || 'Unknown'}**\n` +
       `${ICONS.price} Price: **${gameInfo.price}**\n` +
-      `${ICONS.info} Dùng \`!${appId}\` để xem chi tiết`
+      `${ICONS.info} Use \`!${appId}\` to view details`
     );
     scheduleMessageDeletion(refreshMsg);
     
   } catch (error) {
     log('ERROR', 'Error in handleRefreshCommand', { appId, error: error.message });
-    message.reply(`${ICONS.cross} Lỗi khi làm mới thông tin!`).catch(() => {});
+    message.reply(`${ICONS.cross} Error refreshing info!`).catch(() => {});
   }
 }
 
@@ -1626,9 +1626,9 @@ async function handleCollectLuaCommand(message) {
   
   try {
     const loadingMsg = await message.reply(
-      `${ICONS.info} **Đang thu thập Lua files từ nhiều nguồn...**\n\n` +
-      `${ICONS.sparkles} Nguồn: GitHub, Gists, Known Repos\n` +
-      `${ICONS.warning} Quá trình này có thể mất vài phút...`
+      `${ICONS.info} **Collecting Lua files from multiple sources...**\n\n` +
+      `${ICONS.sparkles} Sources: GitHub, Gists, Known Repos\n` +
+      `${ICONS.warning} This process may take a few minutes...`
     );
     scheduleMessageDeletion(loadingMsg);
     
@@ -1644,16 +1644,16 @@ async function handleCollectLuaCommand(message) {
     const allGames = scanAllGames();
     
     const resultMsg = await loadingMsg.edit(
-      `${ICONS.check} **Thu thập hoàn tất!**\n\n` +
-      `${ICONS.fire} Tổng số game: **${allGames.length}**\n` +
-      `${ICONS.info} Thời gian: **${duration}s**\n` +
-      `${ICONS.sparkles} Dùng \`!list\` để xem danh sách`
+      `${ICONS.check} **Collection complete!**\n\n` +
+      `${ICONS.fire} Total games: **${allGames.length}**\n` +
+      `${ICONS.info} Duration: **${duration}s**\n` +
+      `${ICONS.sparkles} Use \`!list\` to view list`
     );
     scheduleMessageDeletion(resultMsg);
     
   } catch (error) {
     log('ERROR', 'Error in handleCollectLuaCommand', { error: error.message });
-    message.reply(`${ICONS.cross} Lỗi khi thu thập Lua files!`).catch(() => {});
+    message.reply(`${ICONS.cross} Error collecting Lua files!`).catch(() => {});
   }
 }
 
@@ -1955,30 +1955,29 @@ client.on('interactionCreate', async (interaction) => {
       const crackLink = CRACK_LINKS[appId];
       if (!crackLink) {
         return interaction.reply({
-          content: '❌ **Link không tồn tại hoặc đã bị xóa!**',
+          content: '❌ **Link does not exist or has been deleted!**',
           ephemeral: true
         });
       }
 
       // Determine requirements based on game info
       const gameInfo = await getFullGameInfo(appId);
-      let requirements = 'Giải nén và chép đè vào thư mục game.';
+      let requirements = 'Extract and overwrite game folder.';
       
       if (gameInfo) {
         if (gameInfo.publisher?.isUbisoft || gameInfo.name.toLowerCase().includes('assassin') || gameInfo.name.toLowerCase().includes('ubisoft')) {
-          requirements = '🛠️ **Yêu cầu:** Cần cài đặt **Ubisoft Connect** và đăng nhập tài khoản giả lập (nếu cần).';
+          requirements = '🛠️ **Requirement:** Install **Ubisoft Connect** and login with emulator account (if needed).';
         } else if (gameInfo.isEAGame || gameInfo.name.toLowerCase().includes('fifa') || gameInfo.name.toLowerCase().includes('ea sports')) {
-          requirements = '🛠️ **Yêu cầu:** Cần cài đặt **EA App** để chạy game.';
+          requirements = '🛠️ **Requirement:** Install **EA App** to run the game.';
         } else if (gameInfo.publisher?.isRockstar || gameInfo.publisher?.name?.includes('Rockstar')) {
-          requirements = '🛠️ **Yêu cầu:** Cần cài đặt **Rockstar Games Launcher**.';
+          requirements = '🛠️ **Requirement:** Install **Rockstar Games Launcher**.';
         }
       }
 
       return interaction.reply({
-        content: `🔥 **LINK TẢI CRACK CHO GAME: ${gameInfo?.name || appId}**\n\n` +
-                 `🔗 **Link tải:** ${crackLink}\n\n` +
+        content: `🔥 **CRACK DOWNLOAD LINK FOR GAME: [**${gameInfo?.name || appId}**](${crackLink})**\n\n` +
                  `${requirements}\n\n` +
-                 `⚠️ *Link này được cung cấp trực tiếp, hãy tự chịu trách nhiệm khi sử dụng.*`,
+                 `⚠️ *This link is provided directly, use at your own risk.*`,
         ephemeral: true
       });
     }
@@ -2004,7 +2003,7 @@ client.on('interactionCreate', async (interaction) => {
     if (!fileToSend || !fs.existsSync(fileToSend.path)) {
       await scheduleInteractionDeletion(interaction, {
         content: `❌ **File not found!**\n\n` +
-                 `⏱️ *Tin nhắn này sẽ tự động xóa sau 5 phút*`
+                 `⏱️ *This message will auto-delete in 5 minutes*`
       });
       return;
     }
@@ -2027,7 +2026,7 @@ client.on('interactionCreate', async (interaction) => {
                    `• Check if GitHub token is configured\n` +
                    `• Check if repository exists and bot has access\n` +
                    `• File size: ${fileToSend.sizeFormatted}\n\n` +
-                   `⏱️ *Tin nhắn này sẽ tự động xóa sau 5 phút*`
+                   `⏱️ *This message will auto-delete in 5 minutes*`
         });
         return;
       }
@@ -2039,10 +2038,10 @@ client.on('interactionCreate', async (interaction) => {
           fields: [
             { name: '📁 File', value: fileToSend.name, inline: false },
             { name: '📊 Size', value: fileToSend.sizeFormatted, inline: false },
-            { name: '⏱️ Auto-Delete', value: 'Tin nhắn sẽ tự xóa sau 5 phút', inline: false },
-            { name: '🔗 Link', value: `[⬇️ CLICK HERE TO DOWNLOAD](${downloadUrl})`, inline: false }
+            { name: '⏱️ Auto-Delete', value: 'This message will auto-delete in 5 minutes', inline: false },
+            { name: '🔗 Link', value: `[**⬇️ CLICK HERE TO DOWNLOAD**](${downloadUrl})`, inline: false }
           ],
-          footer: { text: '✨ Link GitHub - Không bao giờ hết hạn' }
+          footer: { text: '✨ GitHub Link - Never expires' }
         }]
       });
       return;
@@ -2086,7 +2085,7 @@ client.on('interactionCreate', async (interaction) => {
       if (!interaction.replied) {
         await scheduleInteractionDeletion(interaction, {
           content: `❌ **Error:** \`${error.message}\`\n\n` +
-                   `⏱️ *Tin nhắn này sẽ tự động xóa sau 5 phút*`
+                   `⏱️ *This message will auto-delete in 5 minutes*`
         });
       }
     } catch (e) {

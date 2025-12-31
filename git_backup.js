@@ -50,7 +50,7 @@ async function backupToGitHub() {
     await runCommand('git add .');
 
     // 3. Commit
-    const timestamp = new Date().toLocaleString('vi-VN');
+    const timestamp = new Date().toLocaleString('en-US');
     const commitMsg = `Auto backup: ${timestamp}`;
     
     try {
@@ -65,8 +65,15 @@ async function backupToGitHub() {
       }
     }
 
-    // 4. Configure remote (optional, ensuring we use the token)
-    // Instead of setting remote, we can push to the URL directly
+    // 4. Pull latest changes (Rebase to keep history clean)
+    log('Pulling latest changes from GitHub...');
+    try {
+      await runCommand(`git pull "${remoteUrl}" ${CONFIG.BRANCH} --rebase`);
+    } catch (e) {
+      log('⚠️ Pull failed, might be conflicts or first push.');
+    }
+
+    // 5. Push to GitHub
     log('Pushing to GitHub...');
     await runCommand(`git push "${remoteUrl}" ${CONFIG.BRANCH}`);
 

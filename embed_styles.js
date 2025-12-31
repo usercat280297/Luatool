@@ -26,7 +26,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   // Set vibrant color based on DRM severity
   embed.setColor(COLORS[gameInfo.drm.severity] || COLORS.default);
   
-  // ACN branding với GIF icon
+  // ACN branding with GIF icon
   embed.setAuthor({
     name: 'ACN GAME LIBRARY',
     iconURL: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif'
@@ -35,10 +35,10 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   embed.setTitle(`🎮 ${gameInfo.name}`);
   embed.setURL(`https://store.steampowered.com/app/${appId}`);
   
-  // Thumbnail GIF nhỏ ở góc trên phải
+  // Small GIF thumbnail top right
   embed.setThumbnail('https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dXFjb3lrc3pidTJ6cTEzaGc3enJreno0MjQ3bWxscDVibXQwZTZ3NSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif');
   
-  // Ảnh game lớn ở dưới
+  // Large game image at bottom
   if (gameInfo.headerImage) {
     embed.setImage(gameInfo.headerImage);
   }
@@ -52,8 +52,8 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
     description = `*${desc}*\n\n`;
   }
   
-  // Links with better formatting
-  description += `🔗 [Steam Store](https://store.steampowered.com/app/${appId}) • 📊 [SteamDB](https://steamdb.info/app/${appId})`;
+  // Links with better formatting and BOLD
+  description += `🔗 [**Steam Store**](https://store.steampowered.com/app/${appId}) • 📊 [**SteamDB**](https://steamdb.info/app/${appId})`;
   embed.setDescription(description);
   
   // ═══ GAME INFO - Beautiful Layout (Responsive 2-column) ═══
@@ -64,8 +64,8 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
     : '**N/A**';
   
   embed.addFields(
-    { name: '💰 Giá', value: priceDisplay, inline: true },
-    { name: '💾 Dung lượng', value: sizeDisplay, inline: true }
+    { name: '💰 Price', value: priceDisplay, inline: true },
+    { name: '💾 Size', value: sizeDisplay, inline: true }
   );
 
   // Row 2
@@ -73,12 +73,12 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   const dlcDisplay = gameInfo.dlcCount > 0 ? `**${gameInfo.dlcCount}** DLC` : '**0** DLC';
   
   embed.addFields(
-    { name: '🔄 Cập nhật', value: releaseDisplay, inline: true },
+    { name: '🔄 Last Update', value: releaseDisplay, inline: true },
     { name: '🎯 DLC', value: dlcDisplay, inline: true }
   );
   
   // Row 3
-  const langDisplay = `**${gameInfo.languageCount}** ngôn ngữ`;
+  const langDisplay = `**${gameInfo.languageCount}** languages`;
   const ratingDisplay = gameInfo.rating 
     ? `👍 **${gameInfo.rating}** (${formatNumber(gameInfo.reviewCount)})`
     : gameInfo.recommendations > 0 
@@ -86,7 +86,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
     : '**N/A**';
   
   embed.addFields(
-    { name: '🌍 Ngôn ngữ', value: langDisplay, inline: true },
+    { name: '🌍 Languages', value: langDisplay, inline: true },
     { name: '📊 Rating', value: ratingDisplay, inline: true }
   );
   
@@ -105,15 +105,15 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   
   // ═══ DRM WARNING SECTION - Enhanced ═══
   if (gameInfo.drm.severity === 'critical') {
-    const gameName = gameInfo.name || "Game này";
+    const gameName = gameInfo.name || "This game";
     embed.addFields({
-      name: '🚫 ⚠️ CẢNH BÁO DENUVO',
+      name: '🚫 ⚠️ DENUVO WARNING',
       value: 
         '```diff\n' +
         `- [CRITICAL WARNING]\n` +
-        `- ${gameName} sử dụng DENUVO Anti-Tamper\n` +
-        '- Crack có thể không ổn định hoặc chưa có\n' +
-        '! Chỉ tải nếu bạn biết cách bypass hoặc đã có crack\n' +
+        `- ${gameName} uses DENUVO Anti-Tamper\n` +
+        '- Crack might be unstable or unavailable\n' +
+        '! Only download if you have a working crack/bypass\n' +
         '```',
       inline: false
     });
@@ -124,9 +124,9 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
       name: `🛡️ ${acName.toUpperCase()}`,
       value: 
         '```yaml\n' +
-        `Loại: ${acName}\n` +
-        'Yêu cầu: Bypass đặc biệt\n' +
-        'Giải pháp: Tải Crack/Fix để chơi online\n' +
+        `Type: ${acName}\n` +
+        'Requirement: Special Bypass\n' +
+        'Solution: Download Crack/Fix for Online play\n' +
         '```',
       inline: false
     });
@@ -135,8 +135,8 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
       name: '✅ DRM-FREE',
       value: 
         '```diff\n' +
-        '+ Game KHÔNG CÓ bảo vệ DRM\n' +
-        '+ Tải về, giải nén, chơi ngay!\n' +
+        '+ Game has NO DRM Protection\n' +
+        '+ Download, Extract, and Play!\n' +
         '```',
       inline: false
     });
@@ -159,7 +159,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   if (files.onlineFix.length > 0) {
     fileInfo.push(`🌐 **Online-Fix** \`${files.onlineFix[0].sizeFormatted}\``);
   } else if (hasMultiplayerFeatures) {
-    fileInfo.push('⚠️ **Online-Fix** `Chưa có`');
+    fileInfo.push('⚠️ **Online-Fix** `Not available`');
   }
   
   if (fileInfo.length > 0) {
@@ -170,23 +170,23 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
     });
   }
   
-  // Hướng dẫn cài Online-Fix
+  // Installation Guide for Online-Fix
   if (files.onlineFix.length > 0) {
     embed.addFields({
-      name: '📖 HƯỚNG DẪN CÀI ONLINE-FIX',
-      value: '```\n1. Tải xuống Online-Fix\n2. Giải nén file\n3. Copy vào thư mục game gốc\n```',
+      name: '📖 ONLINE-FIX INSTALLATION GUIDE',
+      value: '```\n1. Download Online-Fix\n2. Extract files\n3. Copy to game folder\n```',
       inline: false
     });
   }
   
   // EA Game & Early Access notices
   const notices = [];
-  if (gameInfo.isEAGame) notices.push({ name: '⚙️ EA GAME', value: 'Cần Origin/EA App', inline: true });
-  if (gameInfo.isEarlyAccess) notices.push({ name: '🚧 EARLY ACCESS', value: 'Game chưa hoàn thành', inline: true });
+  if (gameInfo.isEAGame) notices.push({ name: '⚙️ EA GAME', value: 'Requires Origin/EA App', inline: true });
+  if (gameInfo.isEarlyAccess) notices.push({ name: '🚧 EARLY ACCESS', value: 'Game under development', inline: true });
   if (notices.length > 0) embed.addFields(...notices);
   
   embed.setFooter({
-    text: `App ID: ${appId} • ${new Date().toLocaleDateString('vi-VN')} • Tự động xóa sau 5 phút`,
+    text: `App ID: ${appId} • ${new Date().toLocaleDateString('en-US')} • Auto-delete in 5min`,
     iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
   });
   
