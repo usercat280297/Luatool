@@ -1186,14 +1186,12 @@ async function handleGameCommand(message, appId) {
     
     // Create download buttons
     const rows = [];
-    const row = new ActionRowBuilder();
+    const row1 = new ActionRowBuilder(); // For Local Files (Lua, Crack File)
+    const row2 = new ActionRowBuilder(); // For Links (Crack Link, Online-Fix)
     
-    // Buttons logic (already checked links above, just need to re-use variables if needed, 
-    // but the original code re-checks CRACK_LINKS[appId] inside the block which is fine, 
-    // or we can just proceed since we know at least one thing exists)
-
+    // Row 1: Local Files
     if (files.lua.length > 0) {
-      row.addComponents(
+      row1.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_lua_${appId}_0`)
           .setLabel(`Download Lua (${files.lua[0].sizeFormatted})`)
@@ -1203,7 +1201,7 @@ async function handleGameCommand(message, appId) {
     }
     
     if (files.fix.length > 0) {
-      row.addComponents(
+      row1.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_fix_${appId}_0`)
           .setLabel(`Download Crack (${files.fix[0].sizeFormatted})`)
@@ -1212,9 +1210,10 @@ async function handleGameCommand(message, appId) {
       );
     }
 
+    // Row 2: Links & Online-Fix
     // Add Direct Crack Link Button if available
     if (crackLink) {
-      row.addComponents(
+      row2.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_crack_${appId}`)
           .setLabel(`Download Crack (Direct)`)
@@ -1225,7 +1224,7 @@ async function handleGameCommand(message, appId) {
     
     // Add Direct Online-Fix Link Button if available
     if (onlineFixLink) {
-      row.addComponents(
+      row2.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_online_${appId}`)
           .setLabel(`Download Online-Fix`)
@@ -1234,20 +1233,16 @@ async function handleGameCommand(message, appId) {
       );
     }
     
+    // Legacy Online-Fix File button removed to simplify layout as requested
+    /*
     if (files.onlineFix.length > 0) {
-      // Deprecated: Kept for compatibility if any files still remain in list (should be empty now)
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`dl_onlinefile_${appId}_0`) // Changed ID to avoid conflict
-          .setLabel(`Download Online-Fix (Legacy)`)
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('📁')
-      );
+      // ...
     }
+    */
     
-    if (row.components.length > 0) {
-      rows.push(row);
-    }
+    // Add rows to message if they have components
+    if (row1.components.length > 0) rows.push(row1);
+    if (row2.components.length > 0) rows.push(row2);
     
     const responseMsg = await loadingMsg.edit({
       content: null,
