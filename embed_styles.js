@@ -1,10 +1,11 @@
 // ============================================
 // ENHANCED EMBED STYLES FOR DISCORD BOT
+// MOBILE OPTIMIZED EDITION
 // ============================================
 
 const { EmbedBuilder } = require('discord.js');
 
-// Vibrant color palette
+// Vibrant color palette - High Contrast for Dark Mode
 const COLORS = {
   critical: 0xE74C3C,  // Denuvo - Bright Red
   warning: 0xF39C12,   // Anti-cheat - Bright Orange
@@ -35,85 +36,94 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   embed.setTitle(`🎮 ${gameInfo.name}`);
   embed.setURL(`https://store.steampowered.com/app/${appId}`);
   
-  // Small GIF thumbnail top right
+  // Small GIF thumbnail top right - Keep for visual appeal
   embed.setThumbnail('https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dXFjb3lrc3pidTJ6cTEzaGc3enJreno0MjQ3bWxscDVibXQwZTZ3NSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif');
   
-  // Large game image at bottom
+  // Large game image at bottom - Mobile users love big images
   if (gameInfo.headerImage) {
     embed.setImage(gameInfo.headerImage);
   }
   
-  // Short description with italic formatting
+  // Description: Short & Punchy for Mobile
   let description = '';
   if (gameInfo.shortDescription) {
-    const desc = gameInfo.shortDescription.length > 180 
-      ? gameInfo.shortDescription.substring(0, 180) + '...'
+    const desc = gameInfo.shortDescription.length > 150 
+      ? gameInfo.shortDescription.substring(0, 150) + '...'
       : gameInfo.shortDescription;
     description = `*${desc}*\n\n`;
   }
   
-  // Links with better formatting and BOLD
-  description += `🔗 [**Steam Store**](https://store.steampowered.com/app/${appId}) • 📊 [**SteamDB**](https://steamdb.info/app/${appId})`;
+  // Links: Each on its own line for better touch targets
+  description += `🔗 [**Steam Store**](https://store.steampowered.com/app/${appId})\n`;
+  description += `📊 [**SteamDB Info**](https://steamdb.info/app/${appId})`;
   embed.setDescription(description);
   
-  // ═══ GAME INFO - Beautiful Layout (Responsive 2-column) ═══
-  // Row 1
-  const priceDisplay = gameInfo.isFree ? '🆓 **Free**' : `**${gameInfo.price}**`;
+  // ═══ MOBILE OPTIMIZED GRID LAYOUT ═══
+  // Use Code Blocks (`) for High Contrast Values
+  
+  // Row 1: The Essentials (Price & Size)
+  const priceDisplay = gameInfo.isFree ? '`🆓 Free`' : `\`${gameInfo.price}\``;
   const sizeDisplay = gameInfo.sizeFormatted 
-    ? `**${gameInfo.sizeFormatted}**${gameInfo.sizeType === 'FULL' ? ' *(+DLC)*' : ''}`
-    : '**N/A**';
+    ? `\`${gameInfo.sizeFormatted}\`${gameInfo.sizeType === 'FULL' ? ' *(+DLC)*' : ''}`
+    : '`N/A`';
   
   embed.addFields(
     { name: '💰 Price', value: priceDisplay, inline: true },
     { name: '💾 Size', value: sizeDisplay, inline: true }
   );
 
-  // Row 2
-  const releaseDisplay = `**${gameInfo.lastUpdate || gameInfo.releaseDate}**`;
-  const dlcDisplay = gameInfo.dlcCount > 0 ? `**${gameInfo.dlcCount}** DLC` : '**0** DLC';
-  
-  embed.addFields(
-    { name: '🔄 Last Update', value: releaseDisplay, inline: true },
-    { name: '🎯 DLC', value: dlcDisplay, inline: true }
-  );
-  
-  // Row 3
-  const langDisplay = `**${gameInfo.languageCount}** languages`;
+  // Row 2: Quality Indicators
+  const langDisplay = `\`${gameInfo.languageCount} Langs\``;
   const ratingDisplay = gameInfo.rating 
-    ? `👍 **${gameInfo.rating}** (${formatNumber(gameInfo.reviewCount)})`
+    ? `\`👍 ${gameInfo.rating}\` (${formatNumber(gameInfo.reviewCount)})`
     : gameInfo.recommendations > 0 
-    ? `⭐ **${formatNumber(gameInfo.recommendations)}**` 
-    : '**N/A**';
+    ? `\`⭐ ${formatNumber(gameInfo.recommendations)}\`` 
+    : '`N/A`';
   
   embed.addFields(
     { name: '🌍 Languages', value: langDisplay, inline: true },
     { name: '📊 Rating', value: ratingDisplay, inline: true }
   );
   
-  // Row 4
-  const devName = (gameInfo.developers[0] || 'Unknown').substring(0, 22);
-  const pubName = gameInfo.publisher.name.substring(0, 22);
+  // Row 3: Updates
+  const releaseDisplay = `\`${gameInfo.lastUpdate || gameInfo.releaseDate}\``;
+  const dlcDisplay = gameInfo.dlcCount > 0 ? `\`${gameInfo.dlcCount} DLC\`` : '`0 DLC`';
   
   embed.addFields(
-    { name: '👨‍💻 Developer', value: `**${devName}**`, inline: true },
-    { name: '🏢 Publisher', value: `**${pubName}**`, inline: true }
+    { name: '🔄 Updated', value: releaseDisplay, inline: true },
+    { name: '🎯 DLC', value: dlcDisplay, inline: true }
   );
 
-  // DRM Row (Full width for visibility)
-  const drmBadge = gameInfo.drm.isDRMFree ? '✅ **DRM-Free**' : `${gameInfo.drm.icon} **${gameInfo.drm.type}**`;
-  embed.addFields({ name: '🔐 DRM Status', value: drmBadge, inline: false });
+  // Row 4: Credits (Merged for full width - prevents text wrapping on mobile)
+  const devName = (gameInfo.developers[0] || 'Unknown').substring(0, 30);
+  const pubName = gameInfo.publisher.name.substring(0, 30);
   
-  // ═══ DRM WARNING SECTION - Enhanced ═══
+  // Check if Dev and Pub are same to avoid redundancy
+  const credits = devName === pubName 
+    ? `**Studio:** ${devName}` 
+    : `**Dev:** ${devName}\n**Pub:** ${pubName}`;
+    
+  embed.addFields(
+    { name: '🛠️ Studio / Credits', value: credits, inline: false }
+  );
+
+  // Row 5: DRM Status (Critical for this bot)
+  const drmBadge = gameInfo.drm.isDRMFree 
+    ? '✅ **DRM-Free** (No Protection)' 
+    : `${gameInfo.drm.icon} **${gameInfo.drm.type}**`;
+    
+  embed.addFields({ name: '🔐 Protection', value: drmBadge, inline: false });
+  
+  // ═══ WARNINGS & ALERTS (Full Width) ═══
   if (gameInfo.drm.severity === 'critical') {
     const gameName = gameInfo.name || "This game";
     embed.addFields({
-      name: '🚫 ⚠️ DENUVO WARNING',
+      name: '🚫 DENUVO DETECTED',
       value: 
         '```diff\n' +
-        `- [CRITICAL WARNING]\n` +
-        `- ${gameName} uses DENUVO Anti-Tamper\n` +
-        '- Crack might be unstable or unavailable\n' +
-        '! Only download if you have a working crack/bypass\n' +
+        `- WARNING: ${gameName}\n` +
+        '- Uses DENUVO Anti-Tamper\n' +
+        '! Check crack status before downloading\n' +
         '```',
       inline: false
     });
@@ -125,8 +135,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
       value: 
         '```yaml\n' +
         `Type: ${acName}\n` +
-        'Requirement: Special Bypass\n' +
-        'Solution: Download Crack/Fix for Online play\n' +
+        'Note: Requires Special Bypass\n' +
         '```',
       inline: false
     });
@@ -142,7 +151,8 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
     });
   }
   
-  // ═══ FILE STATUS - Enhanced Display ═══
+  // ═══ FILE DOWNLOADS ═══
+  // Check for multiplayer/online features
   const hasMultiplayerFeatures = gameInfo.hasMultiplayer || 
                                   gameInfo.drm.needsOnlineFix ||
                                   gameInfo.categories?.some(c => 
@@ -164,7 +174,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   
   if (fileInfo.length > 0) {
     embed.addFields({
-      name: '📦 FILES AVAILABLE',
+      name: '📦 AVAILABLE FILES',
       value: fileInfo.join('\n'),
       inline: false
     });
@@ -173,20 +183,15 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   // Installation Guide for Online-Fix
   if (files.onlineFix.length > 0) {
     embed.addFields({
-      name: '📖 ONLINE-FIX INSTALLATION GUIDE',
+      name: '📖 INSTALL GUIDE',
       value: '```\n1. Download Online-Fix\n2. Extract files\n3. Copy to game folder\n```',
       inline: false
     });
   }
   
-  // EA Game & Early Access notices
-  const notices = [];
-  if (gameInfo.isEAGame) notices.push({ name: '⚙️ EA GAME', value: 'Requires Origin/EA App', inline: true });
-  if (gameInfo.isEarlyAccess) notices.push({ name: '🚧 EARLY ACCESS', value: 'Game under development', inline: true });
-  if (notices.length > 0) embed.addFields(...notices);
-  
+  // Footer
   embed.setFooter({
-    text: `App ID: ${appId} • ${new Date().toLocaleDateString('en-US')} • Auto-delete in 5min`,
+    text: `ID: ${appId} • ${new Date().toLocaleDateString('en-US')} • Auto-delete: 5m`,
     iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
   });
   

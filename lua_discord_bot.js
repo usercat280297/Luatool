@@ -1975,7 +1975,8 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       return interaction.reply({
-        content: `🔥 **CRACK DOWNLOAD LINK FOR GAME: [**${gameInfo?.name || appId}**](${crackLink})**\n\n` +
+        content: `🔥 **CRACK DOWNLOAD LINK FOR GAME: ${gameInfo?.name || appId}**\n` +
+                 `[**Download crack file here**](${crackLink})\n\n` +
                  `${requirements}\n\n` +
                  `⚠️ *This link is provided directly, use at your own risk.*`,
         ephemeral: true
