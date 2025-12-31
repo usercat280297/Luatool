@@ -75,8 +75,8 @@ npm start
 ## 📊 Statistics
 
 ```
-✅ 4,047+ Lua files
-✅ 6 Online-Fix files
+✅ 29,947+ Lua files
+✅ 30 Online-Fix files
 ✅ Real-time SteamDB data
 ✅ 1-hour smart cache
 ✅ Multi-source collection
@@ -332,6 +332,7 @@ ISC License - see [LICENSE](LICENSE) file for details
 ---
 
 ## 🎉 Thank You!
+## I'll update soon :3
 
 Made by crackvingheo
 
