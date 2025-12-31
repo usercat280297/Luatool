@@ -1251,31 +1251,17 @@ async function handleGameCommand(message, appId) {
       );
     }
 
-    // 3. Download Crack (Link) - Create separate button for each link
+    // 3. Download Crack (Link) - Single button with all links inside
     if (crackLink) {
       const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
-      // Create separate button for each crack link
-      crackLinks.forEach((link, idx) => {
-        // If we have more than 1 link, create multiple buttons
-        // But limit to max 2 buttons per row (Discord limit is 5 buttons per row)
-        if (crackLinks.length === 1) {
-          row.addComponents(
-            new ButtonBuilder()
-              .setCustomId(`dl_crack_${appId}_${idx}`)
-              .setLabel(`🔥 Download Crack`)
-              .setStyle(ButtonStyle.Danger)
-              .setEmoji('🔥')
-          );
-        } else {
-          row.addComponents(
-            new ButtonBuilder()
-              .setCustomId(`dl_crack_${appId}_${idx}`)
-              .setLabel(`🔥 Crack Link ${idx + 1}`)
-              .setStyle(ButtonStyle.Danger)
-              .setEmoji('🔥')
-          );
-        }
-      });
+      // Create only ONE button for all crack links
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`dl_crack_${appId}_0`)
+          .setLabel(`🔥 Download Crack${crackLinks.length > 1 ? ` (${crackLinks.length} links)` : ''}`)
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🔥')
+      );
     }
 
     // 4. Download Crack (File) - REMOVED per user request
@@ -1944,44 +1930,41 @@ client.on('interactionCreate', async (interaction) => {
         }
       }
 
-      // Support multiple crack links
+      // Support multiple crack links - show all in one beautiful embed
       const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
-      const linkIdx = parseInt(fileIdx || '0');
-      const selectedLink = crackLinks[linkIdx] || crackLinks[0];
       
       // GIF for crack button
       const crackGif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZtpgLSKicg4p1i8/giphy.gif";
       
-      const linksField = crackLinks.length > 1
-        ? `**[🔗 LINK ${linkIdx + 1}](${selectedLink})**\n${crackLinks.map((link, idx) => 
-            idx !== linkIdx ? `[🔗 LINK ${idx + 1}](${link})` : null
-          ).filter(Boolean).join(' | ')}`
-        : `**[🔗 CLICK ĐÂY ĐỂ TẢI](${selectedLink})**`;
+      // Beautiful formatted links
+      const linksField = crackLinks.map((link, idx) => 
+        `**[🔗 Download Link ${idx + 1}](${link})**`
+      ).join('\n');
 
       return interaction.reply({
         embeds: [{
           color: 0xFF0000,
-          title: '🔥 ⬇️ CRACK DOWNLOAD - LINK AMAN',
-          description: `Game: ***${gameInfo?.name || appId}***`,
+          title: '🔥 CRACK DOWNLOAD',
+          description: `**Game:** ${gameInfo?.name || appId}\n\n${crackLinks.length > 1 ? `**${crackLinks.length} download links available:**` : '**Download link:**'}`,
           thumbnail: { url: crackGif },
           fields: [
             {
-              name: `⬇️ ***TẢI XUỐNG***${crackLinks.length > 1 ? ` (Link ${linkIdx + 1}/${crackLinks.length})` : ''}`,
+              name: '⬇️ DOWNLOAD LINKS',
               value: linksField,
               inline: false
             },
             {
-              name: '🛠️ Yêu Cầu',
+              name: '🛠️ Requirements',
               value: requirements,
               inline: false
             },
             {
-              name: '⚠️ Bảo Mật',
-              value: '***Link được cung cấp trực tiếp. Sử dụng theo rủi ro của bạn.***',
+              name: '⚠️ Security Notice',
+              value: '***Links are provided directly. Use at your own risk.***',
               inline: false
             }
           ],
-          footer: { text: 'Tin nhắn này sẽ tự xóa sau 5 phút' }
+          footer: { text: 'This message will auto-delete in 5 minutes' }
         }],
         ephemeral: true
       });
@@ -2005,27 +1988,27 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.reply({
         embeds: [{
           color: 0x00FF00,
-          title: '🌐 ⬇️ ONLINE-FIX DOWNLOAD - LINK AMAN',
-          description: `Game: ***${gameInfo?.name || appId}***`,
+          title: '🌐 ONLINE-FIX DOWNLOAD',
+          description: `**Game:** ${gameInfo?.name || appId}\n\n**Download link:**`,
           thumbnail: { url: onlineFixGif },
           fields: [
             {
-              name: '⬇️ ***TẢI XUỐNG***',
-              value: `**[🔗 CLICK ĐÂY ĐỂ TẢI](${onlineLink})**`,
+              name: '⬇️ DOWNLOAD LINK',
+              value: `**[🔗 Click Here to Download](${onlineLink})**`,
               inline: false
             },
             {
-              name: '⚙️ Lưu Ý',
-              value: '***Yêu cầu Steam phải mở để chơi.***',
+              name: '⚙️ Important Note',
+              value: '***Steam must be running to play.***',
               inline: false
             },
             {
-              name: '⚠️ Bảo Mật',
-              value: '***Link được cung cấp trực tiếp. Sử dụng theo rủi ro của bạn.***',
+              name: '⚠️ Security Notice',
+              value: '***Link is provided directly. Use at your own risk.***',
               inline: false
             }
           ],
-          footer: { text: 'Tin nhắn này sẽ tự xóa sau 5 phút' }
+          footer: { text: 'This message will auto-delete in 5 minutes' }
         }],
         ephemeral: true
       });
@@ -2125,13 +2108,13 @@ client.on('interactionCreate', async (interaction) => {
       replyContent.embeds = [{
         color: 0x2ECC71,
         title: '📜 LUA FILE DOWNLOAD',
-        description: `Game: ***${gameInfo?.name || appId}***`,
+        description: `**Game:** ${gameInfo?.name || appId}\n\n**File ready for download:**`,
         thumbnail: { url: luaGif },
         fields: [
-          { name: '📁 File', value: `\`${fileToSend.name}\``, inline: false },
-          { name: '📊 Size', value: fileToSend.sizeFormatted, inline: false }
+          { name: '📁 File Name', value: `\`${fileToSend.name}\``, inline: false },
+          { name: '📊 File Size', value: fileToSend.sizeFormatted, inline: false }
         ],
-        footer: { text: 'Tin nhắn này sẽ tự xóa sau 5 phút' }
+        footer: { text: 'This message will auto-delete in 5 minutes' }
       }];
       replyContent.content = null; // Remove text content when using embed
     }
