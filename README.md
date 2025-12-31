@@ -1,3 +1,5 @@
+***Before use this bot, make sure you have render.com account and uprobot to auto-deploy***
+
 # 🎮 Discord Lua Bot v2.0
 
 > **Enhanced Discord bot for Steam game management with beautiful UI, real-time data, and automatic lua collection**
