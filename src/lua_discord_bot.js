@@ -1163,9 +1163,19 @@ async function handleGameCommand(message, appId) {
     
     // Now find files with game name for smart Online-Fix search
     const files = findFiles(appId, gameInfo.name);
-    const hasFiles = files.lua.length > 0 || files.fix.length > 0 || files.onlineFix.length > 0;
     
-    if (!hasFiles) {
+    // Check for direct crack link
+    const crackLink = CRACK_LINKS[appId];
+    // Check for direct online-fix link
+    const onlineFixLink = ONLINE_FIX_LINKS[appId];
+
+    const hasContent = files.lua.length > 0 || 
+                       files.fix.length > 0 || 
+                       files.onlineFix.length > 0 ||
+                       crackLink ||
+                       onlineFixLink;
+    
+    if (!hasContent) {
       return loadingMsg.edit(
         `${ICONS.cross} No files found for **${gameInfo.name}** (AppID: \`${appId}\`)\n` +
         `${ICONS.info} Tip: Use \`!search <game name>\` to find games.`
@@ -1178,10 +1188,9 @@ async function handleGameCommand(message, appId) {
     const rows = [];
     const row = new ActionRowBuilder();
     
-    // Check for direct crack link
-    const crackLink = CRACK_LINKS[appId];
-    // Check for direct online-fix link
-    const onlineFixLink = ONLINE_FIX_LINKS[appId];
+    // Buttons logic (already checked links above, just need to re-use variables if needed, 
+    // but the original code re-checks CRACK_LINKS[appId] inside the block which is fine, 
+    // or we can just proceed since we know at least one thing exists)
 
     if (files.lua.length > 0) {
       row.addComponents(
