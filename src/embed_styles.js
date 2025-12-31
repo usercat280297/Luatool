@@ -36,10 +36,11 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   embed.setTitle(`🎮 ${gameInfo.name}`);
   embed.setURL(`https://store.steampowered.com/app/${appId}`);
   
-  // Small GIF thumbnail top right - Keep for visual appeal
-  embed.setThumbnail('https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dXFjb3lrc3pidTJ6cTEzaGc3enJreno0MjQ3bWxscDVibXQwZTZ3NSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif');
+  // REMOVED: Small GIF thumbnail - causes text to bunch on mobile
+  // embed.setThumbnail('...'); 
   
   // Large game image at bottom - Mobile users love big images
+  // Image at bottom doesn't affect text layout
   if (gameInfo.headerImage) {
     embed.setImage(gameInfo.headerImage);
   }
@@ -58,40 +59,46 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   description += `📊 [**SteamDB Info**](https://steamdb.info/app/${appId})`;
   embed.setDescription(description);
   
-  // ═══ HYBRID LAYOUT - OPTIMIZED FOR BOTH PC & MOBILE ═══
-  // Strategy: Use 2 fields inline:true (side-by-side on PC, stacked on mobile)
-  // Then 1 field inline:false (full width) to prevent cramping
+  // ═══ MOBILE-FIRST LAYOUT - ALL FIELDS FULL WIDTH ═══
+  // Strategy: Use inline:false for ALL fields to prevent text bunching on mobile
+  // This ensures text stays centered and doesn't shift left due to thumbnail/image
   
-  // Row 1: Price & Size (2 fields side-by-side)
+  // Row 1: Price (full width)
   const priceDisplay = gameInfo.isFree ? '`🆓 Free`' : `\`${gameInfo.price}\``;
+  embed.addFields(
+    { name: '💰 Price', value: priceDisplay, inline: false }
+  );
+
+  // Row 2: Size (full width)
   const sizeDisplay = gameInfo.sizeFormatted 
     ? `\`${gameInfo.sizeFormatted}\`${gameInfo.sizeType === 'FULL' ? ' *(+DLC)*' : ''}`
     : '`N/A`';
-  
   embed.addFields(
-    { name: '💰 Price', value: priceDisplay, inline: true },
-    { name: '💾 Size', value: sizeDisplay, inline: true }
+    { name: '💾 Size', value: sizeDisplay, inline: false }
   );
 
-  // Row 2: Updated (full width to prevent cramping)
+  // Row 3: Updated (full width)
   embed.addFields(
     { name: '🔄 Updated', value: `\`${gameInfo.lastUpdate || gameInfo.releaseDate}\``, inline: false }
   );
 
-  // Row 3: Languages & Rating (2 fields side-by-side)
+  // Row 4: Languages (full width)
   const langDisplay = `\`${gameInfo.languageCount} Langs\``;
+  embed.addFields(
+    { name: '🌍 Languages', value: langDisplay, inline: false }
+  );
+
+  // Row 5: Rating (full width)
   const ratingDisplay = gameInfo.rating 
     ? `\`👍 ${gameInfo.rating}\` (${formatNumber(gameInfo.reviewCount)})`
     : gameInfo.recommendations > 0 
     ? `\`⭐ ${formatNumber(gameInfo.recommendations)}\`` 
     : '`N/A`';
-  
   embed.addFields(
-    { name: '🌍 Languages', value: langDisplay, inline: true },
-    { name: '📊 Rating', value: ratingDisplay, inline: true }
+    { name: '📊 Rating', value: ratingDisplay, inline: false }
   );
 
-  // Row 4: DLC (full width)
+  // Row 6: DLC (full width)
   const dlcDisplay = gameInfo.dlcCount > 0 ? `\`${gameInfo.dlcCount} DLC\`` : '`0 DLC`';
   embed.addFields(
     { name: '🎯 DLC', value: dlcDisplay, inline: false }

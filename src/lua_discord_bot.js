@@ -1952,7 +1952,8 @@ client.on('interactionCreate', async (interaction) => {
           color: 0xFF0000,
           title: '🔥 CRACK DOWNLOAD',
           description: `**Game:** ${gameInfo?.name || appId}\n\n${crackLinks.length > 1 ? `**${crackLinks.length} download links available:**` : '**Download link:**'}`,
-          image: { url: crackGif }, // Use image instead of thumbnail for better GIF visibility
+          // Put GIF at bottom as image - doesn't affect text layout
+          image: { url: crackGif },
           fields: [
             {
               name: '⬇️ DOWNLOAD LINKS',
@@ -1996,7 +1997,8 @@ client.on('interactionCreate', async (interaction) => {
           color: 0x00FF00,
           title: '🌐 ONLINE-FIX DOWNLOAD',
           description: `**Game:** ${gameInfo?.name || appId}\n\n**Download link:**`,
-          image: { url: onlineFixGif }, // Use image instead of thumbnail for better GIF visibility
+          // Put GIF at bottom as image - doesn't affect text layout
+          image: { url: onlineFixGif },
           fields: [
             {
               name: '⬇️ DOWNLOAD LINK',
@@ -2109,13 +2111,14 @@ client.on('interactionCreate', async (interaction) => {
       }]
     };
     
-    // Add GIF image for Lua files - use image for better visibility
+    // Add GIF image for Lua files - put at bottom to not affect text layout
     if (luaGif && type === 'lua') {
       replyContent.embeds = [{
         color: 0x2ECC71,
         title: '📜 LUA FILE DOWNLOAD',
         description: `**Game:** ${gameInfo?.name || appId}\n\n**File ready for download:**`,
-        image: { url: luaGif }, // Use image instead of thumbnail for better GIF visibility
+        // Put GIF at bottom as image - doesn't affect text layout
+        image: { url: luaGif },
         fields: [
           { name: '📁 File Name', value: `\`${fileToSend.name}\``, inline: false },
           { name: '📊 File Size', value: fileToSend.sizeFormatted, inline: false }
