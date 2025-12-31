@@ -1169,6 +1169,15 @@ async function handleGameCommand(message, appId) {
     // Check for direct online-fix link
     const onlineFixLink = ONLINE_FIX_LINKS[appId];
 
+    // DEBUG: Log what we found
+    log('INFO', `Resources check for ${appId}`, {
+      lua: files.lua.length,
+      fix: files.fix.length,
+      onlineFile: files.onlineFix.length,
+      crackLink: !!crackLink,
+      onlineLink: !!onlineFixLink
+    });
+
     const hasContent = files.lua.length > 0 || 
                        files.fix.length > 0 || 
                        files.onlineFix.length > 0 ||
@@ -1184,14 +1193,13 @@ async function handleGameCommand(message, appId) {
     
     const embed = await createGameEmbed(appId, gameInfo, files);
     
-    // Create download buttons
+    // Create download buttons (Single Row for cleaner layout)
     const rows = [];
-    const row1 = new ActionRowBuilder(); // For Local Files (Lua, Crack File)
-    const row2 = new ActionRowBuilder(); // For Links (Crack Link, Online-Fix)
+    const row = new ActionRowBuilder();
     
-    // Row 1: Local Files
+    // 1. Download Lua (Priority)
     if (files.lua.length > 0) {
-      row1.addComponents(
+      row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_lua_${appId}_0`)
           .setLabel(`Download Lua (${files.lua[0].sizeFormatted})`)
@@ -1200,31 +1208,9 @@ async function handleGameCommand(message, appId) {
       );
     }
     
-    if (files.fix.length > 0) {
-      row1.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`dl_fix_${appId}_0`)
-          .setLabel(`Download Crack (${files.fix[0].sizeFormatted})`)
-          .setStyle(ButtonStyle.Success)
-          .setEmoji('🔧')
-      );
-    }
-
-    // Row 2: Links & Online-Fix
-    // Add Direct Crack Link Button if available
-    if (crackLink) {
-      row2.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`dl_crack_${appId}`)
-          .setLabel(`Download Crack (Direct)`)
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('🔥')
-      );
-    }
-    
-    // Add Direct Online-Fix Link Button if available
+    // 2. Download Online-Fix (Link) - High Priority
     if (onlineFixLink) {
-      row2.addComponents(
+      row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_online_${appId}`)
           .setLabel(`Download Online-Fix`)
@@ -1232,17 +1218,33 @@ async function handleGameCommand(message, appId) {
           .setEmoji('🌐')
       );
     }
-    
-    // Legacy Online-Fix File button removed to simplify layout as requested
+
+    // 3. Download Crack (Link)
+    if (crackLink) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`dl_crack_${appId}`)
+          .setLabel(`Download Crack (Direct)`)
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🔥')
+      );
+    }
+
+    // 4. Download Crack (File) - REMOVED per user request
     /*
-    if (files.onlineFix.length > 0) {
-      // ...
+    if (files.fix.length > 0) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`dl_fix_${appId}_0`)
+          .setLabel(`Download Crack (${files.fix[0].sizeFormatted})`)
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('🔧')
+      );
     }
     */
     
-    // Add rows to message if they have components
-    if (row1.components.length > 0) rows.push(row1);
-    if (row2.components.length > 0) rows.push(row2);
+    // Add row if it has components
+    if (row.components.length > 0) rows.push(row);
     
     const responseMsg = await loadingMsg.edit({
       content: null,
