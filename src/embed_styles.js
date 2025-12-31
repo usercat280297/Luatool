@@ -21,7 +21,7 @@ function formatNumber(num) {
   return num.toString();
 }
 
-async function createBeautifulGameEmbed(appId, gameInfo, files) {
+async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   const embed = new EmbedBuilder();
   
   // Set vibrant color based on DRM severity
@@ -168,6 +168,9 @@ async function createBeautifulGameEmbed(appId, gameInfo, files) {
   }
   if (files.onlineFix.length > 0) {
     fileInfo.push(`🌐 **Online-Fix** \`${files.onlineFix[0].sizeFormatted}\``);
+  } else if (links?.onlineFixLink) {
+    // Show online-fix link from database if no local file
+    fileInfo.push('🌐 **Online-Fix** `Available (via Link)`');
   } else if (hasMultiplayerFeatures) {
     fileInfo.push('⚠️ **Online-Fix** `Not available`');
   }

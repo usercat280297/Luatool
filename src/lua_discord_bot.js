@@ -899,9 +899,33 @@ function findFiles(appId, gameName = null) {
     }
   }
   
-  // Find Online-Fix files
-  // DEPRECATED: Folder scanning removed in v2.1
-  // Now using ONLINE_FIX_LINKS database
+  // Find Online-Fix files from folder
+  // Pattern: APPID-online-fix.zip or APPID-onlinefix.zip or online-fix-APPID.zip
+  if (fs.existsSync(CONFIG.ONLINE_FIX_PATH)) {
+    try {
+      const onlineFixFiles = fs.readdirSync(CONFIG.ONLINE_FIX_PATH);
+      
+      for (const file of onlineFixFiles) {
+        // Check if filename contains AppID and online-fix keyword
+        const containsAppId = file.includes(appId);
+        const isOnlineFix = file.toLowerCase().includes('online-fix') || file.toLowerCase().includes('onlinefix');
+        
+        if (containsAppId && isOnlineFix) {
+          const filePath = path.join(CONFIG.ONLINE_FIX_PATH, file);
+          const stats = fs.statSync(filePath);
+          result.onlineFix.push({
+            path: filePath,
+            name: file,
+            size: stats.size,
+            sizeFormatted: formatFileSize(stats.size),
+          });
+        }
+      }
+    } catch (err) {
+      // Silently skip if online_fix folder doesn't exist or error reading
+      log('DEBUG', `Online-Fix folder error for ${appId}`, { error: err.message });
+    }
+  }
   
   return result;
 }
@@ -948,9 +972,9 @@ const { backupToGitHub } = require('../scripts/git_backup');
 const CRACK_LINKS = require('../data/crack_links');
 const ONLINE_FIX_LINKS = require('../data/online_fix_links');
 
-async function createGameEmbed(appId, gameInfo, files) {
+async function createGameEmbed(appId, gameInfo, files, links = {}) {
   // Use new beautiful embed
-  return createBeautifulGameEmbed(appId, gameInfo, files);
+  return createBeautifulGameEmbed(appId, gameInfo, files, links);
 }
 
 // Legacy embed function (backup)
@@ -1191,7 +1215,7 @@ async function handleGameCommand(message, appId) {
       );
     }
     
-    const embed = await createGameEmbed(appId, gameInfo, files);
+    const embed = await createGameEmbed(appId, gameInfo, files, { onlineFixLink, crackLink });
     
     // Create download buttons (Single Row for cleaner layout)
     const rows = [];
