@@ -278,6 +278,49 @@ function formatFileSize(bytes) {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
+// Get file size from URL using HTTP HEAD request
+async function getFileSizeFromUrl(url) {
+  try {
+    const response = await axios.head(url, {
+      timeout: 10000,
+      maxRedirects: 5,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    const contentLength = response.headers['content-length'];
+    if (contentLength) {
+      return parseInt(contentLength);
+    }
+    
+    return null;
+  } catch (error) {
+    // If HEAD fails, try GET with range request
+    try {
+      const response = await axios.get(url, {
+        timeout: 5000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Range': 'bytes=0-0'
+        },
+        maxRedirects: 5,
+        validateStatus: (status) => status === 206 || status === 200
+      });
+      
+      const contentLength = response.headers['content-length'] || 
+                           response.headers['content-range']?.match(/\/(\d+)/)?.[1];
+      if (contentLength) {
+        return parseInt(contentLength);
+      }
+    } catch (err) {
+      log('WARN', `Failed to get file size from URL: ${url}`, { error: err.message });
+    }
+    
+    return null;
+  }
+}
+
 function formatPrice(priceData) {
   if (!priceData) return 'N/A';
   if (priceData.is_free) return 'Free to Play';
@@ -1939,41 +1982,67 @@ client.on('interactionCreate', async (interaction) => {
       // Support multiple crack links - show all in one beautiful embed
       const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
       
-      // GIF for crack button - use as image for better visibility
+      // GIF for crack button
       const crackGif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZtpgLSKicg4p1i8/giphy.gif";
       
-      // Beautiful formatted links
-      const linksField = crackLinks.map((link, idx) => 
-        `**[🔗 Download Link ${idx + 1}](${link})**`
+      // Get file sizes for all links
+      await interaction.deferReply({ ephemeral: true });
+      
+      const linksWithSizes = await Promise.all(
+        crackLinks.map(async (link, idx) => {
+          const fileSize = await getFileSizeFromUrl(link);
+          const sizeText = fileSize ? ` \`${formatFileSize(fileSize)}\`` : '';
+          return {
+            number: idx + 1,
+            url: link,
+            size: fileSize,
+            sizeText: sizeText
+          };
+        })
+      );
+      
+      // Beautiful formatted links with file sizes
+      const linksField = linksWithSizes.map(item => 
+        `**[🔗 Download Link ${item.number}](${item.url})**${item.sizeText}`
       ).join('\n');
+      
+      const totalSize = linksWithSizes.reduce((sum, item) => sum + (item.size || 0), 0);
+      const totalSizeText = totalSize > 0 ? `\n\n**📊 Total Size:** \`${formatFileSize(totalSize)}\`` : '';
 
-      return interaction.reply({
+      return interaction.editReply({
         embeds: [{
           color: 0xFF0000,
           title: '🔥 CRACK DOWNLOAD',
-          description: `**Game:** ${gameInfo?.name || appId}\n\n${crackLinks.length > 1 ? `**${crackLinks.length} download links available:**` : '**Download link:**'}`,
-          // Put GIF at bottom as image - doesn't affect text layout
-          image: { url: crackGif },
+          description: `**Game:** ${gameInfo?.name || appId}\n\n${crackLinks.length > 1 ? `**${crackLinks.length} download links available:**` : '**Download link:**'}${totalSizeText}`,
+          thumbnail: { url: crackGif },
           fields: [
             {
               name: '⬇️ DOWNLOAD LINKS',
-              value: linksField,
+              value: linksField || 'No links available',
               inline: false
             },
             {
-              name: '🛠️ Requirements',
+              name: '🛠️ Installation Requirements',
               value: requirements,
               inline: false
             },
             {
+              name: '📋 Instructions',
+              value: '```\n1. Download the crack file(s)\n2. Extract the archive\n3. Copy files to game directory\n4. Overwrite existing files\n5. Run the game\n```',
+              inline: false
+            },
+            {
               name: '⚠️ Security Notice',
-              value: '***Links are provided directly. Use at your own risk.***',
+              value: '***Links are provided directly. Use at your own risk. Always scan files with antivirus.***',
               inline: false
             }
           ],
-          footer: { text: 'This message will auto-delete in 5 minutes' }
-        }],
-        ephemeral: true
+          footer: { 
+            text: `App ID: ${appId} • Auto-deletes in 5 minutes`,
+            iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
+          },
+          timestamp: new Date().toISOString()
+        }]
       });
     }
 
@@ -1989,16 +2058,21 @@ client.on('interactionCreate', async (interaction) => {
 
       const gameInfo = await getFullGameInfo(appId);
       
-      // GIF for online-fix button - use as image for better visibility
+      // GIF for online-fix button
       const onlineFixGif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif";
       
-      return interaction.reply({
+      // Get file size from URL
+      await interaction.deferReply({ ephemeral: true });
+      
+      const fileSize = await getFileSizeFromUrl(onlineLink);
+      const sizeText = fileSize ? ` \`${formatFileSize(fileSize)}\`` : '';
+      
+      return interaction.editReply({
         embeds: [{
           color: 0x00FF00,
           title: '🌐 ONLINE-FIX DOWNLOAD',
-          description: `**Game:** ${gameInfo?.name || appId}\n\n**Download link:**`,
-          // Put GIF at bottom as image - doesn't affect text layout
-          image: { url: onlineFixGif },
+          description: `**Game:** ${gameInfo?.name || appId}\n\n**Download link:**${sizeText ? `\n**📊 File Size:**${sizeText}` : ''}`,
+          thumbnail: { url: onlineFixGif },
           fields: [
             {
               name: '⬇️ DOWNLOAD LINK',
@@ -2006,19 +2080,27 @@ client.on('interactionCreate', async (interaction) => {
               inline: false
             },
             {
-              name: '⚙️ Important Note',
-              value: '***Steam must be running to play.***',
+              name: '📋 Installation Instructions',
+              value: '```\n1. Download the Online-Fix file\n2. Extract the archive\n3. Copy all files to game directory\n4. Overwrite existing files\n5. Launch Steam (must be running)\n6. Run the game\n```',
+              inline: false
+            },
+            {
+              name: '⚙️ Important Notes',
+              value: '• **Steam must be running** to play\n• You can play with friends online\n• No Steam account required\n• Works with cracked games',
               inline: false
             },
             {
               name: '⚠️ Security Notice',
-              value: '***Link is provided directly. Use at your own risk.***',
+              value: '***Link is provided directly. Use at your own risk. Always scan files with antivirus.***',
               inline: false
             }
           ],
-          footer: { text: 'This message will auto-delete in 5 minutes' }
-        }],
-        ephemeral: true
+          footer: { 
+            text: `App ID: ${appId} • Auto-deletes in 5 minutes`,
+            iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
+          },
+          timestamp: new Date().toISOString()
+        }]
       });
     }
 
@@ -2080,17 +2162,42 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
       
+      // Beautiful embed for large files uploaded to GitHub
+      const fileTypeName = type === 'online' ? 'Online-Fix' : type === 'lua' ? 'Lua File' : 'File';
+      const fileTypeGif = type === 'online' 
+        ? "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif"
+        : type === 'lua'
+        ? "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif"
+        : null;
+      
       await scheduleInteractionDeletion(interaction, {
         embeds: [{
           color: 0x00ff00,
-          title: '✅ DOWNLOAD READY!',
+          title: `✅ ${fileTypeName.toUpperCase()} DOWNLOAD READY!`,
+          description: `**Game:** ${gameInfo?.name || appId}\n\n**✅ File successfully uploaded to GitHub!**`,
+          thumbnail: fileTypeGif ? { url: fileTypeGif } : undefined,
           fields: [
-            { name: '📁 File', value: fileToSend.name, inline: false },
-            { name: '📊 Size', value: fileToSend.sizeFormatted, inline: false },
-            { name: '⏱️ Auto-Delete', value: 'This message will auto-delete in 5 minutes', inline: false },
-            { name: '🔗 Link', value: `[**⬇️ CLICK HERE TO DOWNLOAD**](${downloadUrl})`, inline: false }
+            { 
+              name: '📁 File Information',
+              value: `**Name:** \`${fileToSend.name}\`\n**Size:** \`${fileToSend.sizeFormatted}\``,
+              inline: false
+            },
+            { 
+              name: '🔗 Download Link',
+              value: `**[⬇️ CLICK HERE TO DOWNLOAD](${downloadUrl})**`,
+              inline: false
+            },
+            {
+              name: '💡 Download Tips',
+              value: '• Link never expires\n• Direct download from GitHub\n• No speed limits\n• Safe and secure',
+              inline: false
+            }
           ],
-          footer: { text: '✨ GitHub Link - Never expires' }
+          footer: { 
+            text: `App ID: ${appId} • Auto-deletes in 5 minutes • GitHub Link`,
+            iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
+          },
+          timestamp: new Date().toISOString()
         }]
       });
       return;
@@ -2103,29 +2210,45 @@ client.on('interactionCreate', async (interaction) => {
     
     // Send small files directly via Discord
     const replyContent = {
-      content: `✅ **Sending** \`${fileToSend.name}\` (\`${fileToSend.sizeFormatted}\`)\n\n` +
-               `🚀 Download started!`,
       files: [{ 
         attachment: fileToSend.path, 
         name: fileToSend.name 
       }]
     };
     
-    // Add GIF image for Lua files - put at bottom to not affect text layout
+    // Beautiful embed for Lua files
     if (luaGif && type === 'lua') {
       replyContent.embeds = [{
         color: 0x2ECC71,
         title: '📜 LUA FILE DOWNLOAD',
-        description: `**Game:** ${gameInfo?.name || appId}\n\n**File ready for download:**`,
-        // Put GIF at bottom as image - doesn't affect text layout
-        image: { url: luaGif },
+        description: `**Game:** ${gameInfo?.name || appId}\n\n**✅ File ready for download!**`,
+        thumbnail: { url: luaGif },
         fields: [
-          { name: '📁 File Name', value: `\`${fileToSend.name}\``, inline: false },
-          { name: '📊 File Size', value: fileToSend.sizeFormatted, inline: false }
+          { 
+            name: '📁 File Information',
+            value: `**Name:** \`${fileToSend.name}\`\n**Size:** \`${fileToSend.sizeFormatted}\``,
+            inline: false
+          },
+          {
+            name: '📋 Usage Instructions',
+            value: '```\n1. Download the Lua file\n2. Place it in your game directory\n3. Use with your Lua loader\n4. Launch the game\n```',
+            inline: false
+          },
+          {
+            name: '💡 Tips',
+            value: '• Lua files are small and load quickly\n• Make sure your Lua loader is compatible\n• Backup original files if needed',
+            inline: false
+          }
         ],
-        footer: { text: 'This message will auto-delete in 5 minutes' }
+        footer: { 
+          text: `App ID: ${appId} • Auto-deletes in 5 minutes`,
+          iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
+        },
+        timestamp: new Date().toISOString()
       }];
-      replyContent.content = null; // Remove text content when using embed
+    } else {
+      // Fallback for other file types
+      replyContent.content = `✅ **Sending** \`${fileToSend.name}\` (\`${fileToSend.sizeFormatted}\`)\n\n🚀 Download started!`;
     }
     
     await scheduleInteractionDeletion(interaction, replyContent);
