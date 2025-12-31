@@ -59,7 +59,8 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   embed.setDescription(description);
   
   // ═══ MOBILE OPTIMIZED GRID LAYOUT ═══
-  // Use Code Blocks (`) for High Contrast Values
+  // MOBILE FIX: Use inline:false for better mobile display
+  // Discord mobile doesn't render inline:true well - causes text to bunch on left side
   
   // Row 1: The Essentials (Price & Size)
   const priceDisplay = gameInfo.isFree ? '`🆓 Free`' : `\`${gameInfo.price}\``;
@@ -68,8 +69,8 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
     : '`N/A`';
   
   embed.addFields(
-    { name: '💰 Price', value: priceDisplay, inline: true },
-    { name: '💾 Size', value: sizeDisplay, inline: true }
+    { name: '💰 Price', value: priceDisplay, inline: false },
+    { name: '💾 Size', value: sizeDisplay, inline: false }
   );
 
   // Row 2: Quality Indicators
@@ -81,8 +82,8 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
     : '`N/A`';
   
   embed.addFields(
-    { name: '🌍 Languages', value: langDisplay, inline: true },
-    { name: '📊 Rating', value: ratingDisplay, inline: true }
+    { name: '🌍 Languages', value: langDisplay, inline: false },
+    { name: '📊 Rating', value: ratingDisplay, inline: false }
   );
   
   // Row 3: Updates
@@ -90,8 +91,8 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   const dlcDisplay = gameInfo.dlcCount > 0 ? `\`${gameInfo.dlcCount} DLC\`` : '`0 DLC`';
   
   embed.addFields(
-    { name: '🔄 Updated', value: releaseDisplay, inline: true },
-    { name: '🎯 DLC', value: dlcDisplay, inline: true }
+    { name: '🔄 Updated', value: releaseDisplay, inline: false },
+    { name: '🎯 DLC', value: dlcDisplay, inline: false }
   );
 
   // Row 4: Credits (Merged for full width - prevents text wrapping on mobile)
