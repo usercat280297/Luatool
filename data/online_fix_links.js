@@ -105,8 +105,26 @@ const ONLINE_FIX_LINKS = {
 
   // Phasmophobia
   "739630": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Phasmophobia_Fix_Repair_Steam_V2_Generic.rar?download=true",
+
   // It take two
-  "1426210": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/ItTakesTwo_Fix_Repair_Steam_Generic.rar?download=true"
-};
+  "1426210": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/ItTakesTwo_Fix_Repair_Steam_Generic.rar?download=true",
+
+  // BodyRecords_Fix_Repair_Steam_Generic.rar 
+  "3232040": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/BodyRecords_Fix_Repair_Steam_Generic.rar?download=true",
+
+ // F12016_Fix_Repair_Steam.rar
+  "391040": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/F12016_Fix_Repair_Steam.rar?download=true",
+
+ // Hollow Knight: Silksong
+ "1030300": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/HollowKnightSilksong_Fix_Repair_Steam_Generic.rar?download=true",
+
+ // NASCAR25
+ "3873970": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/NASCAR25_Fix_Repair_Steam_V2.rar?download=true",
+
+ // ProjectMotorRacing
+ "299970": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/ProjectMotorRacing_Fix_Repair_Epic_Generic.rar?download=true"
+
+
+};  
 
 module.exports = ONLINE_FIX_LINKS;
