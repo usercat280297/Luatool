@@ -70,6 +70,9 @@ const CRACK_LINKS = {
 
   // EA SPORTS FC™ 26 SHOWCASE
   "3629260": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/EA%20SPORTS%20FC%E2%84%A2%2026%20SHOWCASE.zip?download=true",
+
+  // DEAD SPACE REMAKE
+  "1693980": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Dead%20Space%20Crack.zip?download=true"
 };
 
 module.exports = CRACK_LINKS;
