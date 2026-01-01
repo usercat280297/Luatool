@@ -1509,7 +1509,13 @@ async function handleSearchCommand(message, query) {
     const results = await searchGameByName(query);
     
     if (results.length === 0) {
-      return loadingMsg.edit(`${ICONS.cross} Game not found: "**${query}**"`);
+      const embedNotFound = new EmbedBuilder()
+        .setColor(0xE74C3C) // Red color
+        .setTitle(`${ICONS.cross} Game Not Found`)
+        .setDescription(`Could not find game "**${query}**" in the system.\n\n**Suggestions:**\n• Check the spelling of the game name\n• Use fewer keywords (e.g. "tekken" instead of "tekken 8 deluxe edition")\n• Try searching by AppID if you know it`)
+        .setFooter({ text: 'Auto-deletes in 5min' });
+      
+      return loadingMsg.edit({ content: null, embeds: [embedNotFound] });
     }
     
     const embed = new EmbedBuilder()
@@ -1519,16 +1525,29 @@ async function handleSearchCommand(message, query) {
     
     // Show results in pages if too many
     const maxDisplay = 15;
-  const displayResults = results.slice(0, maxDisplay);
+    const displayResults = results.slice(0, maxDisplay);
   
     const denuvoSet = new Set(DENUVO_GAMES.map(g => String(g.id)));
     
     displayResults.forEach((game, index) => {
       const isDenuvo = denuvoSet.has(String(game.appId));
-      const drmTag = isDenuvo ? ' • ⚠️ Denuvo Anti-Tamper' : '';
+      const drmTag = isDenuvo ? ' • ⚠️ **Denuvo Anti-Tamper**' : '';
+      
+      // Determine file availability (simplified check without full file scan for speed)
+      const hasLua = fs.existsSync(path.join(CONFIG.LUA_FILES_PATH, `${game.appId}.lua`));
+      const hasOnlineFix = ONLINE_FIX_LINKS[game.appId] || fs.existsSync(path.join(CONFIG.ONLINE_FIX_PATH, `${game.appId}-online-fix.zip`));
+      const hasCrack = CRACK_LINKS[game.appId];
+      
+      let statusIcons = [];
+      if (hasLua) statusIcons.push('📜 Lua');
+      if (hasOnlineFix) statusIcons.push('🌐 Online-Fix');
+      if (hasCrack) statusIcons.push('🔥 Crack');
+      
+      const statusText = statusIcons.length > 0 ? `\n   ${statusIcons.join(' • ')}` : '';
+
       embed.addFields({
-        name: `${index + 1}. ${game.name}${isDenuvo ? '  [DRM]' : ''}`,
-        value: `AppID: \`${game.appId}\` • Command: \`!${game.appId}\`${drmTag}`,
+        name: `${index + 1}. ${game.name}${isDenuvo ? ' [DRM]' : ''}`,
+        value: `AppID: \`${game.appId}\` • Command: \`!${game.appId}\`${drmTag}${statusText}`,
         inline: false
       });
     });
