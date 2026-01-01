@@ -104,7 +104,9 @@ const ONLINE_FIX_LINKS = {
   "2695940": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/PANICORE_Fix_Repair_Steam_V2_Generic.rar?download=true",
 
   // Phasmophobia
-  "739630": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Phasmophobia_Fix_Repair_Steam_V2_Generic.rar?download=true"
+  "739630": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Phasmophobia_Fix_Repair_Steam_V2_Generic.rar?download=true",
+  // It take two
+  "1426210": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/ItTakesTwo_Fix_Repair_Steam_Generic.rar?download=true"
 };
 
 module.exports = ONLINE_FIX_LINKS;
