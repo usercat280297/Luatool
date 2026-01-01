@@ -1524,16 +1524,17 @@ async function handleSearchCommand(message, query) {
       .setDescription(`Found ${results.length} game(s). Use \`!${CONFIG.COMMAND_PREFIX}<appid>\` to view details.`);
     
     // Show results in pages if too many
-    const maxDisplay = 15;
+    const maxDisplay = 10; // Giảm xuống 10 để hiển thị ảnh đẹp hơn
     const displayResults = results.slice(0, maxDisplay);
   
     const denuvoSet = new Set(DENUVO_GAMES.map(g => String(g.id)));
     
-    displayResults.forEach((game, index) => {
+    // Nếu chỉ có 1 kết quả, hiển thị dạng Large Embed
+    if (displayResults.length === 1) {
+      const game = displayResults[0];
       const isDenuvo = denuvoSet.has(String(game.appId));
       const drmTag = isDenuvo ? ' • ⚠️ **Denuvo Anti-Tamper**' : '';
       
-      // Determine file availability (simplified check without full file scan for speed)
       const hasLua = fs.existsSync(path.join(CONFIG.LUA_FILES_PATH, `${game.appId}.lua`));
       const hasOnlineFix = ONLINE_FIX_LINKS[game.appId] || fs.existsSync(path.join(CONFIG.ONLINE_FIX_PATH, `${game.appId}-online-fix.zip`));
       const hasCrack = CRACK_LINKS[game.appId];
@@ -1542,15 +1543,42 @@ async function handleSearchCommand(message, query) {
       if (hasLua) statusIcons.push('📜 Lua');
       if (hasOnlineFix) statusIcons.push('🌐 Online-Fix');
       if (hasCrack) statusIcons.push('🔥 Crack');
-      
       const statusText = statusIcons.length > 0 ? `\n   ${statusIcons.join(' • ')}` : '';
 
+      embed.setThumbnail(`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`);
       embed.addFields({
-        name: `${index + 1}. ${game.name}${isDenuvo ? ' [DRM]' : ''}`,
+        name: `1. ${game.name}${isDenuvo ? ' [DRM]' : ''}`,
         value: `AppID: \`${game.appId}\` • Command: \`!${game.appId}\`${drmTag}${statusText}`,
         inline: false
       });
-    });
+    } else {
+      // Hiển thị danh sách nhiều game
+      // Discord không hỗ trợ ảnh cho từng field, nên ta chỉ có thể hiển thị text
+      // Tuy nhiên, ta có thể set ảnh Thumbnail là game đầu tiên để đẹp hơn
+      embed.setThumbnail(`https://cdn.cloudflare.steamstatic.com/steam/apps/${displayResults[0].appId}/header.jpg`);
+      
+      displayResults.forEach((game, index) => {
+        const isDenuvo = denuvoSet.has(String(game.appId));
+        const drmTag = isDenuvo ? ' • ⚠️ **Denuvo Anti-Tamper**' : '';
+        
+        const hasLua = fs.existsSync(path.join(CONFIG.LUA_FILES_PATH, `${game.appId}.lua`));
+        const hasOnlineFix = ONLINE_FIX_LINKS[game.appId] || fs.existsSync(path.join(CONFIG.ONLINE_FIX_PATH, `${game.appId}-online-fix.zip`));
+        const hasCrack = CRACK_LINKS[game.appId];
+        
+        let statusIcons = [];
+        if (hasLua) statusIcons.push('📜');
+        if (hasOnlineFix) statusIcons.push('🌐');
+        if (hasCrack) statusIcons.push('🔥');
+        
+        const statusText = statusIcons.length > 0 ? ` [${statusIcons.join(' ')}]` : '';
+  
+        embed.addFields({
+          name: `${index + 1}. ${game.name}`,
+          value: `🆔 \`${game.appId}\`${statusText}${isDenuvo ? ' ⚠️ Denuvo' : ''} • \`!${game.appId}\``,
+          inline: false
+        });
+      });
+    }
     
     if (results.length > maxDisplay) {
       embed.addFields({
