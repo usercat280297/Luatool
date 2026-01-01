@@ -447,6 +447,21 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
     });
   }
   
+  // Recommended automatic patch strategy (if available)
+  if (links?.autoPatch?.strategy) {
+    const map = {
+      online_fix: '🌐 Online-Fix (recommended)',
+      crack: '🔥 Crack (recommended)',
+      original: '🛡️ Original (no changes)',
+    };
+    const rec = map[links.autoPatch.strategy] || 'Original';
+    embed.addFields({
+      name: '🧭 Recommended Patch',
+      value: `**${rec}** • Reason: \`${links.autoPatch.reason}\``,
+      inline: false
+    });
+  }
+  
   // ──────────────────────────────────────────
   // Installation Guide for Online-Fix
   // ──────────────────────────────────────────

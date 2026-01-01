@@ -1287,7 +1287,7 @@ async function handleGameCommand(message, appId) {
       );
     }
     
-    const embed = await createGameEmbed(appId, gameInfo, files, { onlineFixLink, crackLink });
+    const embed = await createGameEmbed(appId, gameInfo, files, { onlineFixLink, crackLink, autoPatch: database.games[appId]?.autoPatch });
     
     // Create download buttons (Single Row for cleaner layout)
     const rows = [];
