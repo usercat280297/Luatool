@@ -89,8 +89,22 @@ const ONLINE_FIX_LINKS = {
   "513710": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/SCUM%20online-fix.zip?download=true",
 
   // DARK SOULS™ III
-  "374320": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/DARKSOULSIII%20online-fix.rar?download=true"
+  "374320": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/DARKSOULSIII%20online-fix.rar?download=true",
 
+  //Dark Hours
+  "2208570": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/DarkHours_Fix_Repair_Steam_Generic.rar?download=true",
+
+  // Granny Escape Together
+  "3070520": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/GrannyEscapeTogether_Fix_Repair_Steam_Generic.rar?download=true",
+
+  // LOCKDOWN Protocol
+  "2780980": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/LOCKDOWNProtocol_Fix_Repair_Steam_V4_Generic.rar?download=true",
+
+  // PANICORE
+  "2695940": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/PANICORE_Fix_Repair_Steam_V2_Generic.rar?download=true",
+
+  // Phasmophobia
+  "739630": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Phasmophobia_Fix_Repair_Steam_V2_Generic.rar?download=true"
 };
 
 module.exports = ONLINE_FIX_LINKS;
