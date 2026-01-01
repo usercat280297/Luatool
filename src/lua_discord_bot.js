@@ -2059,6 +2059,33 @@ client.on('interactionCreate', async (interaction) => {
       const totalSize = linksWithSizes.reduce((sum, item) => sum + (item.size || 0), 0);
       const totalSizeText = totalSize > 0 ? `\n\n**📊 Total Size:** \`${formatFileSize(totalSize)}\`` : '';
 
+      // Custom instructions for specific games
+      let instructions = '```\n1. Download the crack file(s)\n2. Extract the archive\n3. Copy files to game directory\n4. Overwrite existing files\n5. Run the game\n```';
+      
+      // FC 26 Showcase Custom Guide
+      if (appId === '3629260') {
+        requirements = '🛠️ **Requirement:** EA App installed, clean game files.';
+        instructions = 
+          '**1. Copy files**\n' +
+          'Copy all extracted files into the game’s folder.\n' +
+          'When prompted, click **Replace the file in the destination** (this may appear multiple times).\n\n' +
+          
+          '**2. Replace the executable**\n' +
+          'Delete `FC26_Showcase.exe`\n' +
+          'Rename `FC26_Showcase fixed.exe` to `FC26_Showcase.exe`\n\n' +
+          
+          '**3. Generate the Denuvo token**\n' +
+          'Open `EA.Denuvo.Token.Dumper.exe`\n' +
+          'Click **Start**\n' +
+          '⚠️ **Important:** Make sure "Add DenuvoToken to anadius.cfg even if it exists" is **unchecked**\n\n' +
+          
+          '**4. Apply the Denuvo token**\n' +
+          'Copy the generated Denuvo token\n' +
+          'Open `anadius.cfg` in the game folder\n' +
+          'Find `DenuvoToken` (use CTRL + F)\n' +
+          'Replace `PASTE_A_VALID_DENUVO_TOKEN_HERE` with your copied token';
+      }
+
       return interaction.editReply({
         embeds: [{
           color: 0xFF0000,
@@ -2077,8 +2104,8 @@ client.on('interactionCreate', async (interaction) => {
               inline: false
             },
             {
-              name: '📋 Instructions',
-              value: '```\n1. Download the crack file(s)\n2. Extract the archive\n3. Copy files to game directory\n4. Overwrite existing files\n5. Run the game\n```',
+              name: appId === '3629260' ? '📋 Installation Guide' : '📋 Instructions',
+              value: instructions,
               inline: false
             },
             {
