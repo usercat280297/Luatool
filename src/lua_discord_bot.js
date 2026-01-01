@@ -598,6 +598,34 @@ function getDenuvoGameName(appId) {
   return game ? game.name : null;
 }
 
+// Try to fetch game name from Steam Store HTML (robust fallback)
+async function getGameNameFromSteamHTML(appId) {
+  try {
+    const response = await axios.get(`https://store.steampowered.com/app/${appId}`, {
+      timeout: 8000,
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    const html = response.data;
+    // Prefer og:title
+    const ogMatch = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/i);
+    if (ogMatch && ogMatch[1]) {
+      const name = ogMatch[1].trim();
+      if (name.length > 2) return name;
+    }
+    // Fallback: title tag
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+    if (titleMatch && titleMatch[1]) {
+      return titleMatch[1].replace(/\s*on Steam.*$/i, '').trim();
+    }
+    return null;
+  } catch (error) {
+    log('WARN', `Failed to get name from Steam HTML for ${appId}`, { error: error.message });
+    return null;
+  }
+}
+
 async function getSizeFromSteamHTML(appId) {
   try {
     const response = await axios.get(`https://store.steampowered.com/app/${appId}`, {
@@ -1393,7 +1421,8 @@ async function searchGameByName(query) {
       let gameName = gameNamesIndex[appId] || gameInfoCache[appId]?.data?.name;
       
       if (!gameName && matches.length < 20) {
-        gameName = await getGameNameFromSteamDB(appId);
+        // Try Steam Store HTML first (less likely to be blocked than SteamDB)
+        gameName = await getGameNameFromSteamHTML(appId) || await getGameNameFromSteamDB(appId);
         if (gameName) {
           gameNamesIndex[appId] = gameName;
         }
@@ -1737,8 +1766,8 @@ client.on('messageCreate', async (message) => {
       return handleHelpCommand(message);
     }
     
-    // Search command
-    if (command === 'search') {
+    // Search command (support alias 'seach')
+    if (command === 'search' || command === 'seach') {
       const query = args.slice(1).join(' ');
       if (!query) {
         const errorMsg = await message.reply(`${ICONS.cross} Usage: \`!search <game name>\``);

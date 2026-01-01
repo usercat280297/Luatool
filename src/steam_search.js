@@ -21,7 +21,28 @@ async function searchSteamStore(query) {
       }));
     }
     
-    return [];
+    // Fallback: use suggest endpoint (higher recall for short terms)
+    const suggest = await axios.get('https://store.steampowered.com/search/suggest', {
+      params: {
+        term: query,
+        f: 'games',
+        l: 'english',
+        cc: 'US'
+      },
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    const html = suggest.data || '';
+    const results = [];
+    const re = /href="https:\/\/store\.steampowered\.com\/app\/(\d+)[^"]*"[^>]*>([^<]+)<\/a>/gi;
+    let m;
+    while ((m = re.exec(html)) && results.length < 30) {
+      results.push({ appId: m[1].toString(), name: m[2], type: 'game' });
+    }
+    return results;
   } catch (error) {
     console.error('Steam Store search error:', error.message);
     return [];

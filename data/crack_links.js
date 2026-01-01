@@ -66,7 +66,7 @@ const CRACK_LINKS = {
   "911400": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassin's%20Creed%C2%AE%20III%20Remastered%20crack.rar?download=true",
 
   // FC 25 SHOWCASE
-  "2669320": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FC%2025%20SHOWCASE.rar?download=true"
+  "	2963840": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FC%2025%20SHOWCASE.rar?download=true"
 };
 
 module.exports = CRACK_LINKS;
