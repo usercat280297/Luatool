@@ -1398,6 +1398,41 @@ async function handleGameCommand(message, appId) {
 // COMMAND: SEARCH - STEAM API REAL-TIME
 // ============================================
 const { searchSteamStore } = require('./steam_search');
+const { fetchLuaFromOpenCloud } = require('./openlua_scraper');
+
+async function handleFetchLuaCommand(message) {
+  if (!isAdmin(message.author.id)) {
+    const msg = await message.reply(`${ICONS.cross} Only admins can use this command.`);
+    scheduleMessageDeletion(msg);
+    return;
+  }
+
+  const args = message.content.split(/\s+/);
+  const appId = args[1];
+  const gameName = args.slice(2).join(' ');
+
+  if (!appId) {
+    const msg = await message.reply(`${ICONS.info} Usage: \`!fetchlua <appid> [game name]\``);
+    scheduleMessageDeletion(msg);
+    return;
+  }
+
+  const loadingMsg = await message.reply(`${ICONS.sparkles} Searching OpenLua for **${appId}**...`);
+
+  try {
+    const result = await fetchLuaFromOpenCloud(appId, gameName);
+
+    if (result.success) {
+      await loadingMsg.edit(`${ICONS.check} **Success!** Downloaded Lua for \`${appId}\`.\n📂 Saved to: \`lua_files/${appId}.lua\``);
+    } else {
+      await loadingMsg.edit(`${ICONS.cross} **Failed:** ${result.error}`);
+    }
+  } catch (error) {
+    await loadingMsg.edit(`${ICONS.cross} **Error:** ${error.message}`);
+  }
+  
+  scheduleMessageDeletion(loadingMsg, 10000); // Keep result longer
+}
 
 async function searchGameByName(query) {
   try {
@@ -1842,6 +1877,10 @@ client.on('messageCreate', async (message) => {
       
       if (command === 'backup') {
         return handleBackupCommand(message);
+      }
+      
+      if (command === 'fetchlua') {
+        return handleFetchLuaCommand(message);
       }
     }
     

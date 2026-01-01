@@ -6,6 +6,7 @@
 const searchTests = require('./search.test');
 const uiTests = require('./ui.test');
 const onlineFixTests = require('./online_fix.test');
+const openLuaTests = require('./openlua.test');
 const healthTests = require('./health.test');
 
 async function runAllTests() {
@@ -29,6 +30,10 @@ async function runAllTests() {
   // 4. Online Fix Logic
   totalModules++;
   if (await onlineFixTests.runTests()) passedModules++;
+
+  // 5. OpenLua Scraper
+  totalModules++;
+  if (await openLuaTests.runTests()) passedModules++;
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   

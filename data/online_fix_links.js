@@ -12,15 +12,21 @@ const ONLINE_FIX_LINKS = {
 
   // Chained Together
   "2567870": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Chained%20Together%20online-fix.zip?download=true",
-
-  // DARK SOULS™: REMASTERED
-  "570940": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/DARK%20SOULS%20REMASTERED%20online-fix.zip?download=true",
   
  // DEVOUR
   "1274570": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Devour%20online-fix.zip?download=true",
 
  // Escape the Backrooms
  "1943950": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Escape%20The%20Backrooms%20online-fix.zip?download=true",
+ 
+  // Barotrauma
+  "602960": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Barotrauma%20online-fix.zip?download=true",
+
+// Palworld
+"1623730": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Palworld%20online-fix.rar?download=true",
+
+// DARK SOULS REMASTERED
+"570940": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/DARK%20SOULS%20REMASTERED%20online-fix.zip?download=true",
 
 // ELDEN RING NIGHTREIGN
   "2622380": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/ELDENRINGNIGHTREIGN%20online-fix.zip?download=true",
@@ -76,9 +82,9 @@ const ONLINE_FIX_LINKS = {
   //LEGO 2K Drive
   "1451810": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/LEGO%202K%20Drive%20online-fix.zip?download=true",
 
-  // R.E.P.ON
-  "3241660": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/REPO%20online-fix.rar?download=true",
-};
+  // R.E.P.O
+  "3241660": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/REPO%20online-fix.rar?download=true"
 
+};
 
 module.exports = ONLINE_FIX_LINKS;
