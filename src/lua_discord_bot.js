@@ -1308,7 +1308,7 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_lua_${appId}_0`)
-          .setLabel(`📜 Download Lua (${files.lua[0].sizeFormatted})`)
+          .setLabel(`Download Lua (${files.lua[0].sizeFormatted})`)
           .setStyle(ButtonStyle.Success)
           .setEmoji('📜')
       );
@@ -1319,7 +1319,7 @@ async function handleGameCommand(message, appId) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_online_${appId}`)
-          .setLabel(`🌐 Download Online-Fix`)
+          .setLabel(`Download Online-Fix`)
           .setStyle(ButtonStyle.Primary)
           .setEmoji('🌐')
       );
@@ -1344,7 +1344,7 @@ async function handleGameCommand(message, appId) {
         row.addComponents(
           new ButtonBuilder()
             .setCustomId(`dl_crack_${appId}_0`)
-            .setLabel(`🔥 Download Crack${crackLinks.length > 1 ? ` (${crackLinks.length} links)` : ''}`)
+            .setLabel(`Download Crack${crackLinks.length > 1 ? ` (${crackLinks.length} links)` : ''}`)
             .setStyle(ButtonStyle.Danger)
             .setEmoji('🔥')
         );
@@ -2087,7 +2087,7 @@ client.on('interactionCreate', async (interaction) => {
       const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
       
       // GIF for crack button
-      const crackGif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZtpgLSKicg4p1i8/giphy.gif";
+      const crackGif = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExbmllMmp2eWV5ODFoM2N4OXhqd3B6OTVucXA5NW82ZjZpOXJmMWY5ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/AHeTfHgVFPHgs/giphy.gif";
       
       // Get file sizes for all links
       await interaction.deferReply({ ephemeral: true });
@@ -2190,7 +2190,7 @@ client.on('interactionCreate', async (interaction) => {
       const gameInfo = await getFullGameInfo(appId);
       
       // GIF for online-fix button
-      const onlineFixGif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif";
+      const onlineFixGif = "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbml3azA3Ym01NmozNG1odjF0d3RqbWx6cW52anNlbzZucXlwaTlyYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/HhOg2ijdiymuoHDb1k/giphy.gif";
       
       // Get file size from URL
       await interaction.deferReply({ ephemeral: true });

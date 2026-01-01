@@ -40,9 +40,6 @@ const ONLINE_FIX_LINKS = {
   // Barotrauma
   "602960": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Barotrauma%20online-fix.zip?download=true",
 
-  // Little nightmare 2
-  "860510": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Little%20nightmares%20III%20online-fix.zip?download=true",
-
   // MIMESIS
   "2827200": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/MIMESIS%20online-fix.zip?download=true",
 
@@ -83,7 +80,16 @@ const ONLINE_FIX_LINKS = {
   "1451810": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/LEGO%202K%20Drive%20online-fix.zip?download=true",
 
   // R.E.P.O
-  "3241660": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/REPO%20online-fix.rar?download=true"
+  "3241660": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/REPO%20online-fix.rar?download=true",
+
+  // Little nightmare 3
+  "860520": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Little%20nightmares%20III%20online-fix.zip?download=true",
+
+  // SCUM
+  "513710": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/SCUM%20online-fix.zip?download=true",
+
+  // DARK SOULS™ III
+  "374320": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/DARKSOULSIII%20online-fix.rar?download=true"
 
 };
 
