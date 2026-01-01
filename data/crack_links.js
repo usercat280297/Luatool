@@ -78,7 +78,10 @@ const CRACK_LINKS = {
   "1551360": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FH5_Fix_Repair_Steam_V10_Generic.rar?download=true",
 
   // Clair Obscur Expedition 33
-  "1903340": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Clair%20Obscur%20Expedition%2033%20crack.zip?download=true"
+  "1903340": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Clair%20Obscur%20Expedition%2033%20crack.zip?download=true",
+
+  // FIFA 22
+  "1506830": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FIFA22%20C.r.ack.rar?download=true"
 };
 
 module.exports = CRACK_LINKS;
