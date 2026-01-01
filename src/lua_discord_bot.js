@@ -1188,21 +1188,21 @@ async function handleGameCommand(message, appId) {
     let gameInfo = await getFullGameInfo(appId);
     
     if (!gameInfo) {
-      // Try to get name from SteamDB or Denuvo Data if Steam API fails
       const steamDBName = await getGameNameFromSteamDB(appId);
       const denuvoName = getDenuvoGameName(appId);
+      const gameName = steamDBName || denuvoName || `App ${appId}`;
       
-      const gameName = steamDBName || denuvoName;
-      
-      if (!gameName) {
-        return loadingMsg.edit(
-          `${ICONS.cross} Cannot fetch info from Steam for AppID: \`${appId}\`\n` +
+      if (!steamDBName && !denuvoName) {
+        await loadingMsg.edit(
+          `${ICONS.warning} Cannot fetch full info from Steam for AppID: \`${appId}\`\n` +
           `${ICONS.link} Link: https://store.steampowered.com/app/${appId}\n` +
-          `${ICONS.link} SteamDB: https://steamdb.info/app/${appId}/`
+          `${ICONS.link} SteamDB: https://steamdb.info/app/${appId}/\n` +
+          `➡️ Continuing with minimal data to show available downloads`
         );
+      } else {
+        await loadingMsg.edit(`✅ **Found: ${gameName}**\n⏳ Preparing details...`);
       }
       
-      // Create minimal game info from SteamDB name
       gameInfo = {
         name: gameName,
         headerImage: null,
@@ -1214,7 +1214,7 @@ async function handleGameCommand(message, appId) {
         recommendations: 0,
         developers: ['Unknown'],
         publishers: ['Unknown'],
-        shortDescription: 'Game information from SteamDB',
+        shortDescription: 'Game information (minimal mode)',
         categories: [],
         drm: {
           type: 'Unknown',
@@ -1226,7 +1226,7 @@ async function handleGameCommand(message, appId) {
         publisher: { name: 'Unknown', isEA: false },
       };
       
-      log('INFO', `Using fallback name for ${appId}: ${gameName}`);
+      log('INFO', `Using minimal data for ${appId}: ${gameName}`);
     }
     
     // Now find files with game name for smart Online-Fix search
