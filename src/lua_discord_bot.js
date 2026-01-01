@@ -1274,11 +1274,14 @@ async function handleGameCommand(message, appId) {
       onlineLink: !!onlineFixLink
     });
 
+    // Special fix for FC 26 Showcase (3629260) to ensure crack button shows even if embed logic is strict
+    // For this specific game, if we have a crack link, we MUST consider it as having content
     const hasContent = files.lua.length > 0 || 
                        files.fix.length > 0 || 
                        files.onlineFix.length > 0 ||
                        crackLink ||
-                       onlineFixLink;
+                       onlineFixLink || 
+                       appId === '3629260'; // Force content true for this game
     
     if (!hasContent) {
       return loadingMsg.edit(
@@ -1324,21 +1327,33 @@ async function handleGameCommand(message, appId) {
 
     // 3. Download Crack (Link) - Single button with all links inside
     // IMPORTANT: Only create ONE button, even if there are multiple links
-    if (crackLink && !row.components.some(btn => btn.data.custom_id?.includes('dl_crack'))) {
-      const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
-      // Create only ONE button for all crack links
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`dl_crack_${appId}_0`)
-          .setLabel(`🔥 Download Crack${crackLinks.length > 1 ? ` (${crackLinks.length} links)` : ''}`)
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('🔥')
-      );
+    // Fix: Explicit check for FC 26 Showcase or existing crackLink
+    if ((crackLink || appId === '3629260') && !row.components.some(btn => btn.data.custom_id?.includes('dl_crack'))) {
+      const crackLinks = Array.isArray(crackLink) ? crackLink : (crackLink ? [crackLink] : []);
       
-      log('INFO', `Created crack button for ${appId}`, { 
-        linksCount: crackLinks.length,
-        buttonId: `dl_crack_${appId}_0`
-      });
+      // Fallback for FC 26 Showcase if not in CRACK_LINKS but requested
+      if (appId === '3629260' && crackLinks.length === 0) {
+          // Check if link exists in data file, if not add fallback
+          // This ensures the button appears even if CRACK_LINKS wasn't updated in memory yet
+          const hardcodedLink = "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/EA%20SPORTS%20FC%E2%84%A2%2026%20SHOWCASE.zip?download=true";
+          crackLinks.push(hardcodedLink);
+      }
+
+      if (crackLinks.length > 0) {
+        // Create only ONE button for all crack links
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`dl_crack_${appId}_0`)
+            .setLabel(`🔥 Download Crack${crackLinks.length > 1 ? ` (${crackLinks.length} links)` : ''}`)
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('🔥')
+        );
+        
+        log('INFO', `Created crack button for ${appId}`, { 
+          linksCount: crackLinks.length,
+          buttonId: `dl_crack_${appId}_0`
+        });
+      }
     }
 
     // 4. Download Crack (File) - REMOVED per user request
