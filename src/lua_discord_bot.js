@@ -16,6 +16,7 @@ const app = express();
 const CONFIG = {
   BOT_TOKEN: process.env.BOT_TOKEN,
   STEAM_API_KEY: process.env.STEAM_API_KEY,
+  STEAMGRIDDB_API_KEY: process.env.STEAMGRIDDB_API_KEY,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
   GITHUB_REPO_OWNER: process.env.GITHUB_REPO_OWNER,
   GITHUB_REPO_NAME: process.env.GITHUB_REPO_NAME,
@@ -1414,6 +1415,7 @@ async function handleGameCommand(message, appId) {
 // ============================================
 const { searchSteamStore } = require('./steam_search');
 const { fetchLuaFromOpenCloud } = require('./openlua_scraper');
+const { getGameGrid } = require('./steamgriddb_api');
 
 async function handleFetchLuaCommand(message) {
   if (!isAdmin(message.author.id)) {
@@ -1545,7 +1547,14 @@ async function handleSearchCommand(message, query) {
       if (hasCrack) statusIcons.push('🔥 Crack');
       const statusText = statusIcons.length > 0 ? `\n   ${statusIcons.join(' • ')}` : '';
 
-      embed.setThumbnail(`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`);
+      // Try SteamGridDB first, fallback to Steam Header
+      let imageUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`;
+      try {
+        const gridUrl = await getGameGrid(game.appId);
+        if (gridUrl) imageUrl = gridUrl;
+      } catch (e) { /* ignore */ }
+
+      embed.setThumbnail(imageUrl);
       embed.addFields({
         name: `1. ${game.name}${isDenuvo ? ' [DRM]' : ''}`,
         value: `AppID: \`${game.appId}\` • Command: \`!${game.appId}\`${drmTag}${statusText}`,
@@ -1555,7 +1564,15 @@ async function handleSearchCommand(message, query) {
       // Hiển thị danh sách nhiều game
       // Discord không hỗ trợ ảnh cho từng field, nên ta chỉ có thể hiển thị text
       // Tuy nhiên, ta có thể set ảnh Thumbnail là game đầu tiên để đẹp hơn
-      embed.setThumbnail(`https://cdn.cloudflare.steamstatic.com/steam/apps/${displayResults[0].appId}/header.jpg`);
+      
+      // Try SteamGridDB for first game
+      let firstGameImage = `https://cdn.cloudflare.steamstatic.com/steam/apps/${displayResults[0].appId}/header.jpg`;
+      try {
+        const gridUrl = await getGameGrid(displayResults[0].appId);
+        if (gridUrl) firstGameImage = gridUrl;
+      } catch (e) { /* ignore */ }
+      
+      embed.setThumbnail(firstGameImage);
       
       displayResults.forEach((game, index) => {
         const isDenuvo = denuvoSet.has(String(game.appId));
