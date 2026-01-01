@@ -1469,12 +1469,16 @@ async function handleSearchCommand(message, query) {
     
     // Show results in pages if too many
     const maxDisplay = 15;
-    const displayResults = results.slice(0, maxDisplay);
+  const displayResults = results.slice(0, maxDisplay);
+  
+    const denuvoSet = new Set(DENUVO_GAMES.map(g => String(g.id)));
     
     displayResults.forEach((game, index) => {
+      const isDenuvo = denuvoSet.has(String(game.appId));
+      const drmTag = isDenuvo ? ' • ⚠️ Denuvo Anti-Tamper' : '';
       embed.addFields({
-        name: `${index + 1}. ${game.name}`,
-        value: `AppID: \`${game.appId}\` • Command: \`!${game.appId}\``,
+        name: `${index + 1}. ${game.name}${isDenuvo ? '  [DRM]' : ''}`,
+        value: `AppID: \`${game.appId}\` • Command: \`!${game.appId}\`${drmTag}`,
         inline: false
       });
     });
@@ -1487,9 +1491,26 @@ async function handleSearchCommand(message, query) {
       });
     }
     
+    const warningEmbeds = [];
+    displayResults.forEach((game) => {
+      const isDenuvo = denuvoSet.has(String(game.appId));
+      if (!isDenuvo) return;
+      const panel = new EmbedBuilder()
+        .setColor(0xE74C3C)
+        .setTitle('🔐 DRM/Restrictions detected')
+        .setDescription(
+          `**${game.name}**\n` +
+          'Denuvo Anti-Tamper detected\n' +
+          (/\bEA\b|\bEA SPORTS\b|Electronic Arts/i.test(game.name) ? 'EA App\n' : '') +
+          'You may NOT be able to play this game. [More info](https://store.steampowered.com/app/' + game.appId + ')'
+        )
+        .setThumbnail(`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/capsule_184x69.jpg`);
+      warningEmbeds.push(panel);
+    });
+    
     embed.setFooter({ text: 'Click AppID to view full info • Auto-deletes in 5min' });
     
-    await loadingMsg.edit({ embeds: [embed] });
+    await loadingMsg.edit({ embeds: [embed, ...warningEmbeds] });
     
     database.stats.totalSearches++;
     saveDatabase();
