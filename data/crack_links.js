@@ -75,7 +75,10 @@ const CRACK_LINKS = {
   "1693980": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Dead%20Space%20Crack.zip?download=true",
 
   // Forza Horizon 5
-  "1551360": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FH5_Fix_Repair_Steam_V10_Generic.rar?download=true"
+  "1551360": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FH5_Fix_Repair_Steam_V10_Generic.rar?download=true",
+
+  // Clair Obscur Expedition 33
+  "1903340": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Clair%20Obscur%20Expedition%2033%20crack.zip?download=true"
 };
 
 module.exports = CRACK_LINKS;
