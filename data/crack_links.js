@@ -96,7 +96,22 @@ const CRACK_LINKS = {
   "39140": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FINAL%20FANTASY%20VII%20c.r.ack.rar?download=true",
   
   // METAL GEAR SOLID V: THE PHANTOM PAIN
-  "287700": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/METAL%20GEAR%20SOLID%20V%20THE%20PHANTOM%20PAIN%20c.r.ack.zip?download=true"
+  "287700": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/METAL%20GEAR%20SOLID%20V%20THE%20PHANTOM%20PAIN%20c.r.ack.zip?download=true",
+
+  // FOOTBALL MANAGER 23
+  "1904540": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/FOOTBALL%20MANAGER%2023%20c.r.ack.zip?download=true",
+
+  //  JURASSIC WORLD EVOLUTION 2
+  "1244460": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/JURASSIC%20WORLD%20EVOLUTION%202%20C.r.ack.zip?download=true",
+
+  // Life is Strange: Double Exposure
+  "1874000": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/LIFE%20IS%20STRANGE%20DOUBLE%20EXPOSURE%20c.r.ack.zip?download=true",
+
+  // LIFE IS STRANGE 2
+  "532210": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/LIFE%20IS%20STRANGE%202%20c.r.ack.zip?download=true",
+
+  // GRAND THEFT AUTO V ENHANCED
+  "3240220": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/GRAND%20THEFT%20AUTO%20V%20ENHANCED%20c.r.zip?download=true"
 };
 
 module.exports = CRACK_LINKS;
