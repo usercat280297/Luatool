@@ -81,7 +81,16 @@ const CRACK_LINKS = {
   "1903340": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Clair%20Obscur%20Expedition%2033%20crack.zip?download=true",
 
   // FIFA 22
-  "1506830": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FIFA22%20C.r.ack.rar?download=true"
+  "1506830": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FIFA22%20C.r.ack.rar?download=true",
+
+  // PERSONA 5 STRIKER
+  "1382330": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/PERSONA%205%20STRIKERS%20c.r.ack.zip?download=true",
+
+  // PERSONA 4 GOLDEN
+  "1113000": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/PERSONA%204%20GOLDEN%20c.r.ack.zip?download=true",
+
+  // HOGWARTS LEGACY
+  "990080": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/HOGWARTS%20LEGACY%20c.r.ack.zip?download=true"
 };
 
 module.exports = CRACK_LINKS;
