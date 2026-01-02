@@ -90,7 +90,10 @@ const CRACK_LINKS = {
   "1113000": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/PERSONA%204%20GOLDEN%20c.r.ack.zip?download=true",
 
   // HOGWARTS LEGACY
-  "990080": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/HOGWARTS%20LEGACY%20c.r.ack.zip?download=true"
+  "990080": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/HOGWARTS%20LEGACY%20c.r.ack.zip?download=true",
+
+  // FINAL FANTASY VII c.r.ack.rar 
+  "39140": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FINAL%20FANTASY%20VII%20c.r.ack.rar?download=true"
 };
 
 module.exports = CRACK_LINKS;
