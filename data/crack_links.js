@@ -93,7 +93,10 @@ const CRACK_LINKS = {
   "990080": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/HOGWARTS%20LEGACY%20c.r.ack.zip?download=true",
 
   // FINAL FANTASY VII c.r.ack.rar 
-  "39140": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FINAL%20FANTASY%20VII%20c.r.ack.rar?download=true"
+  "39140": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FINAL%20FANTASY%20VII%20c.r.ack.rar?download=true",
+  
+  // METAL GEAR SOLID V: THE PHANTOM PAIN
+  "287700": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/METAL%20GEAR%20SOLID%20V%20THE%20PHANTOM%20PAIN%20c.r.ack.zip?download=true"
 };
 
 module.exports = CRACK_LINKS;
