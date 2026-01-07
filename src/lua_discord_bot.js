@@ -1872,6 +1872,10 @@ async function handleToggleAutoDeleteCommand(message) {
 // ============================================
 
 client.on('messageCreate', async (message) => {
+  try {
+    console.log(`[DEBUG] messageCreate: author=${message.author?.tag || message.author?.id} id=${message.author?.id} channel=${message.channelId} content="${String(message.content).replace(/\n/g, ' ')}"`);
+  } catch (e) { /* ignore logging errors */ }
+
   if (message.author.bot) return;
   if (!message.content.startsWith(CONFIG.COMMAND_PREFIX)) return;
   
@@ -2595,16 +2599,28 @@ loadGameInfoCache();
 
 console.log('🔐 Logging in to Discord...\n');
 
-client.login(CONFIG.BOT_TOKEN).catch(error => {
-  console.error('\n❌ FAILED TO LOGIN TO DISCORD!\n');
-  console.error('Error:', error.message);
-  console.error('\n💡 Troubleshooting tips:');
-  console.error('   1. Check if BOT_TOKEN exists in .env file');
-  console.error('   2. Verify the token is correct');
-  console.error('   3. Make sure bot has proper permissions');
-  console.error('   4. Check if bot is banned from the server\n');
-  process.exit(1);
-});
+// Start Discord login with retries, but DO NOT exit process on failure.
+async function attemptLogin(retries = 0) {
+  try {
+    await client.login(CONFIG.BOT_TOKEN);
+    console.log('\n✅ Discord login successful');
+  } catch (error) {
+    console.error('\n❌ FAILED TO LOGIN TO DISCORD! (will retry)\n');
+    console.error('Error:', error.message);
+    if (retries === 0) {
+      console.error('\n💡 Troubleshooting tips:');
+      console.error('   1. Check if BOT_TOKEN exists in .env file');
+      console.error('   2. Verify the token is correct');
+      console.error('   3. Make sure bot has proper permissions');
+      console.error('   4. Check if bot is banned from the server\n');
+    }
+    const delay = Math.min(60000 * Math.pow(2, Math.min(retries, 4)), 5 * 60 * 1000); // backoff up to 5min
+    console.log(`⏳ Retrying Discord login in ${Math.round(delay/1000)}s (attempt ${retries + 1})`);
+    setTimeout(() => attemptLogin(retries + 1), delay);
+  }
+}
+
+attemptLogin();
 
 // ============================================
 // HEALTH CHECK SERVER (for hosting services)
