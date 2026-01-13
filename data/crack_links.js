@@ -8,6 +8,9 @@ const CRACK_LINKS = {
   // Assassin's Creed Odyssey
   "812140": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassin's%20Creed%20Odyssey%20Crack.zip?download=true",
 
+  // Need for Speed™ Most Wanted
+  "1262560": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/NEED%20FOR%20SPEED%20MOST%20WANTED%20c.r.ack.zip?download=true",
+  
   // Need for Speed™ Unbound
   "1846380": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/NEED%20FOR%20SPEED%20UNBOUND%20c.r.ack.rar?download=true",
   
