@@ -7,6 +7,9 @@
 const CRACK_LINKS = {
   // Assassin's Creed Odyssey
   "812140": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassin's%20Creed%20Odyssey%20Crack.zip?download=true",
+
+  // DEAD SPACE REMAKE
+  "1693980": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/Dead.Space.Remake.PROPER.Crack.Only-voices38.rar?download=true",
   
   // Assassin's Creed Origins
   "582160": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassin's%20Creed%20-%20Origins%20FIX.zip?download=true",
@@ -71,8 +74,7 @@ const CRACK_LINKS = {
   // EA SPORTS FC™ 26 SHOWCASE
   "3629260": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/EA%20SPORTS%20FC%E2%84%A2%2026%20SHOWCASE.zip?download=true",
 
-  // DEAD SPACE REMAKE
-  "1693980": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Dead%20Space%20Crack.zip?download=true",
+
 
   // Forza Horizon 5
   "1551360": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FH5_Fix_Repair_Steam_V10_Generic.rar?download=true",
