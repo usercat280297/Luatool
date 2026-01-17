@@ -10,9 +10,6 @@ const ONLINE_FIX_LINKS = {
   // Among Us
   "945360": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Among%20Us%20online-fix.zip?download=true",
 
-  // PAYDAY 3
-  "1272080": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/ONLINE-FIX%20GAME/PAYDAY3_online_fix.rar?download=true",
-  
   // Chained Together
   "2567870": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Chained%20Together%20online-fix.zip?download=true",
   
