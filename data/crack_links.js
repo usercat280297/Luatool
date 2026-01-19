@@ -8,6 +8,26 @@ const CRACK_LINKS = {
   // Assassin's Creed Odyssey
   "812140": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Assassin's%20Creed%20Odyssey%20Crack.zip?download=true",
 
+ // ANNO 1800
+  "916440": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/Anno.1800.End.of.an.Era.Crack.Only-voices38.rar?download=true",
+
+// FAR CRY 3
+  "220240": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/FAR%20CRY%203.zip?download=true",
+
+  // FAR CRY 4
+  "298110": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/FAR%20CRY%204.zip?download=true",
+
+  // FAR CRY 5
+  "552520": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/FAR%20CRY%205.zip?download=true",
+
+  // FAR CRY NEW DAWN
+  "939960": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/FAR%20CRY%20NEW%20DAWN.zip?download=true",
+
+  // FAR CRY PRIMAL
+  "371660": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/FAR%20CRY%20PRIMAL.zip?download=true",
+
+  
+    
   // Need for Speed™ Most Wanted
   "1262560": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/NEED%20FOR%20SPEED%20MOST%20WANTED%20c.r.ack.zip?download=true",
   
@@ -78,9 +98,25 @@ const CRACK_LINKS = {
   "2963840": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FC%2025%20SHOWCASE.rar?download=true",
 
   // EA SPORTS FC™ 26 SHOWCASE
-  "3629260": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/EA%20SPORTS%20FC%E2%84%A2%2026%20SHOWCASE.zip?download=true",
+  "3629260": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/FC26%20NotACrack%20Showcase%20v1.0.130.16994.rar?download=true",
 
+  // RED DEAD REDEEMPTION 2
+  "1174180": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/RED%20DEAD%20REDEEMPTION%202%20crack_fix.zip?download=true",
 
+  // WATCH_DOGS
+ "243470": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/WATCH_DOGS.zip?download=true",
+
+ // Devil May Cry 5
+  "601150": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/dmc5crk.rar?download=true",
+
+  // Total War: WARHAMMER II
+  "594570": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/Total%20War%20WARHAMMER%20II%20crack.so.zip?download=true",
+  
+  // WATCH_DOGS 2
+"447040": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/WATCH_DOGS%202.zip?download=true",
+
+ // Watch Dogs: Legion
+"2239550": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/WATCH%20DOGS%20LEGION.zip?download=true",
 
   // Forza Horizon 5
   "1551360": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/FH5_Fix_Repair_Steam_V10_Generic.rar?download=true",
