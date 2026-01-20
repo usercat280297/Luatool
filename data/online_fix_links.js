@@ -10,6 +10,9 @@ const ONLINE_FIX_LINKS = {
   // Among Us
   "945360": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Among%20Us%20online-fix.zip?download=true",
 
+  // Euro truck simulator 2
+  "227300": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/ONLINE-FIX%20GAME/Euro%20truck%20simulator%202%20online-fix.zip?download=true",
+  
   // Chained Together
   "2567870": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Chained%20Together%20online-fix.zip?download=true",
   
