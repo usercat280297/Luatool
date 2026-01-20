@@ -16,6 +16,9 @@ const ONLINE_FIX_LINKS = {
  // DEVOUR
   "1274570": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Devour%20online-fix.zip?download=true",
 
+ // PttR
+  "337320": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/ONLINE-FIX%20GAME/PtTr%20online-fix.zip?download=true",
+  
  // Escape the Backrooms
  "1943950": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Escape%20The%20Backrooms%20online-fix.zip?download=true",
  
