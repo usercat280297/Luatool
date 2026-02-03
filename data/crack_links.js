@@ -44,10 +44,10 @@ const CRACK_LINKS = {
   "1172380": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/Star%20Wars%20Jedi%20Fallen%20Order%20CW.FIX.rar?download=true",
   
   // Resident Evil 4 - Multiple links
-  "2050650": [
-    "https://github.com/usercat280297/MangaVNteam.github.io/releases/download/re4remake/Resident.evil.4.remake.Denuvo.Bypass.Files.zip",
-    "https://github.com/usercat280297/MangaVNteam.github.io/releases/download/re4fix/Resident.Evil.4.Remake.Error.Fix.7z"
-  ],
+  "2050650": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/Resident%20evil%204%20remake%20crack%20full%20dlc.zip?download=true",
+
+  // Sonic frontiers 
+  "1237320": "https://huggingface.co/datasets/MangaVNteam/Assassin-Creed-Odyssey-Crack/resolve/main/C.r.ack%20files/Sonic.Frontiers.Crack.Only-voices38.rar?download=true",
   
   // Shin Megami Tensei III Nocturne HD Remaster
   "1413480": "https://github.com/usercat280297/Xuanngoc/releases/download/Shin.Megami.Tensei.III.Nocturne.HD.Remaster.crack.zip/Shin.Megami.Tensei.III.Nocturne.HD.Remaster.crack.zip",
