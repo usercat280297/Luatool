@@ -2729,12 +2729,27 @@ function startServer(port) {
 
   server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
-      console.log(`⚠️ Port ${port} is in use, trying ${port + 1}...`);
-      startServer(port + 1);
+      console.error(`❌ Required port ${port} already in use. On Render we must bind to PORT; exiting so the service can restart.`);
     } else {
       console.error('❌ Server error:', error);
     }
+    // Exit to let the platform restart the process on the correct PORT
+    process.exit(1);
   });
 }
+
+// Explicit HEAD handler so uptime monitors receive a fast 200 even when using HEAD
+app.head('/health', (req, res) => {
+  res.status(200).end();
+});
+
+// Guard against crashes bringing the process down silently
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+});
 
 startServer(START_PORT);
