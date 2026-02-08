@@ -1,17 +1,23 @@
-addappid(1174180)
-addappid(1190050)
-addappid(1190051)
-addappid(1174181,0,"6fbf0f4b33fd5111d0832f0fb63a4d185c5321901ef95776c73e6e10b203bc25")
--- setManifestid(1174181,"4757128409362785099")
-addappid(1174182,0,"0824e4e00b9d464a1352b0eaa60416ee3bfe0f3b416459991dc6fca87e84366f")
--- setManifestid(1174182,"2258488483491377476")
-addappid(1174183,0,"cd51ee7e8adde797736bc283f9d434fae0aac28753e3f38a29a78aac298c0ccf")
--- setManifestid(1174183,"4785346550216140531")
-addappid(1174184,0,"506c8f971b77f5c39f8baa54fac090e79bf32e19d92eca2a34cba9569bbe5d8a")
--- setManifestid(1174184,"2698939236196220127")
-addappid(1174185,0,"6fe9c5b4e41f1f91b6a775dd562515e9652570cc607caedef2bc4a9d522fea4d")
--- setManifestid(1174185,"8173342615013177810")
-addappid(1174186,0,"0ef7331ad866994474a72131eeb1a5667dc8c9f7be87b4e1d805f288e1d49432")
--- setManifestid(1174186,"357926288062992323")
-addappid(1899671,0,"b7921da5e50d00b2238d0fe870a354cb572bc5d397955fef02a439103f62827b")
--- setManifestid(1899671,"6894431991641066272")
+-- Red Dead R​‌‌​​‌‌​​‌‌​​​‌​​​‌‌​​‌‌​​‌‌​​​‌​​‌‌​​​‌​‌‌​​​‌‌​​‌‌‌​​​​​‌‌​‌​​​‌‌​​‌‌​​​‌‌​​​‌​​‌‌​​‌‌​​‌‌​​​‌​​‌‌‌​​​​​‌‌​​‌​​‌‌​​​​‌​​‌‌​​‌‌edemption 2
+-- AppID 1174180 | Generated on 2026-02-07 16:25 UTC | openlua.cloud
+-- Note: This game supports Steam Workshop content
+
+-- Main Application
+addappid(1174180, 1, "6e4fb90d9981974074a5702da7e20bbbea0bb416776556cc67b60997a49f7c5b")
+
+-- Content Depots (6)
+addappid(1174181, 1, "9369cb735ca599d4d98f6dce756b5f05f778b51641ad9436658718426ec4ed45") -- Red Dead Redemption 2 Install
+addappid(1174182, 1, "d53aa9110ef9331504956a847be84023b17a2aa3366eab23541c727c2916fbf5") -- Red Dead Redemption 2 Base
+addappid(1174183, 1, "d5b10e2ca82f49d097afbc335205303cf5bd3faf69ab53b6da6a961da113d950") -- Red Dead Redemption 2 Redist
+addappid(1174184, 1, "672660c18f8fc3f8a3a44a6f7bff29708d0e7b1b91c5c673a989463d63735b05") -- Red Dead Redemption 2 Update
+addappid(1174185, 1, "88383d73a4e59625b795053eef6ac691881e41f149206df05ad4fd4a52f5cab7") -- Red Dead Redemption 2 Packs
+addappid(1174186, 1, "5239c56872d10fa27ae59a9287a2af82c05d211208a9592cc4d607f40b1a0b88") -- Red Dead Redemption 2 Audio
+
+-- Shared Depots (3)
+addappid(228987, 1, "dec80e27a3acebb1af703c2298560c843af88bdcbc2ff4498a9bcab4284a2334") -- VC 2017 Redist (from 228980)
+addappid(228990, 1, "859b2c255795bfc174129a588e973059361c52a4a3bb93c0b4c21704eb6cc6c2") -- DirectX Jun 2010 Redist (from 228980)
+addappid(1899671, 1, "adafde4fedbfb6d224192af031c7b6c680ceaeb29c5b14e468c1ec4b858358c3") -- RGL/SC Content (from 1899670)
+
+-- DLCs without Dedicated Depots (2)
+addappid(1190050) -- Red Dead Redemption 2 Special Edition Content
+addappid(1190051) -- Red Dead Redemption 2 Ultimate Edition Content

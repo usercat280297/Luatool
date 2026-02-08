@@ -1,13 +1,27 @@
-addappid(271590)
-addappid(271591, 1, "baebeedec48b33c68a322fea0cbaa8d023d1dab4d2870aa909b82c33caa53941")
-setManifestid(271591, "5420921568832175525", 0)
-addappid(271592, 1, "e34313f0ec133a608e636cf04fd879d3ac1e8e10af38542436940be1b6834bee")
-setManifestid(271592, "3880939558104989697", 0)
-addappid(271593, 1, "71b57be5c50e5fbc819068a5bf31db42b653f1c75d88307da682ff0d5cae9457")
-setManifestid(271593, "6533191187872171909", 0)
-addappid(271594, 1, "ae7ed6931a136d41d3aae146563368eb3b3e4e60963344f3f426c0abc74bbdab")
-setManifestid(271594, "4496713143645700011", 0)
-addappid(271595, 1, "6dc0d2ce6b9dc96469ff792f6a607f759f0abd851d496cac73d71cd145c70b4d")
-setManifestid(271595, "8334800630270461944", 0)
-addappid(1899671, 1, "b7921da5e50d00b2238d0fe870a354cb572bc5d397955fef02a439103f62827b")
-setManifestid(1899671, "424738606525145871", 0)
+-- Grand Theft ​‌‌​​​‌​​​‌‌‌​​​​​‌‌​‌‌​​‌‌​​‌​‌​​‌‌​​‌‌​‌‌​​‌‌​​​‌‌​‌​‌​‌‌​​‌‌​​​‌‌​​‌​​​‌‌​‌​‌​‌‌​​‌‌​​‌‌​​​‌‌​​‌‌​​​​​​‌‌​​‌​​​‌‌​​‌‌​​‌‌​‌‌‌Auto V Legacy
+-- AppID 271590 | Generated on 2026-02-07 19:08 UTC | openlua.cloud
+-- Warning: This game uses DRM (Rockstar Social Club, BattlEye)
+-- Note: This game supports Steam Workshop content
+
+-- Main Application
+addappid(271590, 1, "6fd0eaeb291d250619489dcac9c7a5a0e1a68387cd96614a48fb749b757c98a7")
+
+-- Content Depots (5)
+addappid(271591, 1, "b25fd925f18557df0a3fd9d2256c3e1002abc3cac11afee9d1ead097d94a571f") -- Shetland Pony Content
+addappid(271592, 1, "d81813571715a77ebb31448662aa87dbb927b98fa5538b3646c7801045048f76") -- Shetland Pony Depot
+addappid(271593, 1, "247554ddd92795dfd762fc6e92219e1f3840e66532558ea89c7effee7bd9f176") -- Shetland Pony Depot
+addappid(271594, 1, "f7d3e7449f7b06546ec175a89613c085a84e6617a201e8c05fbb64bfc143a0b1") -- Shetland Pony Depot
+addappid(271595, 1, "da59b81106714a28f96384feac95200cbc47d8fb956e106db6e974581df83bb8") -- Shetland Pony Depot
+
+-- Shared Depots (3)
+addappid(228984, 1, "1f29d2fde3f6462ba32278d4cfc90944191d875e0511bd67ac20096e91b79da8") -- VC 2012 Redist (from 228980)
+addappid(228990, 1, "18b8ecae8f4f48cf0d09b2ca88ddb2b3d0f6721114e8e839eb7075a540350835") -- DirectX Jun 2010 Redist (from 228980)
+addappid(1899671, 1, "44f916fc7af353a0fa1c4862d84d555ba3548aa7682544d1031356a2a12c29d3") -- RGL/SC Content (from 1899670)
+
+-- DLCs without Dedicated Depots (6)
+addappid(771300) -- Grand Theft Auto V Legacy - Criminal Enterprise Starter Pack
+addappid(362000) -- Grand Theft Auto V  Bonus 1,500,000  GTA San Andreas
+addappid(362001) -- Grand Theft Auto V  Bonus 1,500,000
+addappid(362002) -- Grand Theft Auto V  Bonus 1,350,000
+addappid(362003) -- Grand Theft Auto V
+addappid(413180) -- Grand Theft Auto V  Bonus 500,000
