@@ -1503,9 +1503,16 @@ function calculateMatchScore(gameName, fileName) {
 function findFiles(appId, gameName = null) {
   const result = { lua: [], fix: [], onlineFix: [] };
   
-  // Find Lua files
+  // Find manifest files in priority order: archive first, then lua.
   const luaPatterns = [
+    path.join(CONFIG.LUA_FILES_PATH, `${appId}.zip`),
+    path.join(CONFIG.LUA_FILES_PATH, `${appId}.rar`),
+    path.join(CONFIG.LUA_FILES_PATH, `${appId}.7z`),
+    path.join(CONFIG.LUA_FILES_PATH, appId, `${appId}.zip`),
+    path.join(CONFIG.LUA_FILES_PATH, appId, `${appId}.rar`),
+    path.join(CONFIG.LUA_FILES_PATH, appId, `${appId}.7z`),
     path.join(CONFIG.LUA_FILES_PATH, `${appId}.lua`),
+    path.join(CONFIG.LUA_FILES_PATH, appId, `${appId}.lua`),
     path.join(CONFIG.LUA_FILES_PATH, appId, 'game.lua'),
   ];
   
@@ -1875,6 +1882,8 @@ async function handleGameCommand(message, appId) {
     // Create download buttons (Single Row for cleaner layout)
     const rows = [];
     const row = new ActionRowBuilder();
+    const primaryManifest = files.lua[0];
+    const primaryManifestMeta = primaryManifest ? getManifestFileMeta(primaryManifest.name) : null;
     
     // GIF URLs for buttons
     const gifUrls = {
@@ -1883,24 +1892,28 @@ async function handleGameCommand(message, appId) {
       crack: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZtpgLSKicg4p1i8/giphy.gif"
     };
     
-    // 1. Download Lua (Priority) - Green button
+    // 1. Download manifest (archive preferred, then lua)
     if (files.lua.length > 0) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_lua_${appId}_0`)
-          .setLabel(`Download Lua (${files.lua[0].sizeFormatted})`)
-          .setStyle(ButtonStyle.Success)
-          .setEmoji('📜')
+          .setLabel(
+            primaryManifestMeta?.kind === 'archive'
+              ? `Get Package (${primaryManifest.sizeFormatted})`
+              : `Get Lua (${primaryManifest.sizeFormatted})`
+          )
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji(primaryManifestMeta?.emoji || '📦')
       );
     }
     
-    // 2. Download Online-Fix (Link) - High Priority
+    // 2. Download Online-Fix (Link)
     if (onlineFixLink) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`dl_online_${appId}`)
-          .setLabel(`Download Online-Fix`)
-          .setStyle(ButtonStyle.Primary)
+          .setLabel('Online-Fix')
+          .setStyle(ButtonStyle.Secondary)
           .setEmoji('🌐')
       );
     }
@@ -1924,9 +1937,9 @@ async function handleGameCommand(message, appId) {
         row.addComponents(
           new ButtonBuilder()
             .setCustomId(`dl_crack_${appId}_0`)
-            .setLabel(`Download Crack${crackLinks.length > 1 ? ` (${crackLinks.length} links)` : ''}`)
+            .setLabel(`Bypass${crackLinks.length > 1 ? ` (${crackLinks.length})` : ''}`)
             .setStyle(ButtonStyle.Danger)
-            .setEmoji('🔥')
+            .setEmoji('🛠️')
         );
         
         log('INFO', `Created crack button for ${appId}`, { 
@@ -1952,16 +1965,15 @@ async function handleGameCommand(message, appId) {
     // Add row if it has components
     if (row.components.length > 0) rows.push(row);
     
-    const summaryLines = [];
-    if (message.isInteractionProxy) {
-      summaryLines.push(`${ICONS.game} **${gameInfo.name}** (AppID: \`${appId}\`)`);
-      if (message.canEmbed === false) {
-        summaryLines.push(`${ICONS.warning} Missing permission: **Embed Links**. Showing button-only fallback.`);
-      }
-    }
+    const summaryLines = buildManifestSummaryLines({
+      gameInfo,
+      appId,
+      files,
+      canEmbed: message.canEmbed
+    });
     
     const responseMsg = await loadingMsg.edit({
-      content: summaryLines.length > 0 ? summaryLines.join('\n') : null,
+      content: summaryLines.join('\n'),
       embeds: [embed],
       components: rows,
     });
@@ -3123,6 +3135,7 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
     
+    const selectedManifestMeta = type === 'lua' ? getManifestFileMeta(fileToSend.name) : null;
     const sizeMB = fileToSend.size / (1024 * 1024);
     
     // For Online-Fix files OR large files (>25MB), upload to GitHub
@@ -3147,7 +3160,11 @@ client.on('interactionCreate', async (interaction) => {
       }
       
       // Beautiful embed for large files uploaded to GitHub
-      const fileTypeName = type === 'online' ? 'Online-Fix' : type === 'lua' ? 'Lua File' : 'File';
+      const fileTypeName = type === 'online'
+        ? 'Online-Fix'
+        : type === 'lua'
+        ? (selectedManifestMeta?.label || 'Manifest File')
+        : 'File';
       const fileTypeGif = type === 'online' 
         ? "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif"
         : type === 'lua'
@@ -3197,8 +3214,8 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
     
-    // GIF for Lua button
-    const luaGif = type === 'lua' 
+    // GIF for manifest button (lua/package)
+    const manifestGif = type === 'lua' 
       ? "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif"
       : null;
     
@@ -3210,13 +3227,13 @@ client.on('interactionCreate', async (interaction) => {
       }]
     };
     
-    // Beautiful embed for Lua files
-    if (luaGif && type === 'lua') {
+    // Beautiful embed for manifest files
+    if (manifestGif && type === 'lua') {
       replyContent.embeds = [{
         color: 0x2ECC71,
-        title: '📜 LUA FILE DOWNLOAD',
-        description: `**Game:** ${gameInfo?.name || appId}\n\n**✅ File ready for download!**`,
-        thumbnail: { url: luaGif },
+        title: `${(selectedManifestMeta?.label || 'Manifest File').toUpperCase()} READY`,
+        description: `**Game:** ${gameInfo?.name || appId}\n\n**File ready for download.**`,
+        thumbnail: { url: manifestGif },
         fields: [
           { 
             name: '📁 File Information',
@@ -3225,12 +3242,14 @@ client.on('interactionCreate', async (interaction) => {
           },
           {
             name: '📋 Usage Instructions',
-            value: '```\n1. Download the Lua file\n2. Place it in your game directory\n3. Use with your Lua loader\n4. Launch the game\n```',
+            value: selectedManifestMeta?.instruction || '```\n1. Download the file\n2. Place it in your game directory\n3. Launch the game\n```',
             inline: false
           },
           {
             name: '💡 Tips',
-            value: '• Lua files are small and load quickly\n• Make sure your Lua loader is compatible\n• Backup original files if needed',
+            value: selectedManifestMeta?.kind === 'archive'
+              ? '- Extract archive fully before use\n- Keep original package as backup\n- Replace files in the correct game folder'
+              : '- Lua files are small and load quickly\n- Make sure your Lua loader is compatible\n- Backup original files if needed',
             inline: false
           }
         ],

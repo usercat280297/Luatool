@@ -419,9 +419,15 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   
   let fileInfo = [];
   
-  // Lua Script Files
+  // Primary manifest files (archive preferred, then lua)
   if (files.lua && files.lua.length > 0) {
-    fileInfo.push(`📜 **Lua Script** → \`${files.lua[0].sizeFormatted}\``);
+    const primaryManifest = files.lua[0];
+    const ext = (primaryManifest.name.split('.').pop() || '').toLowerCase();
+    const isArchive = ['zip', 'rar', '7z'].includes(ext);
+    const label = isArchive
+      ? `📦 **Manifest Package (${ext.toUpperCase()})**`
+      : '📜 **Lua Script**';
+    fileInfo.push(`${label} → \`${primaryManifest.sizeFormatted}\``);
   }
   
   // Crack/Fix Files
