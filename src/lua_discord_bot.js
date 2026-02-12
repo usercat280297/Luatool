@@ -221,13 +221,19 @@ const POPULAR_APP_IDS = [
   '1174180', '413150', '892970', '1086940', '367520'
 ];
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
+const enableMessageContentIntent = String(process.env.ENABLE_MESSAGE_CONTENT_INTENT || '').toLowerCase() === 'true';
+
+const requestedIntents = [
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMessages,
+];
+
+// Message content is privileged; keep it opt-in for stable Render deploys.
+if (enableMessageContentIntent) {
+  requestedIntents.push(GatewayIntentBits.MessageContent);
+}
+
+const client = new Client({ intents: requestedIntents });
 
 function initializeFolders() {
   [CONFIG.LUA_FILES_PATH, CONFIG.FIX_FILES_PATH, 
@@ -3002,6 +3008,7 @@ client.once('ready', async () => {
   console.log(`🎮 Bot ID: ${client.user.id}`);
   console.log(`📊 Command prefix: ${CONFIG.COMMAND_PREFIX}`);
   console.log(`🧭 Slash command: /${GEN_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
+  console.log(`📝 Message Content Intent: ${enableMessageContentIntent ? 'ENABLED' : 'DISABLED (slash-only mode)'}`);
   const allGames = scanAllGames();
   console.log(`🎯 Total available games: ${global.gameStats?.uniqueGames || allGames.length} (${global.gameStats?.totalFiles || 'N/A'} files)`);
   console.log(`💾 Cached game info: ${Object.keys(gameInfoCache).length} games`);
