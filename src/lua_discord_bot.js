@@ -2253,23 +2253,22 @@ function buildSlashValidationErrorEmbed(rawInput, resolution) {
 async function handleGenSlashCommand(interaction) {
   const rawInput = interaction.options.getString('appid', true).trim();
   
+  // Acknowledge early to avoid 3s interaction timeout on slow/network paths.
+  await interaction.deferReply();
+  
   if (!rawInput) {
-    return interaction.reply({
+    return interaction.editReply({
       embeds: [buildSlashValidationErrorEmbed(rawInput)],
-      ephemeral: true
     });
   }
   
   const resolution = await resolveAppIdInput(rawInput);
   if (!resolution.appId) {
-    return interaction.reply({
+    return interaction.editReply({
       embeds: [buildSlashValidationErrorEmbed(rawInput, resolution)],
-      ephemeral: true
     });
   }
-  
-  await interaction.deferReply();
-  
+
   log('INFO', 'Slash /gen request resolved', {
     user: interaction.user.tag,
     input: rawInput,
