@@ -3,7 +3,7 @@
 // Multi-source data + Auto-delete + Online-Fix
 // ============================================
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandOptionType, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandOptionType, ActivityType, PermissionFlagsBits } = require('discord.js');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -656,6 +656,10 @@ function createInteractionMessageProxy(interaction) {
   return {
     author: interaction.user,
     channelId: interaction.channelId,
+    isInteractionProxy: true,
+    canEmbed: interaction.appPermissions
+      ? interaction.appPermissions.has(PermissionFlagsBits.EmbedLinks)
+      : null,
     async reply(payload) {
       const options = typeof payload === 'string' ? { content: payload } : payload;
       return interaction.editReply(options);
@@ -1725,8 +1729,16 @@ async function handleGameCommand(message, appId) {
     // Add row if it has components
     if (row.components.length > 0) rows.push(row);
     
+    const summaryLines = [];
+    if (message.isInteractionProxy) {
+      summaryLines.push(`${ICONS.game} **${gameInfo.name}** (AppID: \`${appId}\`)`);
+      if (message.canEmbed === false) {
+        summaryLines.push(`${ICONS.warning} Missing permission: **Embed Links**. Showing button-only fallback.`);
+      }
+    }
+    
     const responseMsg = await loadingMsg.edit({
-      content: null,
+      content: summaryLines.length > 0 ? summaryLines.join('\n') : null,
       embeds: [embed],
       components: rows,
     });
