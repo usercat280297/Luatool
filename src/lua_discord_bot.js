@@ -1350,12 +1350,23 @@ function scanAllGames() {
   function scanFolder(folder) {
     if (!fs.existsSync(folder)) return;
     fs.readdirSync(folder).forEach(item => {
-      // Extract AppID from filename or folder
-      const match = item.match(/(\d{6,8})/);
-      if (match) {
-        const appId = match[1];
-        games.set(appId, (games.get(appId) || 0) + 1);
+      const parsed = path.parse(item);
+      const baseName = parsed.name;
+      let appId = null;
+      
+      // Primary: accept exact numeric file/folder names (e.g. 10.lua, 730.lua, 1245620.lua)
+      if (/^\d{1,10}$/.test(baseName)) {
+        appId = baseName;
+      } else {
+        // Fallback: extract long numeric IDs embedded in names (avoid short false positives like "fc26")
+        const embedded = baseName.match(/(?:^|[^0-9])(\d{6,10})(?:[^0-9]|$)/);
+        if (embedded) {
+          appId = embedded[1];
+        }
       }
+      
+      if (!appId) return;
+      games.set(appId, (games.get(appId) || 0) + 1);
     });
   }
   
@@ -3005,7 +3016,7 @@ client.once('ready', async () => {
   console.log('='.repeat(70));
   console.log(`✅ Logged in as: ${client.user.tag}`);
   console.log(`🎮 Bot ID: ${client.user.id}`);
-  console.log(`📊 Command prefix: ${CONFIG.COMMAND_PREFIX}`);
+  console.log(`📊 Legacy command prefix: ${enableMessageContentIntent ? CONFIG.COMMAND_PREFIX : `${CONFIG.COMMAND_PREFIX} (disabled in slash-only mode)`}`);
   console.log(`🧭 Slash command: /${GEN_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
   console.log(`📝 Message Content Intent: ${enableMessageContentIntent ? 'ENABLED' : 'DISABLED (slash-only mode)'}`);
   const allGames = scanAllGames();
