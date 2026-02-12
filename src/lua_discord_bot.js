@@ -10,6 +10,19 @@ const path = require('path');
 const express = require('express');
 const app = express();
 
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseBoolean(value, fallback) {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
 // ============================================
 // CONFIGURATION
 // ============================================
@@ -33,6 +46,8 @@ const CONFIG = {
   ADMIN_USER_IDS: ['898595655562432584'],
   MAX_FILE_SIZE_MB: 25,
   CACHE_DURATION: 0, // Always fetch fresh data
+  ENABLE_DAILY_DOWNLOAD_LIMIT: parseBoolean(process.env.ENABLE_DAILY_DOWNLOAD_LIMIT, true),
+  MAX_DAILY_DOWNLOADS_PER_USER: parsePositiveInt(process.env.MAX_DAILY_DOWNLOADS_PER_USER, 25),
   
   // AUTO-DELETE: Messages auto-delete after 5 minutes
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
@@ -190,7 +205,7 @@ const ICONS = {
 // UTILITY FUNCTIONS
 // ============================================
 
-let database = { games: {}, stats: { totalDownloads: 0, totalSearches: 0 } };
+let database = { games: {}, stats: { totalDownloads: 0, totalSearches: 0 }, userDailyDownloads: {} };
 let gameInfoCache = {};
 let gameNamesIndex = {}; // Game names index
 let gameNamesCache = {}; // Large local game name cache
@@ -235,6 +250,153 @@ if (enableMessageContentIntent) {
 
 const client = new Client({ intents: requestedIntents });
 
+function ensureDatabaseSchema() {
+  if (!database || typeof database !== 'object') {
+    database = {};
+  }
+  
+  if (!database.games || typeof database.games !== 'object') {
+    database.games = {};
+  }
+  
+  if (!database.stats || typeof database.stats !== 'object') {
+    database.stats = {};
+  }
+  
+  database.stats.totalDownloads = Number.isFinite(database.stats.totalDownloads)
+    ? database.stats.totalDownloads
+    : 0;
+  database.stats.totalSearches = Number.isFinite(database.stats.totalSearches)
+    ? database.stats.totalSearches
+    : 0;
+  
+  if (!database.userDailyDownloads || typeof database.userDailyDownloads !== 'object') {
+    database.userDailyDownloads = {};
+  }
+}
+
+function getUtcDateKey(timestamp = Date.now()) {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function getNextUtcResetUnix(timestamp = Date.now()) {
+  const now = new Date(timestamp);
+  const nextResetUtc = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0,
+    0,
+    0,
+    0
+  );
+  return Math.floor(nextResetUtc / 1000);
+}
+
+function getDailyDownloadQuota(userId, timestamp = Date.now()) {
+  ensureDatabaseSchema();
+  
+  if (!CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT || CONFIG.MAX_DAILY_DOWNLOADS_PER_USER <= 0) {
+    return {
+      enabled: false,
+      used: 0,
+      remaining: Number.POSITIVE_INFINITY,
+      limit: 0,
+      dateKey: getUtcDateKey(timestamp),
+    };
+  }
+  
+  const dateKey = getUtcDateKey(timestamp);
+  const userEntry = database.userDailyDownloads[userId];
+  const usedToday = userEntry && userEntry.dateKey === dateKey
+    ? Math.max(Number(userEntry.count) || 0, 0)
+    : 0;
+  const remaining = Math.max(CONFIG.MAX_DAILY_DOWNLOADS_PER_USER - usedToday, 0);
+  
+  return {
+    enabled: true,
+    used: usedToday,
+    remaining,
+    limit: CONFIG.MAX_DAILY_DOWNLOADS_PER_USER,
+    dateKey,
+  };
+}
+
+function consumeDailyDownloadQuota(userId, timestamp = Date.now()) {
+  ensureDatabaseSchema();
+  
+  const quota = getDailyDownloadQuota(userId, timestamp);
+  if (!quota.enabled) return quota;
+  
+  database.userDailyDownloads[userId] = {
+    dateKey: quota.dateKey,
+    count: quota.used + 1,
+  };
+  
+  return {
+    ...quota,
+    used: quota.used + 1,
+    remaining: Math.max(quota.remaining - 1, 0),
+  };
+}
+
+function formatDailyQuotaRemaining(quota) {
+  if (!quota?.enabled) return null;
+  return `You have ${quota.remaining}/${quota.limit} downloads remaining today.`;
+}
+
+function registerSuccessfulDownload({ appId, gameName, fileType, fileName, fileSize, user }) {
+  ensureDatabaseSchema();
+  
+  database.stats.totalDownloads += 1;
+  
+  if (!database.games[appId]) {
+    database.games[appId] = {
+      name: gameName || `App ${appId}`,
+      downloads: 0,
+      lastAccessed: Date.now(),
+    };
+  }
+  
+  const gameEntry = database.games[appId];
+  if (gameName) {
+    gameEntry.name = gameName;
+  }
+  gameEntry.downloads = (gameEntry.downloads || 0) + 1;
+  gameEntry.lastAccessed = Date.now();
+  
+  const quota = consumeDailyDownloadQuota(user.id);
+  saveDatabase();
+  
+  log('INFO', 'File downloaded', {
+    appId,
+    gameName: gameName || `App ${appId}`,
+    fileName: fileName || 'N/A',
+    fileType,
+    fileSize: fileSize || 'N/A',
+    user: user.tag
+  });
+  
+  return quota;
+}
+
+async function sendDailyQuotaRemaining(interaction, quota) {
+  const quotaMessage = formatDailyQuotaRemaining(quota);
+  if (!quotaMessage) return;
+  
+  try {
+    await interaction.followUp({
+      content: quotaMessage,
+      ephemeral: true
+    });
+  } catch (error) {
+    log('WARN', 'Failed to send daily quota follow-up', {
+      user: interaction.user?.tag,
+      error: error.message
+    });
+  }
+}
+
 function initializeFolders() {
   [CONFIG.LUA_FILES_PATH, CONFIG.FIX_FILES_PATH, 
    CONFIG.ONLINE_FIX_PATH, CONFIG.LOGS_PATH].forEach(folder => {
@@ -246,15 +408,19 @@ function loadDatabase() {
   if (fs.existsSync(CONFIG.DATABASE_PATH)) {
     try {
       database = JSON.parse(fs.readFileSync(CONFIG.DATABASE_PATH, 'utf8'));
+      ensureDatabaseSchema();
       console.log('✅ Loaded database');
     } catch (error) {
       console.error('❌ Error loading database:', error);
     }
+  } else {
+    ensureDatabaseSchema();
   }
 }
 
 function saveDatabase() {
   try {
+    ensureDatabaseSchema();
     fs.writeFileSync(CONFIG.DATABASE_PATH, JSON.stringify(database, null, 2));
   } catch (error) {
     console.error('❌ Error saving database:', error);
@@ -1174,6 +1340,63 @@ function detectPublisher(publishers) {
     isActivision: pub.includes('Activision'),
     isRockstar: pub.includes('Rockstar'),
   };
+}
+
+function getManifestFileMeta(fileName) {
+  const ext = path.extname(fileName || '').toLowerCase();
+  
+  if (ext === '.lua') {
+    return {
+      kind: 'lua',
+      label: 'Lua Script',
+      emoji: '📜',
+      shortType: 'lua',
+      instruction:
+        '```\n1. Download the Lua file\n2. Place it in your game directory\n3. Use with your Lua loader\n4. Launch the game\n```'
+    };
+  }
+  
+  if (ext === '.zip' || ext === '.rar' || ext === '.7z') {
+    return {
+      kind: 'archive',
+      label: 'Manifest Package',
+      emoji: '📦',
+      shortType: ext.replace('.', '').toUpperCase(),
+      instruction:
+        '```\n1. Download the archive package\n2. Extract all files\n3. Copy manifests to the correct game folder\n4. Replace files if asked\n```'
+    };
+  }
+  
+  return {
+    kind: 'file',
+    label: 'Manifest File',
+    emoji: '📁',
+    shortType: ext ? ext.replace('.', '').toUpperCase() : 'FILE',
+    instruction:
+      '```\n1. Download the file\n2. Place it in your game directory\n3. Start the game\n```'
+  };
+}
+
+function buildManifestSummaryLines({ gameInfo, appId, files, canEmbed }) {
+  const lines = [];
+  const primaryManifest = files.lua?.[0];
+  
+  lines.push(`📦 Here are your manifest files for **${gameInfo.name}**`);
+  
+  if (primaryManifest) {
+    const meta = getManifestFileMeta(primaryManifest.name);
+    lines.push(`✅ Primary file: \`${primaryManifest.name}\` (${primaryManifest.sizeFormatted}) • ${meta.label}`);
+  } else {
+    lines.push('⚠️ No local manifest file found yet.');
+  }
+  
+  lines.push(`🆔 App ID: \`${appId}\``);
+  
+  if (canEmbed === false) {
+    lines.push(`${ICONS.warning} Missing permission: **Embed Links**. Showing text + buttons only.`);
+  }
+  
+  return lines;
 }
 
 async function getFullGameInfo(appId, forceRefresh = false) {
@@ -2652,10 +2875,22 @@ async function uploadToGitHub(filePath, fileName) {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
   
-  const [action, type, appId, fileIdx] = interaction.customId.split('_');
+  const [action, rawType, appId, fileIdx] = interaction.customId.split('_');
+  let type = rawType;
   if (action !== 'dl') return;
   
   try {
+    const quotaBeforeDownload = getDailyDownloadQuota(interaction.user.id);
+    if (quotaBeforeDownload.enabled && quotaBeforeDownload.remaining <= 0) {
+      const resetUnix = getNextUtcResetUnix();
+      return interaction.reply({
+        content:
+          `Daily download limit reached (${quotaBeforeDownload.limit}/${quotaBeforeDownload.limit}).\n` +
+          `Try again <t:${resetUnix}:R> (reset at 00:00 UTC).`,
+        ephemeral: true
+      });
+    }
+
     // Handle Direct Crack Link
     if (type === 'crack') {
       const crackLink = CRACK_LINKS[appId];
@@ -2736,7 +2971,7 @@ client.on('interactionCreate', async (interaction) => {
           'Replace `PASTE_A_VALID_DENUVO_TOKEN_HERE` with your copied token';
       }
 
-      return interaction.editReply({
+      await interaction.editReply({
         embeds: [{
           color: 0xFF0000,
           title: '🔥 CRACK DOWNLOAD',
@@ -2771,6 +3006,17 @@ client.on('interactionCreate', async (interaction) => {
           timestamp: new Date().toISOString()
         }]
       });
+
+      const crackQuota = registerSuccessfulDownload({
+        appId,
+        gameName: gameInfo?.name,
+        fileType: 'crack-link',
+        fileName: `crack-link-${appId}`,
+        fileSize: totalSizeText || 'N/A',
+        user: interaction.user
+      });
+      await sendDailyQuotaRemaining(interaction, crackQuota);
+      return;
     }
 
     // Handle Direct Online-Fix Link
@@ -2794,7 +3040,7 @@ client.on('interactionCreate', async (interaction) => {
       const fileSize = await getFileSizeFromUrl(onlineLink);
       const sizeText = fileSize ? ` \`${formatFileSize(fileSize)}\`` : '';
       
-      return interaction.editReply({
+      await interaction.editReply({
         embeds: [{
           color: 0x00FF00,
           title: '🌐 ONLINE-FIX DOWNLOAD',
@@ -2829,6 +3075,17 @@ client.on('interactionCreate', async (interaction) => {
           timestamp: new Date().toISOString()
         }]
       });
+
+      const onlineQuota = registerSuccessfulDownload({
+        appId,
+        gameName: gameInfo?.name,
+        fileType: 'online-link',
+        fileName: `online-link-${appId}`,
+        fileSize: sizeText || 'N/A',
+        user: interaction.user
+      });
+      await sendDailyQuotaRemaining(interaction, onlineQuota);
+      return;
     }
 
     // Handle Legacy Online-Fix File (if any)
@@ -2927,6 +3184,16 @@ client.on('interactionCreate', async (interaction) => {
           timestamp: new Date().toISOString()
         }]
       });
+
+      const largeFileQuota = registerSuccessfulDownload({
+        appId,
+        gameName: gameInfo?.name,
+        fileType: type,
+        fileName: fileToSend.name,
+        fileSize: fileToSend.sizeFormatted,
+        user: interaction.user
+      });
+      await sendDailyQuotaRemaining(interaction, largeFileQuota);
       return;
     }
     
@@ -2980,20 +3247,15 @@ client.on('interactionCreate', async (interaction) => {
     
     await scheduleInteractionDeletion(interaction, replyContent);
     
-    // Update download statistics
-    database.stats.totalDownloads++;
-    if (database.games[appId]) {
-      database.games[appId].downloads = (database.games[appId].downloads || 0) + 1;
-    }
-    saveDatabase();
-    
-    log('INFO', 'File downloaded', { 
-      appId, 
-      fileName: fileToSend.name,
+    const directFileQuota = registerSuccessfulDownload({
+      appId,
+      gameName: gameInfo?.name,
       fileType: type,
+      fileName: fileToSend.name,
       fileSize: fileToSend.sizeFormatted,
-      user: interaction.user.tag 
+      user: interaction.user
     });
+    await sendDailyQuotaRemaining(interaction, directFileQuota);
     
   } catch (error) {
     console.error('❌ Button Handler Error:', error);
@@ -3035,6 +3297,7 @@ client.once('ready', async () => {
   console.log(`🎯 Total available games: ${global.gameStats?.uniqueGames || allGames.length} (${global.gameStats?.totalFiles || 'N/A'} files)`);
   console.log(`💾 Cached game info: ${Object.keys(gameInfoCache).length} games`);
   console.log(`🔄 Auto-delete: ${CONFIG.ENABLE_AUTO_DELETE ? 'ENABLED (5 min)' : 'DISABLED'}`);
+  console.log(`🧱 Daily download limit: ${CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT ? `${CONFIG.MAX_DAILY_DOWNLOADS_PER_USER}/user/day (UTC reset)` : 'DISABLED'}`);
   console.log(`📁 Folders:`);
   console.log(`   - Lua files: ${CONFIG.LUA_FILES_PATH}`);
   console.log(`   - Fix files: ${CONFIG.FIX_FILES_PATH}`);
