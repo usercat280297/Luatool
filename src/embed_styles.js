@@ -10,12 +10,12 @@ const { EmbedBuilder } = require('discord.js');
 // COLOR PALETTE - DRM Severity Based
 // ============================================
 const COLORS = {
-  critical: 0xE74C3C,  // Denuvo - Bright Red
-  warning: 0xF39C12,   // Anti-cheat - Bright Orange
-  info: 0x3498DB,      // Steam DRM - Bright Blue
-  none: 0x2ECC71,      // DRM-Free - Bright Green
-  default: 0x9B59B6,   // Purple
-  premium: 0xFFD700,   // Gold for special games
+  critical: 0xED4245,  // Denuvo - Discord Red
+  warning: 0xFAA61A,   // Anti-cheat - Amber
+  info: 0x5865F2,      // Steam DRM - Blurple
+  none: 0x57F287,      // DRM-Free - Discord Green
+  default: 0x00B0F4,   // Accent cyan
+  premium: 0xFEE75C,   // Gold for special games
 };
 
 // ============================================
@@ -122,7 +122,7 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   // BRANDING - Author Section with Animated GIF
   // ============================================
   embed.setAuthor({
-    name: 'ACN GAME LIBRARY',
+    name: 'Solus Gen',
     iconURL: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif'
   });
   

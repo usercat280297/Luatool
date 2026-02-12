@@ -3,7 +3,7 @@
 // Multi-source data + Auto-delete + Online-Fix
 // ============================================
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandOptionType, ActivityType } = require('discord.js');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -193,6 +193,33 @@ const ICONS = {
 let database = { games: {}, stats: { totalDownloads: 0, totalSearches: 0 } };
 let gameInfoCache = {};
 let gameNamesIndex = {}; // Game names index
+let gameNamesCache = {}; // Large local game name cache
+let searchableGameList = []; // Unified game list for autocomplete + slash resolution
+
+const GEN_SLASH_COMMAND = {
+  name: 'gen',
+  description: 'Generate manifest files for a game',
+  dm_permission: false,
+  options: [
+    {
+      type: ApplicationCommandOptionType.String,
+      name: 'appid',
+      description: 'The Steam App ID or game name',
+      required: true,
+      autocomplete: true
+    }
+  ]
+};
+
+const AUTOCOMPLETE_LIMIT = 25;
+const AUTOCOMPLETE_CACHE_TTL = 60 * 1000;
+const autocompleteCache = new Map();
+
+const POPULAR_APP_IDS = [
+  '730', '570', '578080', '1172470', '271590',
+  '252490', '4000', '431960', '1091500', '1245620',
+  '1174180', '413150', '892970', '1086940', '367520'
+];
 
 const client = new Client({
   intents: [
@@ -238,15 +265,79 @@ function loadGameInfoCache() {
     }
   }
   
-  // Load game names index
-  if (fs.existsSync('./game_names_index.json')) {
+  const gameIndexPath = path.join(__dirname, '../game_names_index.json');
+  const gameNamesCachePath = path.join(__dirname, '../gameNamesCache.json');
+  
+  // Load compact game names index
+  if (fs.existsSync(gameIndexPath)) {
     try {
-      gameNamesIndex = JSON.parse(fs.readFileSync('./game_names_index.json', 'utf8'));
+      gameNamesIndex = JSON.parse(fs.readFileSync(gameIndexPath, 'utf8'));
       console.log(`✅ Loaded ${Object.keys(gameNamesIndex).length} game names from index`);
     } catch (error) {
       console.error('❌ Error loading game names index:', error);
     }
   }
+  
+  // Load large game names cache for autocomplete
+  if (fs.existsSync(gameNamesCachePath)) {
+    try {
+      gameNamesCache = JSON.parse(fs.readFileSync(gameNamesCachePath, 'utf8'));
+      console.log(`✅ Loaded ${Object.keys(gameNamesCache).length} game names from cache`);
+    } catch (error) {
+      console.error('❌ Error loading game names cache:', error);
+    }
+  }
+  
+  rebuildSearchableGameList();
+}
+
+function rebuildSearchableGameList() {
+  const merged = new Map();
+  
+  const upsertEntry = (appId, name) => {
+    if (!appId || !name) return;
+    const id = String(appId).trim();
+    const displayName = String(name).replace(/\s+/g, ' ').trim();
+    if (!id || !displayName) return;
+    
+    if (!merged.has(id)) {
+      merged.set(id, { appId: id, name: displayName });
+      return;
+    }
+    
+    const existing = merged.get(id);
+    if (displayName.length > existing.name.length) {
+      merged.set(id, { appId: id, name: displayName });
+    }
+  };
+  
+  for (const [appId, name] of Object.entries(gameNamesCache || {})) {
+    upsertEntry(appId, name);
+  }
+  
+  for (const [appId, name] of Object.entries(gameNamesIndex || {})) {
+    upsertEntry(appId, name);
+  }
+  
+  for (const [appId, cacheEntry] of Object.entries(gameInfoCache || {})) {
+    const cachedName = cacheEntry?.data?.name;
+    if (cachedName) {
+      upsertEntry(appId, cachedName);
+    }
+  }
+  
+  for (const game of DENUVO_GAMES) {
+    upsertEntry(game.id, game.name);
+  }
+  
+  searchableGameList = Array.from(merged.values());
+  log('INFO', 'Rebuilt searchable game cache', { totalGames: searchableGameList.length });
+}
+
+function getGameNameById(appId) {
+  const id = String(appId || '').trim();
+  if (!id) return null;
+  return gameNamesCache[id] || gameNamesIndex[id] || gameInfoCache[id]?.data?.name || null;
 }
 
 function saveGameInfoCache() {
@@ -333,6 +424,237 @@ function formatNumber(num) {
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
   return num.toString();
+}
+
+function sanitizeNameForChoice(name) {
+  return String(name || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncateChoiceName(name, appId) {
+  const normalized = sanitizeNameForChoice(name);
+  const suffix = ` (${appId})`;
+  const maxNameLength = 100 - suffix.length;
+  
+  if (normalized.length <= maxNameLength) {
+    return `${normalized}${suffix}`;
+  }
+  
+  return `${normalized.slice(0, maxNameLength - 3)}...${suffix}`;
+}
+
+function calculateMatchScore(query, candidate) {
+  const normalizedQuery = normalizeGameName(query);
+  const normalizedCandidate = normalizeGameName(candidate);
+  
+  if (!normalizedQuery || !normalizedCandidate) return 0;
+  if (normalizedCandidate === normalizedQuery) return 100;
+  if (normalizedCandidate.startsWith(normalizedQuery)) return 90;
+  if (normalizedCandidate.includes(normalizedQuery)) return 75;
+  
+  const queryTokens = String(query).toLowerCase().split(/\s+/).filter(Boolean);
+  const candidateText = String(candidate).toLowerCase();
+  if (queryTokens.length === 0) return 0;
+  
+  const matchedTokens = queryTokens.filter(token => candidateText.includes(token)).length;
+  if (matchedTokens === 0) return 0;
+  
+  const coverage = matchedTokens / queryTokens.length;
+  return Math.floor(50 + coverage * 20);
+}
+
+function toUniqueGames(candidates = []) {
+  const deduped = new Map();
+  
+  for (const item of candidates) {
+    if (!item?.appId || !item?.name) continue;
+    const appId = String(item.appId).trim();
+    const name = sanitizeNameForChoice(item.name);
+    if (!appId || !name) continue;
+    
+    if (!deduped.has(appId)) {
+      deduped.set(appId, { appId, name, score: item.score || 0 });
+      continue;
+    }
+    
+    const existing = deduped.get(appId);
+    const nextScore = Math.max(existing.score || 0, item.score || 0);
+    if (name.length > existing.name.length) {
+      deduped.set(appId, { appId, name, score: nextScore });
+    } else {
+      existing.score = nextScore;
+    }
+  }
+  
+  return Array.from(deduped.values());
+}
+
+function getPopularAutocompleteGames(limit = AUTOCOMPLETE_LIMIT) {
+  const games = POPULAR_APP_IDS.map(appId => {
+    const name = getGameNameById(appId);
+    if (!name) return null;
+    return { appId, name, score: 100 };
+  }).filter(Boolean);
+  
+  if (games.length >= limit) {
+    return games.slice(0, limit);
+  }
+  
+  const existingIds = new Set(games.map(game => game.appId));
+  for (const game of searchableGameList) {
+    if (existingIds.has(game.appId)) continue;
+    games.push({ appId: game.appId, name: game.name, score: 50 });
+    if (games.length >= limit) break;
+  }
+  
+  return games;
+}
+
+function searchLocalGames(query, limit = AUTOCOMPLETE_LIMIT) {
+  const input = String(query || '').trim();
+  if (!input) {
+    return getPopularAutocompleteGames(limit);
+  }
+  
+  const isNumericQuery = /^\d+$/.test(input);
+  const results = [];
+  
+  for (const game of searchableGameList) {
+    let score = 0;
+    
+    if (isNumericQuery) {
+      if (game.appId === input) {
+        score = 120;
+      } else if (game.appId.startsWith(input)) {
+        score = 100;
+      } else {
+        score = calculateMatchScore(input, game.name);
+      }
+    } else {
+      score = calculateMatchScore(input, game.name);
+    }
+    
+    if (score > 0) {
+      results.push({
+        appId: game.appId,
+        name: game.name,
+        score
+      });
+    }
+  }
+  
+  results.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (a.name.length !== b.name.length) return a.name.length - b.name.length;
+    return a.appId.localeCompare(b.appId);
+  });
+  
+  return toUniqueGames(results).slice(0, limit);
+}
+
+async function fetchSteamSuggestions(query, limit = AUTOCOMPLETE_LIMIT) {
+  if (!query || query.length < 2) return [];
+  
+  try {
+    const steamResults = await Promise.race([
+      searchSteamStore(query),
+      new Promise(resolve => setTimeout(() => resolve([]), 2200))
+    ]);
+    
+    return toUniqueGames(
+      (steamResults || []).map(item => ({
+        appId: item.appId,
+        name: item.name,
+        score: calculateMatchScore(query, item.name)
+      }))
+    ).slice(0, limit);
+  } catch (error) {
+    log('WARN', 'Steam autocomplete fallback failed', { query, error: error.message });
+    return [];
+  }
+}
+
+async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
+  const key = String(query || '').trim().toLowerCase();
+  const cached = autocompleteCache.get(key);
+  if (cached && (Date.now() - cached.timestamp < AUTOCOMPLETE_CACHE_TTL)) {
+    return cached.results.slice(0, limit);
+  }
+  
+  const localGames = searchLocalGames(query, limit);
+  let merged = localGames;
+  
+  if (localGames.length < Math.min(8, limit) && key.length >= 2) {
+    const steamGames = await fetchSteamSuggestions(key, limit);
+    merged = toUniqueGames([...localGames, ...steamGames])
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, limit);
+  }
+  
+  autocompleteCache.set(key, { timestamp: Date.now(), results: merged });
+  return merged;
+}
+
+async function resolveAppIdInput(input) {
+  const rawInput = String(input || '').trim();
+  if (!rawInput) {
+    return { appId: null, reason: 'EMPTY', suggestions: [] };
+  }
+  
+  if (/^\d{1,10}$/.test(rawInput)) {
+    return { appId: rawInput, reason: 'APPID' };
+  }
+  
+  const embeddedAppId = rawInput.match(/\b(\d{4,10})\b/);
+  if (embeddedAppId) {
+    return { appId: embeddedAppId[1], reason: 'EMBEDDED_APPID' };
+  }
+  
+  const candidates = await getAutocompleteGames(rawInput, 10);
+  if (candidates.length === 0) {
+    return { appId: null, reason: 'NOT_FOUND', suggestions: [] };
+  }
+  
+  const normalizedInput = normalizeGameName(rawInput);
+  const exactMatch = candidates.find(item => normalizeGameName(item.name) === normalizedInput);
+  if (exactMatch) {
+    return {
+      appId: exactMatch.appId,
+      reason: 'EXACT_NAME',
+      resolvedName: exactMatch.name
+    };
+  }
+  
+  const best = candidates[0];
+  const second = candidates[1];
+  const bestScore = best?.score || 0;
+  const secondScore = second?.score || 0;
+  
+  if (bestScore >= 90 || (bestScore >= 75 && (bestScore - secondScore) >= 12)) {
+    return {
+      appId: best.appId,
+      reason: 'BEST_MATCH',
+      resolvedName: best.name
+    };
+  }
+  
+  return {
+    appId: null,
+    reason: 'AMBIGUOUS',
+    suggestions: candidates.slice(0, 5)
+  };
+}
+
+function createInteractionMessageProxy(interaction) {
+  return {
+    author: interaction.user,
+    channelId: interaction.channelId,
+    async reply(payload) {
+      const options = typeof payload === 'string' ? { content: payload } : payload;
+      return interaction.editReply(options);
+    }
+  };
 }
 
 // ============================================
@@ -899,6 +1221,19 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     data: fullInfo,
     timestamp: Date.now(),
   };
+
+  if (fullInfo.name) {
+    const normalizedAppId = String(appId);
+    gameNamesIndex[normalizedAppId] = fullInfo.name;
+
+    const existingEntry = searchableGameList.find(item => item.appId === normalizedAppId);
+    if (existingEntry) {
+      existingEntry.name = fullInfo.name;
+    } else {
+      searchableGameList.push({ appId: normalizedAppId, name: fullInfo.name });
+    }
+  }
+
   saveGameInfoCache();
   
   log('SUCCESS', `Got full info for ${steamData.name}`, {
@@ -1650,6 +1985,7 @@ async function handleHelpCommand(message) {
       {
         name: `${ICONS.sparkles} Commands`,
         value: [
+          '`/gen appid:<id-or-name>` - Default slash command',
           `\`${CONFIG.COMMAND_PREFIX}<appid>\` - View full game info`,
           `\`${CONFIG.COMMAND_PREFIX}search <name>\` - Search games`,
           `\`${CONFIG.COMMAND_PREFIX}refresh <appid>\` - Refresh game info`,
@@ -1867,6 +2203,129 @@ async function handleToggleAutoDeleteCommand(message) {
   }
 }
 
+async function handleGenAutocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  if (focused.name !== 'appid') {
+    return interaction.respond([]);
+  }
+  
+  const matches = await getAutocompleteGames(focused.value, AUTOCOMPLETE_LIMIT);
+  const choices = matches.slice(0, AUTOCOMPLETE_LIMIT).map(item => ({
+    name: truncateChoiceName(item.name, item.appId),
+    value: item.appId
+  }));
+  
+  await interaction.respond(choices);
+}
+
+function buildSlashValidationErrorEmbed(rawInput, resolution) {
+  const embed = new EmbedBuilder()
+    .setColor(0xED4245)
+    .setTitle('Game not found')
+    .setDescription(
+      rawInput
+        ? `Could not resolve \`${rawInput}\` to a valid game.\nUse the autocomplete list for exact results.`
+        : 'You must fill the `appid` field with a Steam App ID or game name.'
+    );
+  
+  if (resolution?.suggestions?.length) {
+    const suggestionLines = resolution.suggestions
+      .slice(0, 5)
+      .map((game, idx) => `${idx + 1}. ${game.name} (\`${game.appId}\`)`);
+    
+    embed.addFields({
+      name: 'Did you mean',
+      value: suggestionLines.join('\n').slice(0, 1024),
+      inline: false
+    });
+  }
+  
+  embed.setFooter({ text: 'Tip: type /gen then use autocomplete for appid.' });
+  return embed;
+}
+
+async function handleGenSlashCommand(interaction) {
+  const rawInput = interaction.options.getString('appid', true).trim();
+  
+  if (!rawInput) {
+    return interaction.reply({
+      embeds: [buildSlashValidationErrorEmbed(rawInput)],
+      ephemeral: true
+    });
+  }
+  
+  const resolution = await resolveAppIdInput(rawInput);
+  if (!resolution.appId) {
+    return interaction.reply({
+      embeds: [buildSlashValidationErrorEmbed(rawInput, resolution)],
+      ephemeral: true
+    });
+  }
+  
+  await interaction.deferReply();
+  
+  log('INFO', 'Slash /gen request resolved', {
+    user: interaction.user.tag,
+    input: rawInput,
+    appId: resolution.appId,
+    reason: resolution.reason
+  });
+  
+  const proxyMessage = createInteractionMessageProxy(interaction);
+  await handleGameCommand(proxyMessage, resolution.appId);
+}
+
+async function upsertApplicationCommand(commandManager, commandData) {
+  const commands = await commandManager.fetch();
+  const existing = commands.find(cmd => cmd.name === commandData.name);
+  
+  if (existing) {
+    await existing.edit(commandData);
+    return 'updated';
+  }
+  
+  await commandManager.create(commandData);
+  return 'created';
+}
+
+async function registerSlashCommandForGuild(guild) {
+  try {
+    const result = await upsertApplicationCommand(guild.commands, GEN_SLASH_COMMAND);
+    log('INFO', `Slash command ${result} for guild`, { guildId: guild.id, guildName: guild.name });
+    return { ok: true, guildId: guild.id };
+  } catch (error) {
+    log('WARN', 'Failed to register slash command for guild', {
+      guildId: guild.id,
+      guildName: guild.name,
+      error: error.message
+    });
+    return { ok: false, guildId: guild.id, error: error.message };
+  }
+}
+
+async function registerSlashCommands() {
+  if (!client.application) {
+    log('WARN', 'Cannot register slash commands: client.application missing');
+    return;
+  }
+  
+  try {
+    const globalResult = await upsertApplicationCommand(client.application.commands, GEN_SLASH_COMMAND);
+    log('INFO', `Global slash command ${globalResult}`, { command: GEN_SLASH_COMMAND.name });
+  } catch (error) {
+    log('WARN', 'Failed to register global slash command', { error: error.message });
+  }
+  
+  const guilds = Array.from(client.guilds.cache.values());
+  const guildResults = await Promise.all(guilds.map(registerSlashCommandForGuild));
+  const successful = guildResults.filter(item => item.ok).length;
+  
+  log('INFO', 'Slash command registration finished', {
+    guildTotal: guilds.length,
+    guildSuccess: successful
+  });
+}
+
 // ============================================
 // MESSAGE HANDLER
 // ============================================
@@ -1988,6 +2447,47 @@ client.on('messageCreate', async (message) => {
     
     const errorMsg = await message.reply(`${ICONS.cross} An error occurred! Please try again later.`);
     scheduleMessageDeletion(errorMsg);
+  }
+});
+
+client.on('interactionCreate', async (interaction) => {
+  try {
+    if (interaction.isAutocomplete()) {
+      if (interaction.commandName === GEN_SLASH_COMMAND.name) {
+        await handleGenAutocomplete(interaction);
+      }
+      return;
+    }
+    
+    if (!interaction.isChatInputCommand()) return;
+    if (interaction.commandName !== GEN_SLASH_COMMAND.name) return;
+    
+    await handleGenSlashCommand(interaction);
+  } catch (error) {
+    log('ERROR', 'Slash command handler failed', {
+      command: interaction.commandName,
+      user: interaction.user?.tag,
+      error: error.message
+    });
+    
+    if (interaction.isAutocomplete()) {
+      try { await interaction.respond([]); } catch (_) {}
+      return;
+    }
+    
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: `${ICONS.cross} Failed to execute /gen. Please try again.`,
+        ephemeral: true
+      }).catch(() => {});
+      return;
+    }
+    
+    if (interaction.deferred && !interaction.replied) {
+      await interaction.editReply({
+        content: `${ICONS.cross} Failed to execute /gen. Please try again.`
+      }).catch(() => {});
+    }
   }
 });
 
@@ -2493,7 +2993,7 @@ client.on('interactionCreate', async (interaction) => {
 // BOT READY EVENT
 // ============================================
 
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log('\n' + '='.repeat(70));
   console.log('🚀 DISCORD LUA BOT - ENHANCED VERSION 2.0');
   console.log('   Multi-source data + Auto-delete + Online-Fix Integration');
@@ -2501,6 +3001,7 @@ client.once('ready', () => {
   console.log(`✅ Logged in as: ${client.user.tag}`);
   console.log(`🎮 Bot ID: ${client.user.id}`);
   console.log(`📊 Command prefix: ${CONFIG.COMMAND_PREFIX}`);
+  console.log(`🧭 Slash command: /${GEN_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
   const allGames = scanAllGames();
   console.log(`🎯 Total available games: ${global.gameStats?.uniqueGames || allGames.length} (${global.gameStats?.totalFiles || 'N/A'} files)`);
   console.log(`💾 Cached game info: ${Object.keys(gameInfoCache).length} games`);
@@ -2510,12 +3011,18 @@ client.once('ready', () => {
   console.log(`   - Fix files: ${CONFIG.FIX_FILES_PATH}`);
   console.log(`   - Online-Fix: ${CONFIG.ONLINE_FIX_PATH}`);
   console.log('='.repeat(70) + '\n');
+
+  try {
+    await registerSlashCommands();
+  } catch (error) {
+    log('WARN', 'Slash command registration failed on ready', { error: error.message });
+  }
   
   // Set bot presence
   client.user.setPresence({
     activities: [{ 
-      name: `${CONFIG.COMMAND_PREFIX}help | Enhanced v2.0 © ${new Date().getFullYear()}`,
-      type: 0 // Playing
+      name: `/gen appid:<id-or-name>`,
+      type: ActivityType.Watching
     }],
     status: 'online',
   });
@@ -2526,6 +3033,10 @@ client.once('ready', () => {
     cachedGames: Object.keys(gameInfoCache).length,
     autoDelete: CONFIG.ENABLE_AUTO_DELETE
   });
+});
+
+client.on('guildCreate', async (guild) => {
+  await registerSlashCommandForGuild(guild);
 });
 
 // ============================================
