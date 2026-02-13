@@ -73,6 +73,8 @@ const CONFIG = {
   ENABLE_DAILY_DOWNLOAD_LIMIT: parseBoolean(process.env.ENABLE_DAILY_DOWNLOAD_LIMIT, true),
   MAX_DAILY_DOWNLOADS_PER_USER: parsePositiveInt(process.env.MAX_DAILY_DOWNLOADS_PER_USER, 25),
   DAILY_LIMIT_TIMEZONE: process.env.DAILY_LIMIT_TIMEZONE || 'Asia/Ho_Chi_Minh',
+  REGISTER_GLOBAL_SLASH_COMMAND: parseBoolean(process.env.REGISTER_GLOBAL_SLASH_COMMAND, false),
+  REGISTER_GUILD_SLASH_COMMAND: parseBoolean(process.env.REGISTER_GUILD_SLASH_COMMAND, true),
   GEN_PROCESSING_DELAY_MS: Math.min(
     Math.max(parsePositiveInt(process.env.GEN_PROCESSING_DELAY_MS, 3500), 3000),
     4000
@@ -3015,6 +3017,25 @@ async function upsertApplicationCommand(commandManager, commandData) {
   return 'created';
 }
 
+async function deleteCommandsByName(commandManager, commandName) {
+  const commands = await commandManager.fetch();
+  const matches = commands.filter(cmd => cmd.name === commandName);
+  
+  for (const command of matches) {
+    try {
+      await command.delete();
+    } catch (error) {
+      log('WARN', 'Failed to delete slash command', {
+        commandName: command.name,
+        commandId: command.id,
+        error: error.message
+      });
+    }
+  }
+  
+  return matches.length;
+}
+
 async function registerSlashCommandForGuild(guild) {
   try {
     const result = await upsertApplicationCommand(guild.commands, GEN_SLASH_COMMAND);
@@ -3036,18 +3057,39 @@ async function registerSlashCommands() {
     return;
   }
   
-  try {
-    const globalResult = await upsertApplicationCommand(client.application.commands, GEN_SLASH_COMMAND);
-    log('INFO', `Global slash command ${globalResult}`, { command: GEN_SLASH_COMMAND.name });
-  } catch (error) {
-    log('WARN', 'Failed to register global slash command', { error: error.message });
+  if (CONFIG.REGISTER_GLOBAL_SLASH_COMMAND) {
+    try {
+      const globalResult = await upsertApplicationCommand(client.application.commands, GEN_SLASH_COMMAND);
+      log('INFO', `Global slash command ${globalResult}`, { command: GEN_SLASH_COMMAND.name });
+    } catch (error) {
+      log('WARN', 'Failed to register global slash command', { error: error.message });
+    }
+  } else {
+    try {
+      const deleted = await deleteCommandsByName(client.application.commands, GEN_SLASH_COMMAND.name);
+      if (deleted > 0) {
+        log('INFO', 'Removed global slash commands to avoid duplicates', {
+          command: GEN_SLASH_COMMAND.name,
+          deleted
+        });
+      }
+    } catch (error) {
+      log('WARN', 'Failed to cleanup global slash commands', { error: error.message });
+    }
   }
   
-  const guilds = Array.from(client.guilds.cache.values());
-  const guildResults = await Promise.all(guilds.map(registerSlashCommandForGuild));
-  const successful = guildResults.filter(item => item.ok).length;
+  let guilds = [];
+  let successful = 0;
+  
+  if (CONFIG.REGISTER_GUILD_SLASH_COMMAND) {
+    guilds = Array.from(client.guilds.cache.values());
+    const guildResults = await Promise.all(guilds.map(registerSlashCommandForGuild));
+    successful = guildResults.filter(item => item.ok).length;
+  }
   
   log('INFO', 'Slash command registration finished', {
+    globalEnabled: CONFIG.REGISTER_GLOBAL_SLASH_COMMAND,
+    guildEnabled: CONFIG.REGISTER_GUILD_SLASH_COMMAND,
     guildTotal: guilds.length,
     guildSuccess: successful
   });
@@ -3902,7 +3944,9 @@ client.once('ready', async () => {
 });
 
 client.on('guildCreate', async (guild) => {
-  await registerSlashCommandForGuild(guild);
+  if (CONFIG.REGISTER_GUILD_SLASH_COMMAND) {
+    await registerSlashCommandForGuild(guild);
+  }
 });
 
 // ============================================
