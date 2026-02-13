@@ -63,6 +63,10 @@ const CONFIG = {
   ADMIN_USER_IDS: ['898595655562432584'],
   MAX_FILE_SIZE_MB: 25,
   GITHUB_CONTENTS_SAFE_LIMIT_MB: parsePositiveInt(process.env.GITHUB_CONTENTS_SAFE_LIMIT_MB, 70),
+  GITHUB_UPLOAD_TIMEOUT_MS: parsePositiveInt(process.env.GITHUB_UPLOAD_TIMEOUT_MS, 120000),
+  GITHUB_UPLOAD_MAX_RETRIES: parsePositiveInt(process.env.GITHUB_UPLOAD_MAX_RETRIES, 6),
+  GITHUB_UPLOAD_RETRY_DELAY_MS: parsePositiveInt(process.env.GITHUB_UPLOAD_RETRY_DELAY_MS, 4000),
+  DISABLE_DIRECT_DOWNLOAD_FALLBACK: parseBoolean(process.env.DISABLE_DIRECT_DOWNLOAD_FALLBACK, false),
   PUBLIC_BASE_URL: (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, ''),
   DIRECT_DOWNLOAD_TTL_MINUTES: parsePositiveInt(process.env.DIRECT_DOWNLOAD_TTL_MINUTES, 360),
   CACHE_DURATION: 0, // Always fetch fresh data
@@ -3219,129 +3223,139 @@ client.on('interactionCreate', async (interaction) => {
 // ============================================
 
 async function uploadToGitHub(filePath, fileName) {
-  try {
-    // ============================================
-    // VALIDATE GITHUB CREDENTIALS
-    // ============================================
-    if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO_OWNER || !CONFIG.GITHUB_REPO_NAME) {
-      log('ERROR', 'GitHub credentials not configured!', {
-        hasToken: !!CONFIG.GITHUB_TOKEN,
-        hasOwner: !!CONFIG.GITHUB_REPO_OWNER,
-        hasRepo: !!CONFIG.GITHUB_REPO_NAME
-      });
-      return null;
-    }
-    
-    // Validate file exists
-    if (!fs.existsSync(filePath)) {
-      log('ERROR', 'File not found for upload', { filePath, fileName });
-      return null;
-    }
-
-    const fileContent = fs.readFileSync(filePath);
-    const base64Content = fileContent.toString('base64');
-    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_'); // Sanitize filename for GitHub
-    const githubPath = `online-fix/${sanitizedFileName}`;
-    
-    log('INFO', 'Starting GitHub upload', { 
-      fileName, 
-      sanitizedFileName,
-      fileSizeBytes: fileContent.length,
-      fileSizeMB: (fileContent.length / (1024 * 1024)).toFixed(2),
-      repo: `${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}`
+  // ============================================
+  // VALIDATE GITHUB CREDENTIALS
+  // ============================================
+  if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO_OWNER || !CONFIG.GITHUB_REPO_NAME) {
+    log('ERROR', 'GitHub credentials not configured!', {
+      hasToken: !!CONFIG.GITHUB_TOKEN,
+      hasOwner: !!CONFIG.GITHUB_REPO_OWNER,
+      hasRepo: !!CONFIG.GITHUB_REPO_NAME
     });
-    
-    // Check if file exists
-    let sha = null;
+    return null;
+  }
+  
+  // Validate file exists
+  if (!fs.existsSync(filePath)) {
+    log('ERROR', 'File not found for upload', { filePath, fileName });
+    return null;
+  }
+
+  const fileContent = fs.readFileSync(filePath);
+  const base64Content = fileContent.toString('base64');
+  const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const githubPath = `online-fix/${sanitizedFileName}`;
+  const maxAttempts = Math.max(CONFIG.GITHUB_UPLOAD_MAX_RETRIES, 1);
+  
+  log('INFO', 'Starting GitHub upload', { 
+    fileName, 
+    sanitizedFileName,
+    fileSizeBytes: fileContent.length,
+    fileSizeMB: (fileContent.length / (1024 * 1024)).toFixed(2),
+    repo: `${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}`,
+    maxAttempts,
+    timeoutMs: CONFIG.GITHUB_UPLOAD_TIMEOUT_MS
+  });
+  
+  let lastError = null;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const checkResponse = await axios.get(
+      let sha = null;
+      
+      try {
+        const checkResponse = await axios.get(
+          `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
+          {
+            headers: {
+              Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
+              'User-Agent': 'Discord-Lua-Bot/2.0',
+              'Accept': 'application/vnd.github.v3+json'
+            },
+            timeout: CONFIG.GITHUB_UPLOAD_TIMEOUT_MS,
+          }
+        );
+        sha = checkResponse.data.sha;
+      } catch (error) {
+        if (error.response?.status === 404) {
+          // File not found means create new file, which is valid.
+        } else if (error.response?.status === 401) {
+          log('ERROR', 'GitHub authentication failed! Token may be invalid or expired', { 
+            error: error.message,
+            hint: 'Check your GITHUB_TOKEN in .env file'
+          });
+          return null;
+        } else {
+          throw error;
+        }
+      }
+      
+      const payload = {
+        message: `[Bot] Upload ${sanitizedFileName} via Discord`,
+        content: base64Content,
+        branch: 'main',
+      };
+      
+      if (sha) {
+        payload.sha = sha;
+      }
+      
+      const response = await axios.put(
         `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
+        payload,
         {
           headers: {
             Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
             'User-Agent': 'Discord-Lua-Bot/2.0',
-            'Accept': 'application/vnd.github.v3+json'
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
           },
-          timeout: 10000,
+          timeout: CONFIG.GITHUB_UPLOAD_TIMEOUT_MS,
         }
       );
-      sha = checkResponse.data.sha;
-      log('INFO', 'File exists, will update', { fileName, sha });
+      
+      if (response.status === 200 || response.status === 201) {
+        const downloadUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/main/${githubPath}`;
+        log('SUCCESS', 'Uploaded to GitHub', { 
+          fileName, 
+          downloadUrl,
+          responseStatus: response.status,
+          attempt
+        });
+        return downloadUrl;
+      }
+      
+      throw new Error(`Unexpected GitHub status: ${response.status}`);
     } catch (error) {
-      if (error.response?.status === 404) {
-        log('INFO', 'File does not exist, will create new', { fileName });
-      } else if (error.response?.status === 401) {
-        log('ERROR', 'GitHub authentication failed! Token may be invalid or expired', { 
-          error: error.message,
-          hint: 'Check your GITHUB_TOKEN in .env file'
-        });
-        return null;
-      } else {
-        log('WARN', 'Error checking file status', { 
-          status: error.response?.status,
-          error: error.message 
-        });
+      lastError = error;
+      const isLast = attempt >= maxAttempts;
+      log(isLast ? 'ERROR' : 'WARN', 'GitHub upload attempt failed', {
+        fileName,
+        attempt,
+        maxAttempts,
+        error: error.message,
+        code: error.code,
+        status: error.response?.status
+      });
+      
+      if (!isLast) {
+        await sleep(CONFIG.GITHUB_UPLOAD_RETRY_DELAY_MS);
       }
     }
-    
-    // Upload or update file
-    const payload = {
-      message: `[Bot] Upload ${sanitizedFileName} via Discord`,
-      content: base64Content,
-      branch: 'main',
-    };
-    
-    if (sha) {
-      payload.sha = sha;
-    }
-    
-    log('INFO', 'Sending upload request to GitHub...', { 
-      githubPath,
-      url: `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`
-    });
-    
-    const response = await axios.put(
-      `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
-      payload,
-      {
-        headers: {
-          Authorization: `token ${CONFIG.GITHUB_TOKEN}`,
-          'User-Agent': 'Discord-Lua-Bot/2.0',
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-      }
-    );
-    
-    // Verify upload
-    if (response.status === 200 || response.status === 201) {
-      const downloadUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/main/${githubPath}`;
-      log('SUCCESS', 'Uploaded to GitHub', { 
-        fileName, 
-        downloadUrl,
-        responseStatus: response.status 
-      });
-      return downloadUrl;
-    } else {
-      log('ERROR', 'Unexpected response from GitHub', { 
-        status: response.status,
-        data: response.data
-      });
-      return null;
-    }
-  } catch (error) {
-    log('ERROR', 'Failed to upload to GitHub', { 
-      fileName,
-      error: error.message,
-      code: error.code,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      responseData: error.response?.data,
-      hint: 'Check GitHub token, repo exists, and you have push access'
-    });
-    return null;
   }
+  
+  log('ERROR', 'Failed to upload to GitHub after all retries', { 
+    fileName,
+    attempts: maxAttempts,
+    error: lastError?.message,
+    code: lastError?.code,
+    status: lastError?.response?.status,
+    statusText: lastError?.response?.statusText,
+    responseData: lastError?.response?.data,
+    hint: 'Check GitHub token, repo exists, rate limits, and payload size'
+  });
+  
+  return null;
 }
 
 client.on('interactionCreate', async (interaction) => {
@@ -3647,7 +3661,6 @@ client.on('interactionCreate', async (interaction) => {
     const sizeMB = fileToSend.size / (1024 * 1024);
     const likelyGitHubContentsLimitIssue =
       type !== 'online' && sizeMB > CONFIG.GITHUB_CONTENTS_SAFE_LIMIT_MB;
-    const forceDirectLink = likelyGitHubContentsLimitIssue;
     
     // For Online-Fix files OR large files (>25MB), upload to GitHub
     if (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
@@ -3657,30 +3670,32 @@ client.on('interactionCreate', async (interaction) => {
       });
       
       let downloadUrl = null;
-      let deliveryMethod = 'direct';
+      let deliveryMethod = 'github';
       
-      if (!forceDirectLink) {
-        downloadUrl = await uploadToGitHub(fileToSend.path, fileToSend.name);
+      downloadUrl = await uploadToGitHub(fileToSend.path, fileToSend.name);
+      
+      if (!downloadUrl && !CONFIG.DISABLE_DIRECT_DOWNLOAD_FALLBACK) {
+        downloadUrl = createTemporaryDownloadLink(fileToSend.path, fileToSend.name);
         if (downloadUrl) {
-          deliveryMethod = 'github';
+          deliveryMethod = 'direct';
         }
       }
       
       if (!downloadUrl) {
-        downloadUrl = createTemporaryDownloadLink(fileToSend.path, fileToSend.name);
-        deliveryMethod = 'direct';
-      }
-      
-      if (!downloadUrl) {
+        const fallbackHint = CONFIG.DISABLE_DIRECT_DOWNLOAD_FALLBACK
+          ? '• Direct fallback is disabled by configuration\n'
+          : '• Set PUBLIC_BASE_URL for direct fallback links\n';
+        
         await scheduleInteractionDeletion(interaction, {
           content: `❌ **Failed to process file for download!**\n\n` +
                    `🔧 **Troubleshooting:**\n` +
                    `• Check if GitHub token is configured\n` +
                    `• Check if repository exists and bot has access\n` +
+                   `• Upload retries: ${CONFIG.GITHUB_UPLOAD_MAX_RETRIES}, timeout each: ${Math.round(CONFIG.GITHUB_UPLOAD_TIMEOUT_MS / 1000)}s\n` +
                    (likelyGitHubContentsLimitIssue
                      ? `• File may be too large for GitHub Contents API (>${CONFIG.GITHUB_CONTENTS_SAFE_LIMIT_MB} MB after Base64 overhead)\n`
                      : '') +
-                   `• Set PUBLIC_BASE_URL for direct fallback links\n` +
+                   fallbackHint +
                    `• File size: ${fileToSend.sizeFormatted}\n\n` +
                    `⏱️ *This message will auto-delete in 5 minutes*`
         });
