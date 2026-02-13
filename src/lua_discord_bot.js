@@ -7,8 +7,12 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const express = require('express');
 const app = express();
+const execFileAsync = promisify(execFile);
 
 function parsePositiveInt(value, fallback) {
   const parsed = Number.parseInt(value, 10);
@@ -48,6 +52,10 @@ const CONFIG = {
   CACHE_DURATION: 0, // Always fetch fresh data
   ENABLE_DAILY_DOWNLOAD_LIMIT: parseBoolean(process.env.ENABLE_DAILY_DOWNLOAD_LIMIT, true),
   MAX_DAILY_DOWNLOADS_PER_USER: parsePositiveInt(process.env.MAX_DAILY_DOWNLOADS_PER_USER, 25),
+  GEN_PROCESSING_DELAY_MS: Math.min(
+    Math.max(parsePositiveInt(process.env.GEN_PROCESSING_DELAY_MS, 3500), 3000),
+    4000
+  ),
   
   // AUTO-DELETE: Messages auto-delete after 5 minutes
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
@@ -542,6 +550,243 @@ function formatFileSize(bytes) {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+const archiveCommandCache = new Map();
+
+async function commandExists(commandName) {
+  if (archiveCommandCache.has(commandName)) {
+    return archiveCommandCache.get(commandName);
+  }
+  
+  const checker = process.platform === 'win32' ? 'where.exe' : 'which';
+  
+  try {
+    await execFileAsync(checker, [commandName], { timeout: 5000 });
+    archiveCommandCache.set(commandName, true);
+    return true;
+  } catch (_) {
+    archiveCommandCache.set(commandName, false);
+    return false;
+  }
+}
+
+function countManifestEntries(entryList = []) {
+  return entryList.reduce((total, entry) => {
+    const normalized = String(entry || '').trim().toLowerCase();
+    return normalized.endsWith('.manifest') ? total + 1 : total;
+  }, 0);
+}
+
+function countManifestFilesInDirectory(dirPath) {
+  if (!fs.existsSync(dirPath)) return 0;
+  
+  let total = 0;
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  
+  for (const entry of entries) {
+    const fullPath = path.join(dirPath, entry.name);
+    
+    if (entry.isDirectory()) {
+      total += countManifestFilesInDirectory(fullPath);
+      continue;
+    }
+    
+    if (entry.isFile() && entry.name.toLowerCase().endsWith('.manifest')) {
+      total += 1;
+    }
+  }
+  
+  return total;
+}
+
+async function listArchiveEntriesWith7z(filePath) {
+  if (!(await commandExists('7z'))) return null;
+  
+  const { stdout } = await execFileAsync('7z', ['l', '-slt', filePath], {
+    timeout: 45000,
+    maxBuffer: 20 * 1024 * 1024
+  });
+  
+  const rawEntries = stdout
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.startsWith('Path = '))
+    .map(line => line.slice('Path = '.length).trim())
+    .filter(Boolean);
+  
+  const archiveBasename = path.basename(filePath).toLowerCase();
+  const entries = rawEntries.filter((entry, index) => {
+    const normalized = entry.toLowerCase();
+    if (index === 0 && (normalized === archiveBasename || normalized === filePath.toLowerCase())) {
+      return false;
+    }
+    return true;
+  });
+  
+  return { entries, method: 'list-7z' };
+}
+
+async function listArchiveEntriesWithUnzip(filePath) {
+  if (!(await commandExists('unzip'))) return null;
+  
+  const { stdout } = await execFileAsync('unzip', ['-Z1', filePath], {
+    timeout: 45000,
+    maxBuffer: 20 * 1024 * 1024
+  });
+  
+  const entries = stdout
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  
+  return { entries, method: 'list-unzip' };
+}
+
+async function listArchiveEntriesWithUnrar(filePath) {
+  if (!(await commandExists('unrar'))) return null;
+  
+  const { stdout } = await execFileAsync('unrar', ['lb', filePath], {
+    timeout: 45000,
+    maxBuffer: 20 * 1024 * 1024
+  });
+  
+  const entries = stdout
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  
+  return { entries, method: 'list-unrar' };
+}
+
+async function listArchiveEntries(filePath) {
+  const ext = path.extname(filePath || '').toLowerCase();
+  
+  try {
+    if (ext === '.zip') {
+      return (await listArchiveEntriesWithUnzip(filePath)) || (await listArchiveEntriesWith7z(filePath));
+    }
+    
+    if (ext === '.rar') {
+      return (await listArchiveEntriesWithUnrar(filePath)) || (await listArchiveEntriesWith7z(filePath));
+    }
+    
+    if (ext === '.7z') {
+      return await listArchiveEntriesWith7z(filePath);
+    }
+  } catch (error) {
+    log('WARN', 'Archive list inspection failed', {
+      filePath,
+      ext,
+      error: error.message
+    });
+  }
+  
+  return null;
+}
+
+async function extractArchiveAndCountManifests(filePath) {
+  const ext = path.extname(filePath || '').toLowerCase();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifest-inspect-'));
+  let extractor = null;
+  
+  try {
+    if (ext === '.zip') {
+      if (await commandExists('unzip')) {
+        extractor = 'unzip';
+        await execFileAsync('unzip', ['-qq', '-o', filePath, '-d', tempDir], {
+          timeout: 60000,
+          maxBuffer: 20 * 1024 * 1024
+        });
+      } else if (await commandExists('7z')) {
+        extractor = '7z';
+        await execFileAsync('7z', ['x', '-y', `-o${tempDir}`, filePath], {
+          timeout: 60000,
+          maxBuffer: 20 * 1024 * 1024
+        });
+      }
+    } else if (ext === '.rar') {
+      if (await commandExists('unrar')) {
+        extractor = 'unrar';
+        await execFileAsync('unrar', ['x', '-o+', '-inul', filePath, tempDir], {
+          timeout: 60000,
+          maxBuffer: 20 * 1024 * 1024
+        });
+      } else if (await commandExists('7z')) {
+        extractor = '7z';
+        await execFileAsync('7z', ['x', '-y', `-o${tempDir}`, filePath], {
+          timeout: 60000,
+          maxBuffer: 20 * 1024 * 1024
+        });
+      }
+    } else if (ext === '.7z' && await commandExists('7z')) {
+      extractor = '7z';
+      await execFileAsync('7z', ['x', '-y', `-o${tempDir}`, filePath], {
+        timeout: 60000,
+        maxBuffer: 20 * 1024 * 1024
+      });
+    }
+    
+    if (!extractor) return null;
+    
+    return {
+      manifestCount: countManifestFilesInDirectory(tempDir),
+      method: `extract-${extractor}`,
+      uncertain: false
+    };
+  } catch (error) {
+    log('WARN', 'Archive extraction inspection failed', {
+      filePath,
+      ext,
+      error: error.message
+    });
+    return null;
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch (_) {}
+  }
+}
+
+function fallbackBinaryManifestScan(filePath) {
+  try {
+    const binary = fs.readFileSync(filePath).toString('latin1').toLowerCase();
+    const matches = binary.match(/\.manifest\b/g);
+    return matches ? matches.length : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+async function inspectArchiveManifestCount(filePath) {
+  const ext = path.extname(filePath || '').toLowerCase();
+  if (!['.zip', '.rar', '.7z'].includes(ext)) {
+    return null;
+  }
+  
+  const listed = await listArchiveEntries(filePath);
+  if (listed) {
+    return {
+      manifestCount: countManifestEntries(listed.entries),
+      method: listed.method,
+      uncertain: false
+    };
+  }
+  
+  const extracted = await extractArchiveAndCountManifests(filePath);
+  if (extracted) {
+    return extracted;
+  }
+  
+  return {
+    manifestCount: fallbackBinaryManifestScan(filePath),
+    method: 'binary-fallback',
+    uncertain: true
+  };
+}
+
 // Get file size from URL using HTTP HEAD request
 async function getFileSizeFromUrl(url) {
   try {
@@ -936,6 +1181,7 @@ async function fetchSteamStoreData(appId) {
       currency: data.price_overview?.currency || 'USD',
       isFree: data.is_free || false,
       dlcCount: data.dlc?.length || 0,
+      dlcAppIds: Array.isArray(data.dlc) ? data.dlc.map(id => String(id)) : [],
       categories: data.categories?.map(c => c.description) || [],
       genres: data.genres?.map(g => g.description) || [],
       platforms: {
@@ -954,6 +1200,54 @@ async function fetchSteamStoreData(appId) {
     log('ERROR', `Failed to fetch Steam store data for ${appId}`, { error: error.message });
     return null;
   }
+}
+
+async function fetchSteamDlcForApp(appId) {
+  try {
+    const response = await axios.get(
+      `https://store.steampowered.com/api/dlcforapp/?appid=${appId}&l=english&cc=us`,
+      {
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      }
+    );
+    
+    if (!response?.data || response.data.status !== 1) return null;
+    
+    const dlcList = Array.isArray(response.data.dlc) ? response.data.dlc : [];
+    return {
+      count: dlcList.length,
+      items: dlcList
+    };
+  } catch (error) {
+    log('WARN', `Steam DLC endpoint unavailable for ${appId}`, { error: error.message });
+    return null;
+  }
+}
+
+function normalizeDlcCount(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return parsed;
+}
+
+function resolveAccurateDlcInfo({ steamStoreData, steamDlcData, steamDBInfo }) {
+  const candidates = [
+    { source: 'steam-store-appdetails', count: normalizeDlcCount(steamStoreData?.dlcCount) },
+    { source: 'steam-store-dlcforapp', count: normalizeDlcCount(steamDlcData?.count) },
+    { source: 'steamdb', count: normalizeDlcCount(steamDBInfo?.dlcCount) }
+  ];
+  
+  candidates.sort((a, b) => b.count - a.count);
+  const best = candidates[0] || { source: 'fallback', count: 0 };
+  
+  return {
+    count: best.count,
+    source: best.source,
+    sources: candidates
+  };
 }
 
 async function fetchSteamSpyData(appId) {
@@ -1408,19 +1702,25 @@ async function getFullGameInfo(appId, forceRefresh = false) {
   
   log('INFO', `Fetching fresh data for ${appId} from multiple sources...`);
   
-  const steamData = await fetchSteamStoreData(appId);
-  
-  // Get info from SteamDB (priority)
-  const steamDBInfo = await scrapeSteamDB(appId);
+  const [steamData, steamDBInfo, steamSpyData, steamDlcData] = await Promise.all([
+    fetchSteamStoreData(appId),
+    scrapeSteamDB(appId),
+    fetchSteamSpyData(appId),
+    fetchSteamDlcForApp(appId)
+  ]);
   
   if (!steamData && !steamDBInfo) return null;
   
-  const steamSpyData = await fetchSteamSpyData(appId);
   const accurateSize = steamDBInfo?.size || await getAccurateGameSize(appId);
   const drmInfo = detectDRMAccurate(appId, steamData || {});
   const publisherInfo = detectPublisher(steamData?.publishers || [steamDBInfo?.publisher]);
+  const dlcInfo = resolveAccurateDlcInfo({
+    steamStoreData: steamData,
+    steamDlcData,
+    steamDBInfo
+  });
   
-  const languageCount = steamData.supportedLanguages
+  const languageCount = steamData?.supportedLanguages
     ? steamData.supportedLanguages.split(',').filter(l => l.trim()).length
     : 0;
   
@@ -1433,6 +1733,10 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     size: accurateSize,
     sizeFormatted: steamDBInfo?.sizeFormatted || formatFileSize(accurateSize),
     sizeType: steamDBInfo?.sizeType,
+    dlcCount: dlcInfo.count,
+    dlcSource: dlcInfo.source,
+    dlcSources: dlcInfo.sources,
+    dlcItems: steamDlcData?.items || [],
     languageCount: languageCount,
     steamSpy: steamSpyData,
     lastUpdate: steamDBInfo?.lastUpdate || steamData?.releaseDate,
@@ -1440,10 +1744,10 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     reviewCount: steamDBInfo?.reviewCount,
     
     isEAGame: publisherInfo.isEA,
-    hasMultiplayer: steamData.categories?.some(c => 
+    hasMultiplayer: steamData?.categories?.some(c => 
       c.toLowerCase().includes('multi') || c.toLowerCase().includes('co-op')
     ),
-    isEarlyAccess: steamData.categories?.some(c => 
+    isEarlyAccess: steamData?.categories?.some(c => 
       c.toLowerCase().includes('early access')
     ),
     
@@ -1469,10 +1773,12 @@ async function getFullGameInfo(appId, forceRefresh = false) {
 
   saveGameInfoCache();
   
-  log('SUCCESS', `Got full info for ${steamData.name}`, {
+  log('SUCCESS', `Got full info for ${fullInfo.name || appId}`, {
     size: fullInfo.sizeFormatted,
     drm: drmInfo.type,
-    price: steamData.price,
+    price: steamData?.price || 'N/A',
+    dlcCount: fullInfo.dlcCount,
+    dlcSource: fullInfo.dlcSource
   });
   
   return fullInfo;
@@ -1788,14 +2094,17 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
 
 async function handleGameCommand(message, appId) {
   try {
+    const isInteractionFlow = Boolean(message.isInteractionProxy);
     const loadingMsg = await message.reply(`🔍 **Searching for AppID: ${appId}...**`);
     scheduleMessageDeletion(loadingMsg);
     
     // STEP 1: Get info from SteamDB first
-    await loadingMsg.edit(`📊 **Scanning SteamDB...**`);
+    if (!isInteractionFlow) {
+      await loadingMsg.edit(`📊 **Scanning SteamDB...**`);
+    }
     const steamDBInfo = await scrapeSteamDB(appId);
     
-    if (steamDBInfo?.name) {
+    if (!isInteractionFlow && steamDBInfo?.name) {
       await loadingMsg.edit(`✅ **Found: ${steamDBInfo.name}**\n⏳ Fetching details...`);
     }
     
@@ -1808,13 +2117,15 @@ async function handleGameCommand(message, appId) {
       const gameName = steamDBName || denuvoName || `App ${appId}`;
       
       if (!steamDBName && !denuvoName) {
-        await loadingMsg.edit(
-          `${ICONS.warning} Cannot fetch full info from Steam for AppID: \`${appId}\`\n` +
-          `${ICONS.link} Link: https://store.steampowered.com/app/${appId}\n` +
-          `${ICONS.link} SteamDB: https://steamdb.info/app/${appId}/\n` +
-          `➡️ Continuing with minimal data to show available downloads`
-        );
-      } else {
+        if (!isInteractionFlow) {
+          await loadingMsg.edit(
+            `${ICONS.warning} Cannot fetch full info from Steam for AppID: \`${appId}\`\n` +
+            `${ICONS.link} Link: https://store.steampowered.com/app/${appId}\n` +
+            `${ICONS.link} SteamDB: https://steamdb.info/app/${appId}/\n` +
+            `➡️ Continuing with minimal data to show available downloads`
+          );
+        }
+      } else if (!isInteractionFlow) {
         await loadingMsg.edit(`✅ **Found: ${gameName}**\n⏳ Preparing details...`);
       }
       
@@ -1861,20 +2172,31 @@ async function handleGameCommand(message, appId) {
       onlineLink: !!onlineFixLink
     });
 
-    // Special fix for FC 26 Showcase (3629260) to ensure crack button shows even if embed logic is strict
-    // For this specific game, if we have a crack link, we MUST consider it as having content
-    const hasContent = files.lua.length > 0 || 
-                       files.fix.length > 0 || 
-                       files.onlineFix.length > 0 ||
-                       crackLink ||
-                       onlineFixLink || 
-                       appId === '3629260'; // Force content true for this game
+    const hasManifestFiles = files.lua.length > 0;
     
-    if (!hasContent) {
-      return loadingMsg.edit(
-        `${ICONS.cross} No files found for **${gameInfo.name}** (AppID: \`${appId}\`)\n` +
-        `${ICONS.info} Tip: Use \`!search <game name>\` to find games.`
-      );
+    if (!hasManifestFiles) {
+      const failEmbed = new EmbedBuilder()
+        .setColor(0xED4245)
+        .setTitle(`❌ Manifest Generation Failed: App ${appId}`)
+        .setDescription('Manifest files for this game are not available in our database.')
+        .addFields(
+          {
+            name: 'Links',
+            value: `[Steam Store](https://store.steampowered.com/app/${appId})\n[SteamDB](https://steamdb.info/app/${appId})`,
+            inline: false
+          },
+          {
+            name: 'App ID',
+            value: `\`${appId}\``,
+            inline: false
+          }
+        );
+      
+      return loadingMsg.edit({
+        content: '❌ Manifest files for this game were not found, suggesting it\'s not in our database. Please request to add the game.',
+        embeds: [failEmbed],
+        components: []
+      });
     }
     
     const embed = await createGameEmbed(appId, gameInfo, files, { onlineFixLink, crackLink, autoPatch: database.games[appId]?.autoPatch });
@@ -2508,6 +2830,18 @@ function buildSlashValidationErrorEmbed(rawInput, resolution) {
   return embed;
 }
 
+function buildProcessingEmbed(displayName, appId) {
+  return new EmbedBuilder()
+    .setColor(0x3498DB)
+    .setTitle('⏳ Processing...')
+    .setDescription(
+      `**${displayName}** (Game ID: \`${appId}\`)\n\n` +
+      'Generating files, please wait...\n' +
+      'This may take a few seconds depending on game size.'
+    )
+    .setFooter({ text: 'Solus Gen • Preparing accurate game data & manifests' });
+}
+
 async function handleGenSlashCommand(interaction) {
   const rawInput = interaction.options.getString('appid', true).trim();
   
@@ -2533,6 +2867,15 @@ async function handleGenSlashCommand(interaction) {
     appId: resolution.appId,
     reason: resolution.reason
   });
+  
+  const resolvedName = resolution.resolvedName || getGameNameById(resolution.appId) || `App ${resolution.appId}`;
+  await interaction.editReply({
+    embeds: [buildProcessingEmbed(resolvedName, resolution.appId)],
+    content: null,
+    components: []
+  });
+  
+  await sleep(CONFIG.GEN_PROCESSING_DELAY_MS);
   
   const proxyMessage = createInteractionMessageProxy(interaction);
   await handleGameCommand(proxyMessage, resolution.appId);
@@ -3128,6 +3471,32 @@ client.on('interactionCreate', async (interaction) => {
     }
     
     if (!fileToSend || !fs.existsSync(fileToSend.path)) {
+      if (type === 'lua') {
+        const notFoundEmbed = new EmbedBuilder()
+          .setColor(0xED4245)
+          .setTitle(`❌ Manifest Generation Failed: App ${appId}`)
+          .setDescription('Manifest files for this game are not available in our database.')
+          .addFields(
+            {
+              name: 'Links',
+              value: `[Steam Store](https://store.steampowered.com/app/${appId})\n[SteamDB](https://steamdb.info/app/${appId})`,
+              inline: false
+            },
+            {
+              name: 'App ID',
+              value: `\`${appId}\``,
+              inline: false
+            }
+          );
+        
+        await scheduleInteractionDeletion(interaction, {
+          content: '❌ Manifest files for this game were not found, suggesting it\'s not in our database. Please request to add the game.',
+          embeds: [notFoundEmbed],
+          components: []
+        });
+        return;
+      }
+      
       await scheduleInteractionDeletion(interaction, {
         content: `❌ **File not found!**\n\n` +
                  `⏱️ *This message will auto-delete in 5 minutes*`
@@ -3136,6 +3505,28 @@ client.on('interactionCreate', async (interaction) => {
     }
     
     const selectedManifestMeta = type === 'lua' ? getManifestFileMeta(fileToSend.name) : null;
+    const summaryLines = type === 'lua'
+      ? buildManifestSummaryLines({
+          gameInfo: { name: gameInfo?.name || `App ${appId}` },
+          appId,
+          files: { lua: [fileToSend] },
+          canEmbed: true
+        })
+      : [];
+    
+    let archiveInspection = null;
+    if (type === 'lua' && selectedManifestMeta?.kind === 'archive') {
+      archiveInspection = await inspectArchiveManifestCount(fileToSend.path);
+      if (archiveInspection) {
+        if (archiveInspection.manifestCount > 0) {
+          summaryLines.push(`📂 Archive contains **${archiveInspection.manifestCount}** \`.manifest\` file(s).`);
+        } else {
+          summaryLines.push('⚠️ Archive scan found **0** `.manifest` file(s).');
+        }
+      }
+    }
+    
+    const summaryContent = summaryLines.join('\n');
     const sizeMB = fileToSend.size / (1024 * 1024);
     
     // For Online-Fix files OR large files (>25MB), upload to GitHub
@@ -3172,6 +3563,7 @@ client.on('interactionCreate', async (interaction) => {
         : null;
       
       await scheduleInteractionDeletion(interaction, {
+        content: type === 'lua' ? summaryContent : null,
         embeds: [{
           color: 0x00ff00,
           title: `✅ ${fileTypeName.toUpperCase()} DOWNLOAD READY!`,
@@ -3229,6 +3621,10 @@ client.on('interactionCreate', async (interaction) => {
     
     // Beautiful embed for manifest files
     if (manifestGif && type === 'lua') {
+      if (summaryContent) {
+        replyContent.content = summaryContent;
+      }
+      
       replyContent.embeds = [{
         color: 0x2ECC71,
         title: `${(selectedManifestMeta?.label || 'Manifest File').toUpperCase()} READY`,

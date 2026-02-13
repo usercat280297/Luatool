@@ -35,6 +35,11 @@ async function scrapeSteamDB(appId) {
         info.releaseDate = value;
       } else if (label.includes('Last Record Update')) {
         info.lastUpdate = value.split('–')[0].trim();
+      } else if (label.toLowerCase().includes('dlc')) {
+        const dlcMatch = value.match(/\d+/);
+        if (dlcMatch) {
+          info.dlcCount = parseInt(dlcMatch[0], 10);
+        }
       }
     });
     
