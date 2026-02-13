@@ -71,7 +71,6 @@ const CONFIG = {
   DIRECT_DOWNLOAD_TTL_MINUTES: parsePositiveInt(process.env.DIRECT_DOWNLOAD_TTL_MINUTES, 360),
   ENABLE_STEAM_AUTOCOMPLETE: parseBoolean(process.env.ENABLE_STEAM_AUTOCOMPLETE, true),
   AUTOCOMPLETE_STEAM_TIMEOUT_MS: parsePositiveInt(process.env.AUTOCOMPLETE_STEAM_TIMEOUT_MS, 800),
-  AVAILABLE_APPID_CACHE_TTL_MS: parsePositiveInt(process.env.AVAILABLE_APPID_CACHE_TTL_MS, 300000),
   CACHE_DURATION: 0, // Always fetch fresh data
   ENABLE_DAILY_DOWNLOAD_LIMIT: parseBoolean(process.env.ENABLE_DAILY_DOWNLOAD_LIMIT, true),
   MAX_DAILY_DOWNLOADS_PER_USER: parsePositiveInt(process.env.MAX_DAILY_DOWNLOADS_PER_USER, 25),
@@ -248,7 +247,6 @@ let gameNamesIndex = {}; // Game names index
 let gameNamesCache = {}; // Large local game name cache
 let searchableGameList = []; // Unified game list for autocomplete + slash resolution
 const temporaryDownloads = new Map(); // token -> { filePath, fileName, expiresAt }
-let availableAppIdCache = { timestamp: 0, ids: new Set() };
 
 const GEN_SLASH_COMMAND = {
   name: 'gen',
@@ -1208,10 +1206,9 @@ async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
     && key.length >= AUTOCOMPLETE_STEAM_QUERY_MIN_LENGTH
   ) {
     const steamGamesRaw = await fetchSteamSuggestions(key, Math.min(limit * 2, 50));
-    const availableIds = getAvailableAppIdSet();
-    const steamGames = steamGamesRaw.filter(item => availableIds.has(String(item.appId)));
+    const steamGames = steamGamesRaw;
     
-    // Backfill discovered names for local apps that were missing in cache/index.
+    // Backfill discovered names into local runtime index for faster next autocomplete.
     for (const item of steamGames) {
       const id = String(item.appId);
       if (!id || !item.name) continue;
@@ -1988,11 +1985,12 @@ async function getFullGameInfo(appId, forceRefresh = false) {
   
   log('INFO', `Fetching fresh data for ${appId} from multiple sources...`);
   
-  const [steamData, steamDBInfo, steamSpyData, steamDlcData] = await Promise.all([
+  const [steamData, steamDBInfo, steamSpyData, steamDlcData, steamGridIcon] = await Promise.all([
     fetchSteamStoreData(appId),
     scrapeSteamDB(appId),
     fetchSteamSpyData(appId),
-    fetchSteamDlcForApp(appId)
+    fetchSteamDlcForApp(appId),
+    getGameIcon(appId)
   ]);
   
   if (!steamData && !steamDBInfo) return null;
@@ -2028,6 +2026,7 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     lastUpdate: steamDBInfo?.lastUpdate || steamData?.releaseDate,
     rating: steamDBInfo?.rating,
     reviewCount: steamDBInfo?.reviewCount,
+    steamGridIcon: steamGridIcon || null,
     
     isEAGame: publisherInfo.isEA,
     hasMultiplayer: steamData?.categories?.some(c => 
@@ -2217,24 +2216,6 @@ function scanAllGames() {
   };
   
   return uniqueGames;
-}
-
-function getAvailableAppIdSet(forceRefresh = false) {
-  const now = Date.now();
-  if (
-    !forceRefresh
-    && availableAppIdCache.ids.size > 0
-    && (now - availableAppIdCache.timestamp) < CONFIG.AVAILABLE_APPID_CACHE_TTL_MS
-  ) {
-    return availableAppIdCache.ids;
-  }
-  
-  const ids = new Set(scanAllGames().map(id => String(id)));
-  availableAppIdCache = {
-    timestamp: now,
-    ids
-  };
-  return ids;
 }
 
 // ============================================
@@ -2485,31 +2466,6 @@ async function handleGameCommand(message, appId) {
 
     const hasManifestFiles = files.lua.length > 0;
     
-    if (!hasManifestFiles) {
-      const failEmbed = new EmbedBuilder()
-        .setColor(0xED4245)
-        .setTitle(`${getGameTitleStatusIcon(false)} Manifest Generation Failed: App ${appId}`)
-        .setDescription('Manifest files for this game are not available in our database.')
-        .addFields(
-          {
-            name: 'Links',
-            value: `[Steam Store](https://store.steampowered.com/app/${appId})\n[SteamDB](https://steamdb.info/app/${appId})`,
-            inline: false
-          },
-          {
-            name: 'App ID',
-            value: `\`${appId}\``,
-            inline: false
-          }
-        );
-      
-      return loadingMsg.edit({
-        content: '❌ Manifest files for this game were not found, suggesting it\'s not in our database. Please request to add the game.',
-        embeds: [failEmbed],
-        components: []
-      });
-    }
-    
     const embed = await createGameEmbed(appId, gameInfo, files, { onlineFixLink, crackLink, autoPatch: database.games[appId]?.autoPatch });
     
     // Create download buttons (Single Row for cleaner layout)
@@ -2599,7 +2555,9 @@ async function handleGameCommand(message, appId) {
     if (row.components.length > 0) rows.push(row);
     
     const responsePayload = {
-      content: null,
+      content: hasManifestFiles
+        ? null
+        : `⚠️ **No Lua/Package available yet** for \`${appId}\`. Game info is shown below.`,
       embeds: [embed],
       components: rows,
     };
@@ -2647,7 +2605,7 @@ async function handleGameCommand(message, appId) {
 // ============================================
 const { searchSteamStore } = require('./steam_search');
 const { fetchLuaFromOpenCloud } = require('./openlua_scraper');
-const { getGameGrid } = require('./steamgriddb_api');
+const { getGameGrid, getGameIcon } = require('./steamgriddb_api');
 
 async function handleFetchLuaCommand(message) {
   if (!isAdmin(message.author.id)) {
@@ -3887,9 +3845,9 @@ client.on('interactionCreate', async (interaction) => {
     if (!fileToSend || !fs.existsSync(fileToSend.path)) {
       if (type === 'lua') {
         const notFoundEmbed = new EmbedBuilder()
-          .setColor(0xED4245)
-          .setTitle(`${getGameTitleStatusIcon(false)} Manifest Generation Failed: App ${appId}`)
-          .setDescription('Manifest files for this game are not available in our database.')
+          .setColor(0xF1C40F)
+          .setTitle(`⚠️ No Lua/Package Available: App ${appId}`)
+          .setDescription('Game was found, but Lua/Package files are not available yet.')
           .addFields(
             {
               name: 'Links',
@@ -3904,7 +3862,7 @@ client.on('interactionCreate', async (interaction) => {
           );
         
         await scheduleInteractionDeletion(interaction, {
-          content: '❌ Manifest files for this game were not found, suggesting it\'s not in our database. Please request to add the game.',
+          content: '⚠️ Game found, but this title currently has no Lua/Package in library.',
           embeds: [notFoundEmbed],
           components: []
         });

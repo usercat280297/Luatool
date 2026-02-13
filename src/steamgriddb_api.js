@@ -64,4 +64,31 @@ async function getGameHero(appId) {
     }
 }
 
-module.exports = { getGameGrid, getGameHero };
+async function getGameIcon(appId) {
+  if (!CONFIG.API_KEY) return null;
+  
+  try {
+    const response = await axios.get(`${CONFIG.BASE_URL}/icons/steam/${appId}`, {
+      headers: { 'Authorization': `Bearer ${CONFIG.API_KEY}` },
+      params: {
+        dimensions: ['32x32', '64x64', '128x128', '256x256'],
+        styles: ['official', 'alternate', 'material'],
+        types: ['static']
+      },
+      timeout: 5000
+    });
+    
+    if (response.data?.success && Array.isArray(response.data?.data) && response.data.data.length > 0) {
+      return response.data.data[0].url;
+    }
+    
+    return null;
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return null;
+    }
+    return null;
+  }
+}
+
+module.exports = { getGameGrid, getGameHero, getGameIcon };

@@ -149,9 +149,14 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   }
   
   // ============================================
-  // THUMBNAIL - Animated GIF (Fixed for Mobile)
+  // THUMBNAIL - Prefer SteamGridDB icon, fallback to header
   // ============================================
-  embed.setThumbnail('https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3dXFjb3lrc3pidTJ6cTEzaGc3enJreno0MjQ3bWxscDVibXQwZTZ3NSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif');
+  const gameIconUrl = links?.gameIcon || gameInfo?.steamGridIcon || null;
+  if (gameIconUrl) {
+    embed.setThumbnail(gameIconUrl);
+  } else if (gameInfo.headerImage) {
+    embed.setThumbnail(gameInfo.headerImage);
+  }
   
   // ============================================
   // DESCRIPTION - Game Summary + Quick Links
@@ -444,6 +449,8 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
       ? `📦 **Manifest Package (${ext.toUpperCase()})**`
       : '📜 **Lua Script**';
     fileInfo.push(`${label} → \`${primaryManifest.sizeFormatted}\``);
+  } else {
+    fileInfo.push('⚠️ **Lua / Package** → `Not available yet`');
   }
   
   // Crack/Fix Files
