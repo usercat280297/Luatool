@@ -263,6 +263,8 @@ const GEN_SLASH_COMMAND = {
 
 const AUTOCOMPLETE_LIMIT = 25;
 const AUTOCOMPLETE_CACHE_TTL = 60 * 1000;
+const AUTOCOMPLETE_RESPONSE_BUDGET_MS = 1800;
+const AUTOCOMPLETE_STEAM_QUERY_MIN_LENGTH = 3;
 const autocompleteCache = new Map();
 
 const POPULAR_APP_IDS = [
@@ -1045,12 +1047,12 @@ function searchLocalGames(query, limit = AUTOCOMPLETE_LIMIT) {
 }
 
 async function fetchSteamSuggestions(query, limit = AUTOCOMPLETE_LIMIT) {
-  if (!query || query.length < 2) return [];
+  if (!query || query.length < AUTOCOMPLETE_STEAM_QUERY_MIN_LENGTH) return [];
   
   try {
     const steamResults = await Promise.race([
       searchSteamStore(query),
-      new Promise(resolve => setTimeout(() => resolve([]), 2200))
+      new Promise(resolve => setTimeout(() => resolve([]), 1200))
     ]);
     
     return toUniqueGames(
@@ -1076,7 +1078,7 @@ async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
   const localGames = searchLocalGames(query, limit);
   let merged = localGames;
   
-  if (localGames.length < Math.min(8, limit) && key.length >= 2) {
+  if (localGames.length < Math.min(8, limit) && key.length >= AUTOCOMPLETE_STEAM_QUERY_MIN_LENGTH) {
     const steamGames = await fetchSteamSuggestions(key, limit);
     merged = toUniqueGames([...localGames, ...steamGames])
       .sort((a, b) => (b.score || 0) - (a.score || 0))
@@ -1085,6 +1087,25 @@ async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
   
   autocompleteCache.set(key, { timestamp: Date.now(), results: merged });
   return merged;
+}
+
+function buildAutocompleteChoices(matches = []) {
+  const dedup = new Set();
+  const choices = [];
+  
+  for (const item of matches) {
+    const value = String(item?.appId || '').trim();
+    if (!value || dedup.has(value)) continue;
+    
+    const name = truncateChoiceName(item?.name || `App ${value}`, value);
+    if (!name || name.length > 100) continue;
+    
+    dedup.add(value);
+    choices.push({ name, value });
+    if (choices.length >= AUTOCOMPLETE_LIMIT) break;
+  }
+  
+  return choices;
 }
 
 async function resolveAppIdInput(input) {
@@ -2902,13 +2923,38 @@ async function handleGenAutocomplete(interaction) {
     return interaction.respond([]);
   }
   
-  const matches = await getAutocompleteGames(focused.value, AUTOCOMPLETE_LIMIT);
-  const choices = matches.slice(0, AUTOCOMPLETE_LIMIT).map(item => ({
-    name: truncateChoiceName(item.name, item.appId),
-    value: item.appId
-  }));
+  const query = String(focused.value || '');
+  const localMatches = searchLocalGames(query, AUTOCOMPLETE_LIMIT);
+  let matches = localMatches;
   
-  await interaction.respond(choices);
+  try {
+    const mergedMatches = await Promise.race([
+      getAutocompleteGames(query, AUTOCOMPLETE_LIMIT),
+      new Promise(resolve => setTimeout(() => resolve(null), AUTOCOMPLETE_RESPONSE_BUDGET_MS))
+    ]);
+    
+    if (Array.isArray(mergedMatches) && mergedMatches.length > 0) {
+      matches = mergedMatches;
+    }
+  } catch (error) {
+    log('WARN', 'Autocomplete fallback to local results', {
+      query,
+      error: error.message
+    });
+  }
+  
+  const choices = buildAutocompleteChoices(matches);
+  
+  try {
+    await interaction.respond(choices);
+  } catch (error) {
+    log('WARN', 'Autocomplete respond failed', {
+      query,
+      choices: choices.length,
+      error: error.message
+    });
+    try { await interaction.respond([]); } catch (_) {}
+  }
 }
 
 function buildSlashValidationErrorEmbed(rawInput, resolution) {
