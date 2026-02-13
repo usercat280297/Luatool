@@ -6,15 +6,23 @@
 
 const { EmbedBuilder } = require('discord.js');
 
+function parseBooleanEnv(value, fallback) {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
 // ============================================
 // COLOR PALETTE - DRM Severity Based
 // ============================================
 const COLORS = {
   critical: 0xED4245,  // Denuvo - Discord Red
   warning: 0xFAA61A,   // Anti-cheat - Amber
-  info: 0x5865F2,      // Steam DRM - Blurple
-  none: 0x57F287,      // DRM-Free - Discord Green
-  default: 0x00B0F4,   // Accent cyan
+  info: 0x00B8D9,      // Steam DRM - Cyan
+  none: 0x2FBF71,      // DRM-Free - Emerald
+  default: 0x14B8A6,   // Accent teal
   premium: 0xFEE75C,   // Gold for special games
 };
 
@@ -34,6 +42,10 @@ const DRM_ICONS = {
   steamDRM: '🔒',
   drmFree: '✅',
 };
+
+const GAME_TITLE_ICON_OK = process.env.GAME_TITLE_ICON_OK || '<a:blackverified:1471752403421237360>';
+const GAME_TITLE_ICON_MISSING = process.env.GAME_TITLE_ICON_MISSING || '<:xicon:1471753191564640437>';
+const EMBED_GAME_TITLE_LINK_ENABLED = parseBooleanEnv(process.env.EMBED_GAME_TITLE_LINK_ENABLED, true);
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -129,8 +141,12 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   // ============================================
   // TITLE & LINK
   // ============================================
-  embed.setTitle(`🎮 ${gameInfo.name}`);
-  embed.setURL(`https://store.steampowered.com/app/${appId}`);
+  const hasManifest = Array.isArray(files?.lua) && files.lua.length > 0;
+  const titleIcon = hasManifest ? GAME_TITLE_ICON_OK : GAME_TITLE_ICON_MISSING;
+  embed.setTitle(`${titleIcon} ${gameInfo.name}`);
+  if (EMBED_GAME_TITLE_LINK_ENABLED) {
+    embed.setURL(`https://store.steampowered.com/app/${appId}`);
+  }
   
   // ============================================
   // THUMBNAIL - Animated GIF (Fixed for Mobile)
