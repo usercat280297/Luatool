@@ -69,8 +69,9 @@ const CONFIG = {
   DISABLE_DIRECT_DOWNLOAD_FALLBACK: parseBoolean(process.env.DISABLE_DIRECT_DOWNLOAD_FALLBACK, false),
   PUBLIC_BASE_URL: (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, ''),
   DIRECT_DOWNLOAD_TTL_MINUTES: parsePositiveInt(process.env.DIRECT_DOWNLOAD_TTL_MINUTES, 360),
-  ENABLE_STEAM_AUTOCOMPLETE: parseBoolean(process.env.ENABLE_STEAM_AUTOCOMPLETE, false),
+  ENABLE_STEAM_AUTOCOMPLETE: parseBoolean(process.env.ENABLE_STEAM_AUTOCOMPLETE, true),
   AUTOCOMPLETE_STEAM_TIMEOUT_MS: parsePositiveInt(process.env.AUTOCOMPLETE_STEAM_TIMEOUT_MS, 800),
+  AVAILABLE_APPID_CACHE_TTL_MS: parsePositiveInt(process.env.AVAILABLE_APPID_CACHE_TTL_MS, 300000),
   CACHE_DURATION: 0, // Always fetch fresh data
   ENABLE_DAILY_DOWNLOAD_LIMIT: parseBoolean(process.env.ENABLE_DAILY_DOWNLOAD_LIMIT, true),
   MAX_DAILY_DOWNLOADS_PER_USER: parsePositiveInt(process.env.MAX_DAILY_DOWNLOADS_PER_USER, 25),
@@ -247,6 +248,7 @@ let gameNamesIndex = {}; // Game names index
 let gameNamesCache = {}; // Large local game name cache
 let searchableGameList = []; // Unified game list for autocomplete + slash resolution
 const temporaryDownloads = new Map(); // token -> { filePath, fileName, expiresAt }
+let availableAppIdCache = { timestamp: 0, ids: new Set() };
 
 const GEN_SLASH_COMMAND = {
   name: 'gen',
@@ -1205,7 +1207,32 @@ async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
     && localGames.length < Math.min(8, limit)
     && key.length >= AUTOCOMPLETE_STEAM_QUERY_MIN_LENGTH
   ) {
-    const steamGames = await fetchSteamSuggestions(key, limit);
+    const steamGamesRaw = await fetchSteamSuggestions(key, Math.min(limit * 2, 50));
+    const availableIds = getAvailableAppIdSet();
+    const steamGames = steamGamesRaw.filter(item => availableIds.has(String(item.appId)));
+    
+    // Backfill discovered names for local apps that were missing in cache/index.
+    for (const item of steamGames) {
+      const id = String(item.appId);
+      if (!id || !item.name) continue;
+      
+      if (!gameNamesIndex[id]) {
+        gameNamesIndex[id] = item.name;
+      }
+      
+      const existingEntry = searchableGameList.find(game => game.appId === id);
+      if (existingEntry) {
+        existingEntry.name = item.name;
+        existingEntry.normalizedName = normalizeGameName(item.name);
+      } else {
+        searchableGameList.push({
+          appId: id,
+          name: item.name,
+          normalizedName: normalizeGameName(item.name)
+        });
+      }
+    }
+    
     merged = toUniqueGames([...localGames, ...steamGames])
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, limit);
@@ -2025,8 +2052,13 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     const existingEntry = searchableGameList.find(item => item.appId === normalizedAppId);
     if (existingEntry) {
       existingEntry.name = fullInfo.name;
+      existingEntry.normalizedName = normalizeGameName(fullInfo.name);
     } else {
-      searchableGameList.push({ appId: normalizedAppId, name: fullInfo.name });
+      searchableGameList.push({
+        appId: normalizedAppId,
+        name: fullInfo.name,
+        normalizedName: normalizeGameName(fullInfo.name)
+      });
     }
   }
 
@@ -2185,6 +2217,24 @@ function scanAllGames() {
   };
   
   return uniqueGames;
+}
+
+function getAvailableAppIdSet(forceRefresh = false) {
+  const now = Date.now();
+  if (
+    !forceRefresh
+    && availableAppIdCache.ids.size > 0
+    && (now - availableAppIdCache.timestamp) < CONFIG.AVAILABLE_APPID_CACHE_TTL_MS
+  ) {
+    return availableAppIdCache.ids;
+  }
+  
+  const ids = new Set(scanAllGames().map(id => String(id)));
+  availableAppIdCache = {
+    timestamp: now,
+    ids
+  };
+  return ids;
 }
 
 // ============================================
