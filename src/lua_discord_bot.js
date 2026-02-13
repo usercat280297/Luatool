@@ -69,10 +69,15 @@ const CONFIG = {
   DISABLE_DIRECT_DOWNLOAD_FALLBACK: parseBoolean(process.env.DISABLE_DIRECT_DOWNLOAD_FALLBACK, false),
   PUBLIC_BASE_URL: (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, ''),
   DIRECT_DOWNLOAD_TTL_MINUTES: parsePositiveInt(process.env.DIRECT_DOWNLOAD_TTL_MINUTES, 360),
+  ENABLE_STEAM_AUTOCOMPLETE: parseBoolean(process.env.ENABLE_STEAM_AUTOCOMPLETE, false),
+  AUTOCOMPLETE_STEAM_TIMEOUT_MS: parsePositiveInt(process.env.AUTOCOMPLETE_STEAM_TIMEOUT_MS, 800),
   CACHE_DURATION: 0, // Always fetch fresh data
   ENABLE_DAILY_DOWNLOAD_LIMIT: parseBoolean(process.env.ENABLE_DAILY_DOWNLOAD_LIMIT, true),
   MAX_DAILY_DOWNLOADS_PER_USER: parsePositiveInt(process.env.MAX_DAILY_DOWNLOADS_PER_USER, 25),
   DAILY_LIMIT_TIMEZONE: process.env.DAILY_LIMIT_TIMEZONE || 'Asia/Ho_Chi_Minh',
+  UPSTASH_REDIS_REST_URL: (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, ''),
+  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+  UPSTASH_DAILY_QUOTA_PREFIX: process.env.UPSTASH_DAILY_QUOTA_PREFIX || 'luatool:quota',
   REGISTER_GLOBAL_SLASH_COMMAND: parseBoolean(process.env.REGISTER_GLOBAL_SLASH_COMMAND, false),
   REGISTER_GUILD_SLASH_COMMAND: parseBoolean(process.env.REGISTER_GUILD_SLASH_COMMAND, true),
   GEN_PROCESSING_DELAY_MS: Math.min(
@@ -263,7 +268,7 @@ const GEN_SLASH_COMMAND = {
 
 const AUTOCOMPLETE_LIMIT = 25;
 const AUTOCOMPLETE_CACHE_TTL = 60 * 1000;
-const AUTOCOMPLETE_RESPONSE_BUDGET_MS = 1800;
+const AUTOCOMPLETE_RESPONSE_BUDGET_MS = parsePositiveInt(process.env.AUTOCOMPLETE_RESPONSE_BUDGET_MS, 1200);
 const AUTOCOMPLETE_STEAM_QUERY_MIN_LENGTH = 3;
 const autocompleteCache = new Map();
 
@@ -338,7 +343,7 @@ function getNextDailyResetUnix(timestamp = Date.now()) {
   return Math.floor((timestamp + 24 * 60 * 60 * 1000) / 1000);
 }
 
-function getDailyDownloadQuota(userId, timestamp = Date.now()) {
+function getDailyDownloadQuotaLocal(userId, timestamp = Date.now()) {
   ensureDatabaseSchema();
   
   if (!CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT || CONFIG.MAX_DAILY_DOWNLOADS_PER_USER <= 0) {
@@ -367,10 +372,10 @@ function getDailyDownloadQuota(userId, timestamp = Date.now()) {
   };
 }
 
-function consumeDailyDownloadQuota(userId, timestamp = Date.now()) {
+function consumeDailyDownloadQuotaLocal(userId, timestamp = Date.now()) {
   ensureDatabaseSchema();
   
-  const quota = getDailyDownloadQuota(userId, timestamp);
+  const quota = getDailyDownloadQuotaLocal(userId, timestamp);
   if (!quota.enabled) return quota;
   
   database.userDailyDownloads[userId] = {
@@ -385,12 +390,105 @@ function consumeDailyDownloadQuota(userId, timestamp = Date.now()) {
   };
 }
 
+function isUpstashQuotaEnabled() {
+  return Boolean(CONFIG.UPSTASH_REDIS_REST_URL && CONFIG.UPSTASH_REDIS_REST_TOKEN);
+}
+
+function getDailyQuotaKey(userId, dateKey) {
+  return `${CONFIG.UPSTASH_DAILY_QUOTA_PREFIX}:${dateKey}:${userId}`;
+}
+
+async function executeUpstashCommand(command, ...args) {
+  const encodedArgs = args.map(value => encodeURIComponent(String(value)));
+  const endpoint = `${CONFIG.UPSTASH_REDIS_REST_URL}/${String(command).toUpperCase()}/${encodedArgs.join('/')}`;
+  const response = await axios.post(endpoint, null, {
+    timeout: 5000,
+    headers: {
+      Authorization: `Bearer ${CONFIG.UPSTASH_REDIS_REST_TOKEN}`
+    }
+  });
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Upstash status ${response.status}`);
+  }
+  return response.data?.result;
+}
+
+async function getDailyDownloadQuota(userId, timestamp = Date.now()) {
+  if (!isUpstashQuotaEnabled()) {
+    return getDailyDownloadQuotaLocal(userId, timestamp);
+  }
+  
+  if (!CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT || CONFIG.MAX_DAILY_DOWNLOADS_PER_USER <= 0) {
+    return {
+      enabled: false,
+      used: 0,
+      remaining: Number.POSITIVE_INFINITY,
+      limit: 0,
+      dateKey: getDailyDateKey(timestamp),
+    };
+  }
+  
+  const dateKey = getDailyDateKey(timestamp);
+  const key = getDailyQuotaKey(userId, dateKey);
+  
+  try {
+    const value = await executeUpstashCommand('GET', key);
+    const usedToday = Math.max(Number.parseInt(value ?? '0', 10) || 0, 0);
+    const remaining = Math.max(CONFIG.MAX_DAILY_DOWNLOADS_PER_USER - usedToday, 0);
+    return {
+      enabled: true,
+      used: usedToday,
+      remaining,
+      limit: CONFIG.MAX_DAILY_DOWNLOADS_PER_USER,
+      dateKey,
+      source: 'upstash'
+    };
+  } catch (error) {
+    log('WARN', 'Upstash quota read failed, fallback to local DB', { error: error.message });
+    return getDailyDownloadQuotaLocal(userId, timestamp);
+  }
+}
+
+async function consumeDailyDownloadQuota(userId, timestamp = Date.now()) {
+  if (!isUpstashQuotaEnabled()) {
+    return consumeDailyDownloadQuotaLocal(userId, timestamp);
+  }
+  
+  const quotaBefore = await getDailyDownloadQuota(userId, timestamp);
+  if (!quotaBefore.enabled) return quotaBefore;
+  
+  const dateKey = quotaBefore.dateKey || getDailyDateKey(timestamp);
+  const key = getDailyQuotaKey(userId, dateKey);
+  
+  try {
+    const usedAfter = Math.max(Number.parseInt(await executeUpstashCommand('INCR', key), 10) || 0, 0);
+    
+    // Keep old keys cleaned up shortly after timezone midnight reset.
+    if (usedAfter <= 1) {
+      const expireAt = getNextDailyResetUnix(timestamp) + (2 * 60 * 60);
+      await executeUpstashCommand('EXPIREAT', key, expireAt);
+    }
+    
+    return {
+      enabled: true,
+      used: usedAfter,
+      remaining: Math.max(CONFIG.MAX_DAILY_DOWNLOADS_PER_USER - usedAfter, 0),
+      limit: CONFIG.MAX_DAILY_DOWNLOADS_PER_USER,
+      dateKey,
+      source: 'upstash'
+    };
+  } catch (error) {
+    log('WARN', 'Upstash quota write failed, fallback to local DB', { error: error.message });
+    return consumeDailyDownloadQuotaLocal(userId, timestamp);
+  }
+}
+
 function formatDailyQuotaRemaining(quota) {
   if (!quota?.enabled) return null;
   return `You have ${quota.remaining}/${quota.limit} downloads remaining today.`;
 }
 
-function registerSuccessfulDownload({ appId, gameName, fileType, fileName, fileSize, user }) {
+async function registerSuccessfulDownload({ appId, gameName, fileType, fileName, fileSize, user }) {
   ensureDatabaseSchema();
   
   database.stats.totalDownloads += 1;
@@ -410,7 +508,7 @@ function registerSuccessfulDownload({ appId, gameName, fileType, fileName, fileS
   gameEntry.downloads = (gameEntry.downloads || 0) + 1;
   gameEntry.lastAccessed = Date.now();
   
-  const quota = consumeDailyDownloadQuota(user.id);
+  const quota = await consumeDailyDownloadQuota(user.id);
   saveDatabase();
   
   log('INFO', 'File downloaded', {
@@ -557,13 +655,21 @@ function rebuildSearchableGameList() {
     if (!id || !displayName) return;
     
     if (!merged.has(id)) {
-      merged.set(id, { appId: id, name: displayName });
+      merged.set(id, {
+        appId: id,
+        name: displayName,
+        normalizedName: normalizeGameName(displayName)
+      });
       return;
     }
     
     const existing = merged.get(id);
     if (displayName.length > existing.name.length) {
-      merged.set(id, { appId: id, name: displayName });
+      merged.set(id, {
+        appId: id,
+        name: displayName,
+        normalizedName: normalizeGameName(displayName)
+      });
     }
   };
   
@@ -1011,10 +1117,13 @@ function searchLocalGames(query, limit = AUTOCOMPLETE_LIMIT) {
   }
   
   const isNumericQuery = /^\d+$/.test(input);
+  const normalizedInput = normalizeGameName(input);
+  const queryTokens = normalizedInput.split(/\s+/).filter(Boolean);
   const results = [];
   
   for (const game of searchableGameList) {
     let score = 0;
+    const normalizedName = game.normalizedName || normalizeGameName(game.name);
     
     if (isNumericQuery) {
       if (game.appId === input) {
@@ -1022,10 +1131,23 @@ function searchLocalGames(query, limit = AUTOCOMPLETE_LIMIT) {
       } else if (game.appId.startsWith(input)) {
         score = 100;
       } else {
-        score = calculateMatchScore(input, game.name);
+        if (normalizedName.includes(normalizedInput)) {
+          score = 60;
+        }
       }
     } else {
-      score = calculateMatchScore(input, game.name);
+      if (normalizedName === normalizedInput) {
+        score = 100;
+      } else if (normalizedName.startsWith(normalizedInput)) {
+        score = 90;
+      } else if (normalizedName.includes(normalizedInput)) {
+        score = 75;
+      } else if (queryTokens.length > 0) {
+        const matchedTokens = queryTokens.filter(token => normalizedName.includes(token)).length;
+        if (matchedTokens > 0) {
+          score = Math.floor(50 + (matchedTokens / queryTokens.length) * 20);
+        }
+      }
     }
     
     if (score > 0) {
@@ -1052,7 +1174,7 @@ async function fetchSteamSuggestions(query, limit = AUTOCOMPLETE_LIMIT) {
   try {
     const steamResults = await Promise.race([
       searchSteamStore(query),
-      new Promise(resolve => setTimeout(() => resolve([]), 1200))
+      new Promise(resolve => setTimeout(() => resolve([]), CONFIG.AUTOCOMPLETE_STEAM_TIMEOUT_MS))
     ]);
     
     return toUniqueGames(
@@ -1078,7 +1200,11 @@ async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
   const localGames = searchLocalGames(query, limit);
   let merged = localGames;
   
-  if (localGames.length < Math.min(8, limit) && key.length >= AUTOCOMPLETE_STEAM_QUERY_MIN_LENGTH) {
+  if (
+    CONFIG.ENABLE_STEAM_AUTOCOMPLETE
+    && localGames.length < Math.min(8, limit)
+    && key.length >= AUTOCOMPLETE_STEAM_QUERY_MIN_LENGTH
+  ) {
     const steamGames = await fetchSteamSuggestions(key, limit);
     merged = toUniqueGames([...localGames, ...steamGames])
       .sort((a, b) => (b.score || 0) - (a.score || 0))
@@ -1094,10 +1220,17 @@ function buildAutocompleteChoices(matches = []) {
   const choices = [];
   
   for (const item of matches) {
-    const value = String(item?.appId || '').trim();
+    const value = String(item?.appId || '')
+      .replace(/[^\d]/g, '')
+      .trim();
     if (!value || dedup.has(value)) continue;
+    if (value.length > 20) continue;
     
-    const name = truncateChoiceName(item?.name || `App ${value}`, value);
+    const safeName = String(item?.name || `App ${value}`)
+      .replace(/[\u0000-\u001F\u007F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const name = truncateChoiceName(safeName, value);
     if (!name || name.length > 100) continue;
     
     dedup.add(value);
@@ -2918,9 +3051,18 @@ async function handleToggleAutoDeleteCommand(message) {
 }
 
 async function handleGenAutocomplete(interaction) {
-  const focused = interaction.options.getFocused(true);
-  if (focused.name !== 'appid') {
-    return interaction.respond([]);
+  let focused;
+  try {
+    focused = interaction.options.getFocused(true);
+  } catch (error) {
+    log('WARN', 'Autocomplete focus read failed', { error: error.message });
+    try { await interaction.respond([]); } catch (_) {}
+    return;
+  }
+  
+  if (!focused || focused.name !== 'appid') {
+    try { await interaction.respond([]); } catch (_) {}
+    return;
   }
   
   const query = String(focused.value || '');
@@ -3084,8 +3226,14 @@ async function deleteCommandsByName(commandManager, commandName) {
 
 async function registerSlashCommandForGuild(guild) {
   try {
-    const result = await upsertApplicationCommand(guild.commands, GEN_SLASH_COMMAND);
-    log('INFO', `Slash command ${result} for guild`, { guildId: guild.id, guildName: guild.name });
+    const commands = await guild.commands.set([GEN_SLASH_COMMAND]);
+    const active = commands.find(cmd => cmd.name === GEN_SLASH_COMMAND.name);
+    log('INFO', 'Guild slash command set synced', {
+      guildId: guild.id,
+      guildName: guild.name,
+      commandCount: commands.size,
+      activeCommandId: active?.id || null
+    });
     return { ok: true, guildId: guild.id };
   } catch (error) {
     log('WARN', 'Failed to register slash command for guild', {
@@ -3105,20 +3253,17 @@ async function registerSlashCommands() {
   
   if (CONFIG.REGISTER_GLOBAL_SLASH_COMMAND) {
     try {
-      const globalResult = await upsertApplicationCommand(client.application.commands, GEN_SLASH_COMMAND);
-      log('INFO', `Global slash command ${globalResult}`, { command: GEN_SLASH_COMMAND.name });
+      const commands = await client.application.commands.set([GEN_SLASH_COMMAND]);
+      log('INFO', 'Global slash commands set synced', {
+        commandCount: commands.size
+      });
     } catch (error) {
       log('WARN', 'Failed to register global slash command', { error: error.message });
     }
   } else {
     try {
-      const deleted = await deleteCommandsByName(client.application.commands, GEN_SLASH_COMMAND.name);
-      if (deleted > 0) {
-        log('INFO', 'Removed global slash commands to avoid duplicates', {
-          command: GEN_SLASH_COMMAND.name,
-          deleted
-        });
-      }
+      await client.application.commands.set([]);
+      log('INFO', 'Cleared all global slash commands for this application');
     } catch (error) {
       log('WARN', 'Failed to cleanup global slash commands', { error: error.message });
     }
@@ -3454,7 +3599,7 @@ client.on('interactionCreate', async (interaction) => {
   if (action !== 'dl') return;
   
   try {
-    const quotaBeforeDownload = getDailyDownloadQuota(interaction.user.id);
+    const quotaBeforeDownload = await getDailyDownloadQuota(interaction.user.id);
     if (quotaBeforeDownload.enabled && quotaBeforeDownload.remaining <= 0) {
       const resetUnix = getNextDailyResetUnix();
       return interaction.reply({
@@ -3581,7 +3726,7 @@ client.on('interactionCreate', async (interaction) => {
         }]
       });
 
-      const crackQuota = registerSuccessfulDownload({
+      const crackQuota = await registerSuccessfulDownload({
         appId,
         gameName: gameInfo?.name,
         fileType: 'crack-link',
@@ -3650,7 +3795,7 @@ client.on('interactionCreate', async (interaction) => {
         }]
       });
 
-      const onlineQuota = registerSuccessfulDownload({
+      const onlineQuota = await registerSuccessfulDownload({
         appId,
         gameName: gameInfo?.name,
         fileType: 'online-link',
@@ -3839,7 +3984,7 @@ client.on('interactionCreate', async (interaction) => {
         }]
       });
 
-      const largeFileQuota = registerSuccessfulDownload({
+      const largeFileQuota = await registerSuccessfulDownload({
         appId,
         gameName: gameInfo?.name,
         fileType: type,
@@ -3907,7 +4052,7 @@ client.on('interactionCreate', async (interaction) => {
     
     await scheduleInteractionDeletion(interaction, replyContent);
     
-    const directFileQuota = registerSuccessfulDownload({
+    const directFileQuota = await registerSuccessfulDownload({
       appId,
       gameName: gameInfo?.name,
       fileType: type,
@@ -3943,7 +4088,7 @@ client.on('interactionCreate', async (interaction) => {
 // BOT READY EVENT
 // ============================================
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   console.log('\n' + '='.repeat(70));
   console.log('🚀 DISCORD LUA BOT - ENHANCED VERSION 2.0');
   console.log('   Multi-source data + Auto-delete + Online-Fix Integration');
@@ -3958,6 +4103,7 @@ client.once('ready', async () => {
   console.log(`💾 Cached game info: ${Object.keys(gameInfoCache).length} games`);
   console.log(`🔄 Auto-delete: ${CONFIG.ENABLE_AUTO_DELETE ? 'ENABLED (5 min)' : 'DISABLED'}`);
   console.log(`🧱 Daily download limit: ${CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT ? `${CONFIG.MAX_DAILY_DOWNLOADS_PER_USER}/user/day (${CONFIG.DAILY_LIMIT_TIMEZONE} reset)` : 'DISABLED'}`);
+  console.log(`🗃️ Quota storage: ${isUpstashQuotaEnabled() ? 'Upstash Redis' : 'Local JSON database'}`);
   console.log(`🌍 Public base URL: ${CONFIG.PUBLIC_BASE_URL || 'NOT SET (direct large-file links disabled)'}`);
   console.log(`🔗 Direct download TTL: ${CONFIG.DIRECT_DOWNLOAD_TTL_MINUTES} minutes`);
   console.log(`📁 Folders:`);
