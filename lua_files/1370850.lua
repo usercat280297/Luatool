@@ -1,10 +1,6 @@
--- This file was fetched from twentytwo cloud which is the exclusive property of Twentytwo server.
--- Redistribution of twentytwo's files is not allowed AT ALL
--- Join the server here: https://discord.com/invite/vwGWeTFTXW
-
 addappid(1370850)
-addappid(228988)
 setManifestid(228988,"6645201662696499616")
-addappid(1370851)
+addappid(1370851,0,"b3b0d01fbd0691c6fd698c1562fa0d9f2407f485bb0f9cd53deec06ad7fcc120")
+setManifestid(1370851,"5882520903184204065")
 addappid(1290222,0,"150de84d86370e58f991de7dc98551101d744e5aec69083b45a639753bbb4685")
 setManifestid(1290222,"2653238279262776518")

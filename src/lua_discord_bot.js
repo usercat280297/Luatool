@@ -50,7 +50,7 @@ const CONFIG = {
   GITHUB_REPO_OWNER: process.env.GITHUB_REPO_OWNER,
   GITHUB_REPO_NAME: process.env.GITHUB_REPO_NAME,
   COMMAND_PREFIX: '!',
-  
+
   // FIXED: Correct paths from src/ directory
   LUA_FILES_PATH: path.join(__dirname, '../lua_files'),
   FIX_FILES_PATH: path.join(__dirname, '../fix_files'),
@@ -59,7 +59,7 @@ const CONFIG = {
   DATABASE_PATH: path.join(DATA_ROOT, 'database.json'),
   DATABASE_BACKUP_PATH: path.join(DATA_ROOT, 'database.backup.json'),
   GAME_INFO_CACHE_PATH: path.join(DATA_ROOT, 'game_info_cache.json'),
-  
+
   ADMIN_USER_IDS: ['898595655562432584'],
   MAX_FILE_SIZE_MB: 25,
   GITHUB_CONTENTS_SAFE_LIMIT_MB: parsePositiveInt(process.env.GITHUB_CONTENTS_SAFE_LIMIT_MB, 70),
@@ -84,7 +84,7 @@ const CONFIG = {
     Math.max(parsePositiveInt(process.env.GEN_PROCESSING_DELAY_MS, 3500), 3000),
     4000
   ),
-  
+
   // AUTO-DELETE: Messages auto-delete after 5 minutes
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
   ENABLE_AUTO_DELETE: true,
@@ -113,11 +113,11 @@ function markMessageProcessed(messageId) {
 function isDuplicateCommand(userId, command) {
   const key = `${userId}:${command}`;
   const lastTime = processing_commands.get(key);
-  
+
   if (lastTime && Date.now() - lastTime < DUPLICATE_THRESHOLD) {
     return true; // Duplicate command
   }
-  
+
   processing_commands.set(key, Date.now());
   return false;
 }
@@ -153,7 +153,7 @@ const VERIFIED_DRM = {
   denuvo: [
     ...DENUVO_IDS,
   ],
-  
+
   // EasyAntiCheat Games
   easyAntiCheat: [
     1517290, // Battlefield 2042
@@ -164,7 +164,7 @@ const VERIFIED_DRM = {
     892970,  // Valheim
     1623730, // Palworld (multiplayer)
   ],
-  
+
   // BattlEye Anti-Cheat
   battleye: [
     578080,  // PUBG: Battlegrounds
@@ -174,7 +174,7 @@ const VERIFIED_DRM = {
     1938090, // Escape from Tarkov
     728880,  // Overwatch 2
   ],
-  
+
   // ✅ VERIFIED DRM-FREE GAMES
   drmFree: [
     1623730, // Palworld
@@ -186,7 +186,7 @@ const VERIFIED_DRM = {
     892970,  // Valheim (DRM-free on GOG)
     1245620, // Elden Ring (Steam DRM only)
   ],
-  
+
   // 🌐 NEEDS ONLINE-FIX
   needsOnlineFix: [
     3949040, // RV There Yet?
@@ -216,23 +216,23 @@ const VERIFIED_DRM = {
 // ============================================
 const ICONS = {
   // General
-  game: '🎮', link: '🔗', check: '✅', cross: '❌', 
+  game: '🎮', link: '🔗', check: '✅', cross: '❌',
   warning: '⚠️', info: 'ℹ️', sparkles: '✨', fire: '🔥',
-  
+
   // Game Info
   price: '💰', size: '💾', date: '📅', dlc: '🎯',
   language: '🌍', review: '⭐',
-  
+
   // DRM Types
-  denuvo: '🚫', antiCheat: '🛡️', drm: '🔒', 
+  denuvo: '🚫', antiCheat: '🛡️', drm: '🔒',
   drmFree: '🆓', online: '🌐',
-  
+
   // Publisher/Developer
   developer: '👨‍💻', publisher: '🏢',
-  
+
   // Downloads
   download: '⬇️', lua: '📜', fix: '🔧', onlineFix: '🌐',
-  
+
   // Platforms
   windows: '🪟', mac: '🍎', linux: '🐧',
 };
@@ -297,22 +297,22 @@ function ensureDatabaseSchema() {
   if (!database || typeof database !== 'object') {
     database = {};
   }
-  
+
   if (!database.games || typeof database.games !== 'object') {
     database.games = {};
   }
-  
+
   if (!database.stats || typeof database.stats !== 'object') {
     database.stats = {};
   }
-  
+
   database.stats.totalDownloads = Number.isFinite(database.stats.totalDownloads)
     ? database.stats.totalDownloads
     : 0;
   database.stats.totalSearches = Number.isFinite(database.stats.totalSearches)
     ? database.stats.totalSearches
     : 0;
-  
+
   if (!database.userDailyDownloads || typeof database.userDailyDownloads !== 'object') {
     database.userDailyDownloads = {};
   }
@@ -330,7 +330,7 @@ function getDailyDateKey(timestamp = Date.now()) {
 
 function getNextDailyResetUnix(timestamp = Date.now()) {
   const currentKey = getDailyDateKey(timestamp);
-  
+
   // Scan minute-by-minute to support timezone and DST boundaries safely.
   // Upper bound 48h is enough even on odd timezone transitions.
   for (let minute = 1; minute <= (48 * 60); minute++) {
@@ -339,14 +339,14 @@ function getNextDailyResetUnix(timestamp = Date.now()) {
       return Math.floor(probe / 1000);
     }
   }
-  
+
   // Fallback (should never happen)
   return Math.floor((timestamp + 24 * 60 * 60 * 1000) / 1000);
 }
 
 function getDailyDownloadQuotaLocal(userId, timestamp = Date.now()) {
   ensureDatabaseSchema();
-  
+
   if (!CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT || CONFIG.MAX_DAILY_DOWNLOADS_PER_USER <= 0) {
     return {
       enabled: false,
@@ -356,14 +356,14 @@ function getDailyDownloadQuotaLocal(userId, timestamp = Date.now()) {
       dateKey: getDailyDateKey(timestamp),
     };
   }
-  
+
   const dateKey = getDailyDateKey(timestamp);
   const userEntry = database.userDailyDownloads[userId];
   const usedToday = userEntry && userEntry.dateKey === dateKey
     ? Math.max(Number(userEntry.count) || 0, 0)
     : 0;
   const remaining = Math.max(CONFIG.MAX_DAILY_DOWNLOADS_PER_USER - usedToday, 0);
-  
+
   return {
     enabled: true,
     used: usedToday,
@@ -375,15 +375,15 @@ function getDailyDownloadQuotaLocal(userId, timestamp = Date.now()) {
 
 function consumeDailyDownloadQuotaLocal(userId, timestamp = Date.now()) {
   ensureDatabaseSchema();
-  
+
   const quota = getDailyDownloadQuotaLocal(userId, timestamp);
   if (!quota.enabled) return quota;
-  
+
   database.userDailyDownloads[userId] = {
     dateKey: quota.dateKey,
     count: quota.used + 1,
   };
-  
+
   return {
     ...quota,
     used: quota.used + 1,
@@ -418,7 +418,7 @@ async function getDailyDownloadQuota(userId, timestamp = Date.now()) {
   if (!isUpstashQuotaEnabled()) {
     return getDailyDownloadQuotaLocal(userId, timestamp);
   }
-  
+
   if (!CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT || CONFIG.MAX_DAILY_DOWNLOADS_PER_USER <= 0) {
     return {
       enabled: false,
@@ -428,10 +428,10 @@ async function getDailyDownloadQuota(userId, timestamp = Date.now()) {
       dateKey: getDailyDateKey(timestamp),
     };
   }
-  
+
   const dateKey = getDailyDateKey(timestamp);
   const key = getDailyQuotaKey(userId, dateKey);
-  
+
   try {
     const value = await executeUpstashCommand('GET', key);
     const usedToday = Math.max(Number.parseInt(value ?? '0', 10) || 0, 0);
@@ -454,22 +454,22 @@ async function consumeDailyDownloadQuota(userId, timestamp = Date.now()) {
   if (!isUpstashQuotaEnabled()) {
     return consumeDailyDownloadQuotaLocal(userId, timestamp);
   }
-  
+
   const quotaBefore = await getDailyDownloadQuota(userId, timestamp);
   if (!quotaBefore.enabled) return quotaBefore;
-  
+
   const dateKey = quotaBefore.dateKey || getDailyDateKey(timestamp);
   const key = getDailyQuotaKey(userId, dateKey);
-  
+
   try {
     const usedAfter = Math.max(Number.parseInt(await executeUpstashCommand('INCR', key), 10) || 0, 0);
-    
+
     // Keep old keys cleaned up shortly after timezone midnight reset.
     if (usedAfter <= 1) {
       const expireAt = getNextDailyResetUnix(timestamp) + (2 * 60 * 60);
       await executeUpstashCommand('EXPIREAT', key, expireAt);
     }
-    
+
     return {
       enabled: true,
       used: usedAfter,
@@ -491,9 +491,9 @@ function formatDailyQuotaRemaining(quota) {
 
 async function registerSuccessfulDownload({ appId, gameName, fileType, fileName, fileSize, user }) {
   ensureDatabaseSchema();
-  
+
   database.stats.totalDownloads += 1;
-  
+
   if (!database.games[appId]) {
     database.games[appId] = {
       name: gameName || `App ${appId}`,
@@ -501,17 +501,17 @@ async function registerSuccessfulDownload({ appId, gameName, fileType, fileName,
       lastAccessed: Date.now(),
     };
   }
-  
+
   const gameEntry = database.games[appId];
   if (gameName) {
     gameEntry.name = gameName;
   }
   gameEntry.downloads = (gameEntry.downloads || 0) + 1;
   gameEntry.lastAccessed = Date.now();
-  
+
   const quota = await consumeDailyDownloadQuota(user.id);
   saveDatabase();
-  
+
   log('INFO', 'File downloaded', {
     appId,
     gameName: gameName || `App ${appId}`,
@@ -520,14 +520,14 @@ async function registerSuccessfulDownload({ appId, gameName, fileType, fileName,
     fileSize: fileSize || 'N/A',
     user: user.tag
   });
-  
+
   return quota;
 }
 
 async function sendDailyQuotaRemaining(interaction, quota) {
   const quotaMessage = formatDailyQuotaRemaining(quota);
   if (!quotaMessage) return;
-  
+
   try {
     await interaction.followUp({
       content: quotaMessage,
@@ -542,7 +542,7 @@ async function sendDailyQuotaRemaining(interaction, quota) {
 }
 
 function initializeFolders() {
-  [CONFIG.LUA_FILES_PATH, CONFIG.FIX_FILES_PATH, 
+  [CONFIG.LUA_FILES_PATH, CONFIG.FIX_FILES_PATH,
    CONFIG.ONLINE_FIX_PATH, CONFIG.LOGS_PATH,
    path.dirname(CONFIG.DATABASE_PATH),
    path.dirname(CONFIG.GAME_INFO_CACHE_PATH)].forEach(folder => {
@@ -567,7 +567,7 @@ function writeJsonAtomic(filePath, data) {
 function loadDatabase() {
   let loaded = null;
   let loadedFromBackup = false;
-  
+
   if (fs.existsSync(CONFIG.DATABASE_PATH)) {
     try {
       loaded = safeReadJson(CONFIG.DATABASE_PATH);
@@ -576,7 +576,7 @@ function loadDatabase() {
       console.error('❌ Error loading primary database:', error.message);
     }
   }
-  
+
   if (!loaded && fs.existsSync(CONFIG.DATABASE_BACKUP_PATH)) {
     try {
       loaded = safeReadJson(CONFIG.DATABASE_BACKUP_PATH);
@@ -586,16 +586,16 @@ function loadDatabase() {
       console.error('❌ Error loading backup database:', error.message);
     }
   }
-  
+
   if (loaded && typeof loaded === 'object') {
     database = loaded;
   } else {
     database = {};
     console.warn('⚠️ Using a new empty database in memory.');
   }
-  
+
   ensureDatabaseSchema();
-  
+
   if (loadedFromBackup) {
     saveDatabase();
   }
@@ -619,10 +619,10 @@ function loadGameInfoCache() {
       console.error('❌ Error loading cache:', error);
     }
   }
-  
+
   const gameIndexPath = path.join(__dirname, '../game_names_index.json');
   const gameNamesCachePath = path.join(__dirname, '../gameNamesCache.json');
-  
+
   // Load compact game names index
   if (fs.existsSync(gameIndexPath)) {
     try {
@@ -632,7 +632,7 @@ function loadGameInfoCache() {
       console.error('❌ Error loading game names index:', error);
     }
   }
-  
+
   // Load large game names cache for autocomplete
   if (fs.existsSync(gameNamesCachePath)) {
     try {
@@ -642,19 +642,19 @@ function loadGameInfoCache() {
       console.error('❌ Error loading game names cache:', error);
     }
   }
-  
+
   rebuildSearchableGameList();
 }
 
 function rebuildSearchableGameList() {
   const merged = new Map();
-  
+
   const upsertEntry = (appId, name) => {
     if (!appId || !name) return;
     const id = String(appId).trim();
     const displayName = String(name).replace(/\s+/g, ' ').trim();
     if (!id || !displayName) return;
-    
+
     if (!merged.has(id)) {
       merged.set(id, {
         appId: id,
@@ -663,7 +663,7 @@ function rebuildSearchableGameList() {
       });
       return;
     }
-    
+
     const existing = merged.get(id);
     if (displayName.length > existing.name.length) {
       merged.set(id, {
@@ -673,26 +673,26 @@ function rebuildSearchableGameList() {
       });
     }
   };
-  
+
   for (const [appId, name] of Object.entries(gameNamesCache || {})) {
     upsertEntry(appId, name);
   }
-  
+
   for (const [appId, name] of Object.entries(gameNamesIndex || {})) {
     upsertEntry(appId, name);
   }
-  
+
   for (const [appId, cacheEntry] of Object.entries(gameInfoCache || {})) {
     const cachedName = cacheEntry?.data?.name;
     if (cachedName) {
       upsertEntry(appId, cachedName);
     }
   }
-  
+
   for (const game of DENUVO_GAMES) {
     upsertEntry(game.id, game.name);
   }
-  
+
   searchableGameList = Array.from(merged.values());
   log('INFO', 'Rebuilt searchable game cache', { totalGames: searchableGameList.length });
 }
@@ -714,7 +714,7 @@ function saveGameInfoCache() {
 function log(type, message, data = {}) {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] [${type}] ${message}`);
-  
+
   try {
     const logFile = path.join(CONFIG.LOGS_PATH, `${new Date().toISOString().split('T')[0]}.log`);
     fs.appendFileSync(logFile, JSON.stringify({ timestamp, type, message, ...data }) + '\n');
@@ -743,9 +743,9 @@ async function commandExists(commandName) {
   if (archiveCommandCache.has(commandName)) {
     return archiveCommandCache.get(commandName);
   }
-  
+
   const checker = process.platform === 'win32' ? 'where.exe' : 'which';
-  
+
   try {
     await execFileAsync(checker, [commandName], { timeout: 5000 });
     archiveCommandCache.set(commandName, true);
@@ -765,41 +765,41 @@ function countManifestEntries(entryList = []) {
 
 function countManifestFilesInDirectory(dirPath) {
   if (!fs.existsSync(dirPath)) return 0;
-  
+
   let total = 0;
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-  
+
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
-    
+
     if (entry.isDirectory()) {
       total += countManifestFilesInDirectory(fullPath);
       continue;
     }
-    
+
     if (entry.isFile() && entry.name.toLowerCase().endsWith('.manifest')) {
       total += 1;
     }
   }
-  
+
   return total;
 }
 
 async function listArchiveEntriesWith7z(filePath) {
   if (!(await commandExists('7z'))) return null;
-  
+
   const { stdout } = await execFileAsync('7z', ['l', '-slt', filePath], {
     timeout: 45000,
     maxBuffer: 20 * 1024 * 1024
   });
-  
+
   const rawEntries = stdout
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(line => line.startsWith('Path = '))
     .map(line => line.slice('Path = '.length).trim())
     .filter(Boolean);
-  
+
   const archiveBasename = path.basename(filePath).toLowerCase();
   const entries = rawEntries.filter((entry, index) => {
     const normalized = entry.toLowerCase();
@@ -808,54 +808,54 @@ async function listArchiveEntriesWith7z(filePath) {
     }
     return true;
   });
-  
+
   return { entries, method: 'list-7z' };
 }
 
 async function listArchiveEntriesWithUnzip(filePath) {
   if (!(await commandExists('unzip'))) return null;
-  
+
   const { stdout } = await execFileAsync('unzip', ['-Z1', filePath], {
     timeout: 45000,
     maxBuffer: 20 * 1024 * 1024
   });
-  
+
   const entries = stdout
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(Boolean);
-  
+
   return { entries, method: 'list-unzip' };
 }
 
 async function listArchiveEntriesWithUnrar(filePath) {
   if (!(await commandExists('unrar'))) return null;
-  
+
   const { stdout } = await execFileAsync('unrar', ['lb', filePath], {
     timeout: 45000,
     maxBuffer: 20 * 1024 * 1024
   });
-  
+
   const entries = stdout
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(Boolean);
-  
+
   return { entries, method: 'list-unrar' };
 }
 
 async function listArchiveEntries(filePath) {
   const ext = path.extname(filePath || '').toLowerCase();
-  
+
   try {
     if (ext === '.zip') {
       return (await listArchiveEntriesWithUnzip(filePath)) || (await listArchiveEntriesWith7z(filePath));
     }
-    
+
     if (ext === '.rar') {
       return (await listArchiveEntriesWithUnrar(filePath)) || (await listArchiveEntriesWith7z(filePath));
     }
-    
+
     if (ext === '.7z') {
       return await listArchiveEntriesWith7z(filePath);
     }
@@ -866,7 +866,7 @@ async function listArchiveEntries(filePath) {
       error: error.message
     });
   }
-  
+
   return null;
 }
 
@@ -874,7 +874,7 @@ async function extractArchiveAndCountManifests(filePath) {
   const ext = path.extname(filePath || '').toLowerCase();
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifest-inspect-'));
   let extractor = null;
-  
+
   try {
     if (ext === '.zip') {
       if (await commandExists('unzip')) {
@@ -911,9 +911,9 @@ async function extractArchiveAndCountManifests(filePath) {
         maxBuffer: 20 * 1024 * 1024
       });
     }
-    
+
     if (!extractor) return null;
-    
+
     return {
       manifestCount: countManifestFilesInDirectory(tempDir),
       method: `extract-${extractor}`,
@@ -948,7 +948,7 @@ async function inspectArchiveManifestCount(filePath) {
   if (!['.zip', '.rar', '.7z'].includes(ext)) {
     return null;
   }
-  
+
   const listed = await listArchiveEntries(filePath);
   if (listed) {
     return {
@@ -957,12 +957,12 @@ async function inspectArchiveManifestCount(filePath) {
       uncertain: false
     };
   }
-  
+
   const extracted = await extractArchiveAndCountManifests(filePath);
   if (extracted) {
     return extracted;
   }
-  
+
   return {
     manifestCount: fallbackBinaryManifestScan(filePath),
     method: 'binary-fallback',
@@ -980,12 +980,12 @@ async function getFileSizeFromUrl(url) {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
-    
+
     const contentLength = response.headers['content-length'];
     if (contentLength) {
       return parseInt(contentLength);
     }
-    
+
     return null;
   } catch (error) {
     // If HEAD fails, try GET with range request
@@ -999,8 +999,8 @@ async function getFileSizeFromUrl(url) {
         maxRedirects: 5,
         validateStatus: (status) => status === 206 || status === 200
       });
-      
-      const contentLength = response.headers['content-length'] || 
+
+      const contentLength = response.headers['content-length'] ||
                            response.headers['content-range']?.match(/\/(\d+)/)?.[1];
       if (contentLength) {
         return parseInt(contentLength);
@@ -1008,7 +1008,7 @@ async function getFileSizeFromUrl(url) {
     } catch (err) {
       log('WARN', `Failed to get file size from URL: ${url}`, { error: err.message });
     }
-    
+
     return null;
   }
 }
@@ -1036,48 +1036,48 @@ function truncateChoiceName(name, appId) {
   const normalized = sanitizeNameForChoice(name);
   const suffix = ` (${appId})`;
   const maxNameLength = 100 - suffix.length;
-  
+
   if (normalized.length <= maxNameLength) {
     return `${normalized}${suffix}`;
   }
-  
+
   return `${normalized.slice(0, maxNameLength - 3)}...${suffix}`;
 }
 
 function calculateMatchScore(query, candidate) {
   const normalizedQuery = normalizeGameName(query);
   const normalizedCandidate = normalizeGameName(candidate);
-  
+
   if (!normalizedQuery || !normalizedCandidate) return 0;
   if (normalizedCandidate === normalizedQuery) return 100;
   if (normalizedCandidate.startsWith(normalizedQuery)) return 90;
   if (normalizedCandidate.includes(normalizedQuery)) return 75;
-  
+
   const queryTokens = String(query).toLowerCase().split(/\s+/).filter(Boolean);
   const candidateText = String(candidate).toLowerCase();
   if (queryTokens.length === 0) return 0;
-  
+
   const matchedTokens = queryTokens.filter(token => candidateText.includes(token)).length;
   if (matchedTokens === 0) return 0;
-  
+
   const coverage = matchedTokens / queryTokens.length;
   return Math.floor(50 + coverage * 20);
 }
 
 function toUniqueGames(candidates = []) {
   const deduped = new Map();
-  
+
   for (const item of candidates) {
     if (!item?.appId || !item?.name) continue;
     const appId = String(item.appId).trim();
     const name = sanitizeNameForChoice(item.name);
     if (!appId || !name) continue;
-    
+
     if (!deduped.has(appId)) {
       deduped.set(appId, { appId, name, score: item.score || 0 });
       continue;
     }
-    
+
     const existing = deduped.get(appId);
     const nextScore = Math.max(existing.score || 0, item.score || 0);
     if (name.length > existing.name.length) {
@@ -1086,7 +1086,7 @@ function toUniqueGames(candidates = []) {
       existing.score = nextScore;
     }
   }
-  
+
   return Array.from(deduped.values());
 }
 
@@ -1096,18 +1096,18 @@ function getPopularAutocompleteGames(limit = AUTOCOMPLETE_LIMIT) {
     if (!name) return null;
     return { appId, name, score: 100 };
   }).filter(Boolean);
-  
+
   if (games.length >= limit) {
     return games.slice(0, limit);
   }
-  
+
   const existingIds = new Set(games.map(game => game.appId));
   for (const game of searchableGameList) {
     if (existingIds.has(game.appId)) continue;
     games.push({ appId: game.appId, name: game.name, score: 50 });
     if (games.length >= limit) break;
   }
-  
+
   return games;
 }
 
@@ -1116,16 +1116,16 @@ function searchLocalGames(query, limit = AUTOCOMPLETE_LIMIT) {
   if (!input) {
     return getPopularAutocompleteGames(limit);
   }
-  
+
   const isNumericQuery = /^\d+$/.test(input);
   const normalizedInput = normalizeGameName(input);
   const queryTokens = normalizedInput.split(/\s+/).filter(Boolean);
   const results = [];
-  
+
   for (const game of searchableGameList) {
     let score = 0;
     const normalizedName = game.normalizedName || normalizeGameName(game.name);
-    
+
     if (isNumericQuery) {
       if (game.appId === input) {
         score = 120;
@@ -1150,7 +1150,7 @@ function searchLocalGames(query, limit = AUTOCOMPLETE_LIMIT) {
         }
       }
     }
-    
+
     if (score > 0) {
       results.push({
         appId: game.appId,
@@ -1159,25 +1159,25 @@ function searchLocalGames(query, limit = AUTOCOMPLETE_LIMIT) {
       });
     }
   }
-  
+
   results.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     if (a.name.length !== b.name.length) return a.name.length - b.name.length;
     return a.appId.localeCompare(b.appId);
   });
-  
+
   return toUniqueGames(results).slice(0, limit);
 }
 
 async function fetchSteamSuggestions(query, limit = AUTOCOMPLETE_LIMIT) {
   if (!query || query.length < AUTOCOMPLETE_STEAM_QUERY_MIN_LENGTH) return [];
-  
+
   try {
     const steamResults = await Promise.race([
       searchSteamStore(query),
       new Promise(resolve => setTimeout(() => resolve([]), CONFIG.AUTOCOMPLETE_STEAM_TIMEOUT_MS))
     ]);
-    
+
     return toUniqueGames(
       (steamResults || []).map(item => ({
         appId: item.appId,
@@ -1197,10 +1197,10 @@ async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
   if (cached && (Date.now() - cached.timestamp < AUTOCOMPLETE_CACHE_TTL)) {
     return cached.results.slice(0, limit);
   }
-  
+
   const localGames = searchLocalGames(query, limit);
   let merged = localGames;
-  
+
   if (
     CONFIG.ENABLE_STEAM_AUTOCOMPLETE
     && localGames.length < Math.min(8, limit)
@@ -1208,16 +1208,16 @@ async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
   ) {
     const steamGamesRaw = await fetchSteamSuggestions(key, Math.min(limit * 2, 50));
     const steamGames = steamGamesRaw;
-    
+
     // Backfill discovered names into local runtime index for faster next autocomplete.
     for (const item of steamGames) {
       const id = String(item.appId);
       if (!id || !item.name) continue;
-      
+
       if (!gameNamesIndex[id]) {
         gameNamesIndex[id] = item.name;
       }
-      
+
       const existingEntry = searchableGameList.find(game => game.appId === id);
       if (existingEntry) {
         existingEntry.name = item.name;
@@ -1230,12 +1230,12 @@ async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
         });
       }
     }
-    
+
     merged = toUniqueGames([...localGames, ...steamGames])
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, limit);
   }
-  
+
   autocompleteCache.set(key, { timestamp: Date.now(), results: merged });
   return merged;
 }
@@ -1243,26 +1243,26 @@ async function getAutocompleteGames(query, limit = AUTOCOMPLETE_LIMIT) {
 function buildAutocompleteChoices(matches = []) {
   const dedup = new Set();
   const choices = [];
-  
+
   for (const item of matches) {
     const value = String(item?.appId || '')
       .replace(/[^\d]/g, '')
       .trim();
     if (!value || dedup.has(value)) continue;
     if (value.length > 20) continue;
-    
+
     const safeName = String(item?.name || `App ${value}`)
       .replace(/[\u0000-\u001F\u007F]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
     const name = truncateChoiceName(safeName, value);
     if (!name || name.length > 100) continue;
-    
+
     dedup.add(value);
     choices.push({ name, value });
     if (choices.length >= AUTOCOMPLETE_LIMIT) break;
   }
-  
+
   return choices;
 }
 
@@ -1271,21 +1271,21 @@ async function resolveAppIdInput(input) {
   if (!rawInput) {
     return { appId: null, reason: 'EMPTY', suggestions: [] };
   }
-  
+
   if (/^\d{1,10}$/.test(rawInput)) {
     return { appId: rawInput, reason: 'APPID' };
   }
-  
+
   const embeddedAppId = rawInput.match(/\b(\d{4,10})\b/);
   if (embeddedAppId) {
     return { appId: embeddedAppId[1], reason: 'EMBEDDED_APPID' };
   }
-  
+
   const candidates = await getAutocompleteGames(rawInput, 10);
   if (candidates.length === 0) {
     return { appId: null, reason: 'NOT_FOUND', suggestions: [] };
   }
-  
+
   const normalizedInput = normalizeGameName(rawInput);
   const exactMatch = candidates.find(item => normalizeGameName(item.name) === normalizedInput);
   if (exactMatch) {
@@ -1295,12 +1295,12 @@ async function resolveAppIdInput(input) {
       resolvedName: exactMatch.name
     };
   }
-  
+
   const best = candidates[0];
   const second = candidates[1];
   const bestScore = best?.score || 0;
   const secondScore = second?.score || 0;
-  
+
   if (bestScore >= 90 || (bestScore >= 75 && (bestScore - secondScore) >= 12)) {
     return {
       appId: best.appId,
@@ -1308,7 +1308,7 @@ async function resolveAppIdInput(input) {
       resolvedName: best.name
     };
   }
-  
+
   return {
     appId: null,
     reason: 'AMBIGUOUS',
@@ -1336,25 +1336,25 @@ function createInteractionMessageProxy(interaction) {
 // ============================================
 function scheduleMessageDeletion(message) {
   if (!CONFIG.ENABLE_AUTO_DELETE || !message) return;
-  
+
   const timeout = setTimeout(async () => {
     try {
       if (message.deletable) {
         await message.delete();
-        log('INFO', 'Auto-deleted message', { 
+        log('INFO', 'Auto-deleted message', {
           messageId: message.id,
           author: message.author?.tag || 'bot',
           age: '5 minutes'
         });
       }
     } catch (error) {
-      log('WARN', 'Failed to auto-delete message', { 
+      log('WARN', 'Failed to auto-delete message', {
         messageId: message.id,
-        error: error.message 
+        error: error.message
       });
     }
   }, CONFIG.AUTO_DELETE_TIMEOUT);
-  
+
   // Store timeout ID for potential manual cleanup
   if (!message.deleteTimeout) {
     message.deleteTimeout = timeout;
@@ -1366,28 +1366,28 @@ async function scheduleInteractionDeletion(interaction, replyOptions) {
   if (!CONFIG.ENABLE_AUTO_DELETE) {
     return interaction.editReply(replyOptions);
   }
-  
+
   try {
     const reply = await interaction.editReply(replyOptions);
-    
+
     // Schedule deletion
     const timeout = setTimeout(async () => {
       try {
         if (reply && reply.deletable) {
           await reply.delete();
-          log('INFO', 'Auto-deleted interaction reply', { 
+          log('INFO', 'Auto-deleted interaction reply', {
             messageId: reply.id,
             user: interaction.user.tag,
             age: '5 minutes'
           });
         }
       } catch (error) {
-        log('WARN', 'Failed to auto-delete interaction reply', { 
-          error: error.message 
+        log('WARN', 'Failed to auto-delete interaction reply', {
+          error: error.message
         });
       }
     }, CONFIG.AUTO_DELETE_TIMEOUT);
-    
+
     return reply;
   } catch (error) {
     log('ERROR', 'scheduleInteractionDeletion failed', {
@@ -1405,16 +1405,16 @@ function getDirectDownloadExpiryMs() {
 function createTemporaryDownloadLink(filePath, fileName) {
   if (!CONFIG.PUBLIC_BASE_URL) return null;
   if (!fs.existsSync(filePath)) return null;
-  
+
   const token = crypto.randomBytes(24).toString('hex');
   const expiresAt = Date.now() + getDirectDownloadExpiryMs();
-  
+
   temporaryDownloads.set(token, {
     filePath,
     fileName,
     expiresAt
   });
-  
+
   return `${CONFIG.PUBLIC_BASE_URL}/download/${token}`;
 }
 
@@ -1446,11 +1446,11 @@ const API_SOURCES = {
 async function fetchSteamStoreData(appId) {
   try {
     const response = await axios.get(API_SOURCES.steamStore(appId), { timeout: 10000 });
-    
+
     if (!response.data[appId]?.success) return null;
-    
+
     const data = response.data[appId].data;
-    
+
     return {
       appId: appId,
       name: data.name,
@@ -1479,7 +1479,7 @@ async function fetchSteamStoreData(appId) {
       screenshots: data.screenshots?.slice(0, 3).map(s => s.path_full) || [],
       movies: data.movies?.slice(0, 1).map(m => m.webm?.max || m.mp4?.max) || [],
     };
-    
+
   } catch (error) {
     log('ERROR', `Failed to fetch Steam store data for ${appId}`, { error: error.message });
     return null;
@@ -1497,9 +1497,9 @@ async function fetchSteamDlcForApp(appId) {
         }
       }
     );
-    
+
     if (!response?.data || response.data.status !== 1) return null;
-    
+
     const dlcList = Array.isArray(response.data.dlc) ? response.data.dlc : [];
     return {
       count: dlcList.length,
@@ -1523,10 +1523,10 @@ function resolveAccurateDlcInfo({ steamStoreData, steamDlcData, steamDBInfo }) {
     { source: 'steam-store-dlcforapp', count: normalizeDlcCount(steamDlcData?.count) },
     { source: 'steamdb', count: normalizeDlcCount(steamDBInfo?.dlcCount) }
   ];
-  
+
   candidates.sort((a, b) => b.count - a.count);
   const best = candidates[0] || { source: 'fallback', count: 0 };
-  
+
   return {
     count: best.count,
     source: best.source,
@@ -1537,7 +1537,7 @@ function resolveAccurateDlcInfo({ steamStoreData, steamDlcData, steamDBInfo }) {
 async function fetchSteamSpyData(appId) {
   try {
     const response = await axios.get(API_SOURCES.steamSpy(appId), { timeout: 10000 });
-    
+
     if (response.data && response.data.appid) {
       return {
         owners: response.data.owners || 'Unknown',
@@ -1546,7 +1546,7 @@ async function fetchSteamSpyData(appId) {
         ccu: response.data.ccu || 0,
       };
     }
-    
+
     return null;
   } catch (error) {
     log('WARN', `SteamSpy data unavailable for ${appId}`, { error: error.message });
@@ -1559,20 +1559,20 @@ async function getGameInfoFromSteamDB(appId) {
   try {
     const response = await axios.get(`https://steamdb.info/app/${appId}/`, {
       timeout: 10000,
-      headers: { 
+      headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
-    
+
     const html = response.data;
     const info = {};
-    
+
     // Extract game name
     const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
     if (titleMatch) {
       info.name = titleMatch[1].replace(/\s*-\s*SteamDB.*$/i, '').trim();
     }
-    
+
     // Extract last update date
     const updateMatch = html.match(/Last\s+Update[:\s]+<time[^>]*datetime="([^"]+)"/i) ||
                        html.match(/Updated[:\s]+<time[^>]*datetime="([^"]+)"/i) ||
@@ -1581,13 +1581,13 @@ async function getGameInfoFromSteamDB(appId) {
       const date = new Date(updateMatch[1]);
       info.lastUpdate = date.toLocaleDateString('vi-VN');
     }
-    
+
     // Extract size
     const sizePatterns = [
       /Download\s+Size[:\s]+(\d+(?:\.\d+)?)\s*(GB|MB)/i,
       /Disk\s+Space[:\s]+(\d+(?:\.\d+)?)\s*(GB|MB)/i,
     ];
-    
+
     for (const pattern of sizePatterns) {
       const sizeMatch = html.match(pattern);
       if (sizeMatch) {
@@ -1599,7 +1599,7 @@ async function getGameInfoFromSteamDB(appId) {
         }
       }
     }
-    
+
     return Object.keys(info).length > 0 ? info : null;
   } catch (error) {
     log('WARN', `Failed to get info from SteamDB for ${appId}`, { error: error.message });
@@ -1612,13 +1612,13 @@ async function getGameNameFromSteamDB(appId) {
   try {
     const response = await axios.get(`https://steamdb.info/app/${appId}/`, {
       timeout: 10000,
-      headers: { 
+      headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
-    
+
     const html = response.data;
-    
+
     // Extract game name from title tag or header
     const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
     if (titleMatch) {
@@ -1627,13 +1627,13 @@ async function getGameNameFromSteamDB(appId) {
         .replace(/\s*-\s*SteamDB.*$/i, '')
         .replace(/\s*\..*$/i, '')
         .trim();
-      
+
       if (gameName && gameName.length > 2) {
         log('SUCCESS', `Got game name from SteamDB: ${gameName}`);
         return gameName;
       }
     }
-    
+
     // Try to extract from h1 header
     const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
     if (h1Match) {
@@ -1643,7 +1643,7 @@ async function getGameNameFromSteamDB(appId) {
         return gameName;
       }
     }
-    
+
     return null;
   } catch (error) {
     log('WARN', `Failed to get game name from SteamDB for ${appId}`, { error: error.message });
@@ -1658,14 +1658,14 @@ async function getAccurateGameSize(appId) {
     getSizeFromSteamHTML(appId),
     Promise.resolve(getKnownGameSize(appId))
   ]);
-  
+
   // Return first valid size
   const size = steamDBSize || htmlSize || knownSize;
-  
+
   if (!size) {
     log('WARN', `All size detection methods failed for ${appId}`);
   }
-  
+
   return size;
 }
 
@@ -1680,7 +1680,7 @@ async function getGameNameFromSteamHTML(appId) {
   try {
     const response = await axios.get(`https://store.steampowered.com/app/${appId}`, {
       timeout: 8000,
-      headers: { 
+      headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
@@ -1707,13 +1707,13 @@ async function getSizeFromSteamHTML(appId) {
   try {
     const response = await axios.get(`https://store.steampowered.com/app/${appId}`, {
       timeout: 8000,
-      headers: { 
+      headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
-    
+
     const html = response.data;
-    
+
     const patterns = [
       /Storage:\s*(\d+(?:\.\d+)?)\s*(GB|MB)\s+available/i,
       /Storage:\s*(\d+(?:\.\d+)?)\s*(GB|MB)/i,
@@ -1721,13 +1721,13 @@ async function getSizeFromSteamHTML(appId) {
       /Hard\s+Drive:\s*(\d+(?:\.\d+)?)\s*(GB|MB)/i,
       /<strong>Minimum:<\/strong>[\s\S]{0,500}?(\d+(?:\.\d+)?)\s*GB/i,
     ];
-    
+
     for (const pattern of patterns) {
       const sizeMatch = html.match(pattern);
       if (sizeMatch) {
         const size = parseFloat(sizeMatch[1]);
         const unit = sizeMatch[2]?.toUpperCase() || 'GB';
-        
+
         if (size >= 0.5 && size <= 500) {
           const bytes = unit === 'GB' ? size * 1024 * 1024 * 1024 : size * 1024 * 1024;
           log('SUCCESS', `Got size from HTML: ${size} ${unit}`);
@@ -1735,7 +1735,7 @@ async function getSizeFromSteamHTML(appId) {
         }
       }
     }
-    
+
     return null;
   } catch (error) {
     log('WARN', `HTML scraping failed for ${appId}`, { error: error.message });
@@ -1747,13 +1747,13 @@ async function getSizeFromSteamDB(appId) {
   try {
     const response = await axios.get(`https://steamdb.info/app/${appId}/`, {
       timeout: 8000,
-      headers: { 
+      headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
-    
+
     const html = response.data;
-    
+
     // Try multiple patterns for size
     const patterns = [
       /Download\s+Size[:\s]+(\d+(?:\.\d+)?)\s*(GB|MB)/i,
@@ -1761,7 +1761,7 @@ async function getSizeFromSteamDB(appId) {
       /<td>Size<\/td>\s*<td[^>]*>(\d+(?:\.\d+)?)\s*(GB|MB)/i,
       /"size"[:\s]+"(\d+(?:\.\d+)?)\s*(GB|MB)"/i
     ];
-    
+
     for (const pattern of patterns) {
       const sizeMatch = html.match(pattern);
       if (sizeMatch) {
@@ -1774,7 +1774,7 @@ async function getSizeFromSteamDB(appId) {
         }
       }
     }
-    
+
     return null;
   } catch (error) {
     log('WARN', `SteamDB fetch failed for ${appId}`, { error: error.message });
@@ -1801,7 +1801,7 @@ function getKnownGameSize(appId) {
     1817190: 75 * 1024 * 1024 * 1024,  // Spider-Man
     2050650: 100 * 1024 * 1024 * 1024, // Persona 3 Reload
     2124490: 50 * 1024 * 1024 * 1024,  // Silent Hill 2 Remake
-    
+
     // Popular Games
     413150: 500 * 1024 * 1024,         // Stardew Valley
     1426210: 50 * 1024 * 1024 * 1024,  // It Takes Two
@@ -1810,19 +1810,19 @@ function getKnownGameSize(appId) {
     1172470: 75 * 1024 * 1024 * 1024,  // Apex Legends
     578080: 40 * 1024 * 1024 * 1024,   // PUBG
   };
-  
+
   const numAppId = parseInt(appId);
   if (KNOWN_SIZES[numAppId]) {
     log('SUCCESS', `Got size from known database: ${formatFileSize(KNOWN_SIZES[numAppId])}`);
     return KNOWN_SIZES[numAppId];
   }
-  
+
   return null;
 }
 
 function detectDRMAccurate(appId, steamData) {
   const numAppId = parseInt(appId);
-  
+
   const drmInfo = {
     type: 'None',
     hasDenuvo: false,
@@ -1835,7 +1835,7 @@ function detectDRMAccurate(appId, steamData) {
     icon: ICONS.drmFree,
     needsOnlineFix: false,
   };
-  
+
   if (VERIFIED_DRM.drmFree.includes(numAppId)) {
     drmInfo.type = 'DRM-Free';
     drmInfo.isDRMFree = true;
@@ -1843,7 +1843,7 @@ function detectDRMAccurate(appId, steamData) {
     drmInfo.icon = ICONS.drmFree;
     return drmInfo;
   }
-  
+
   if (VERIFIED_DRM.denuvo.includes(numAppId)) {
     drmInfo.hasDenuvo = true;
     drmInfo.type = 'Denuvo Anti-Tamper';
@@ -1852,7 +1852,7 @@ function detectDRMAccurate(appId, steamData) {
     drmInfo.isDRMFree = false;
     return drmInfo;
   }
-  
+
   if (VERIFIED_DRM.easyAntiCheat.includes(numAppId)) {
     drmInfo.hasEAC = true;
     drmInfo.type = 'EasyAntiCheat';
@@ -1860,7 +1860,7 @@ function detectDRMAccurate(appId, steamData) {
     drmInfo.icon = ICONS.antiCheat;
     drmInfo.isDRMFree = false;
   }
-  
+
   if (VERIFIED_DRM.battleye.includes(numAppId)) {
     drmInfo.hasBattlEye = true;
     drmInfo.type = 'BattlEye Anti-Cheat';
@@ -1868,31 +1868,31 @@ function detectDRMAccurate(appId, steamData) {
     drmInfo.icon = ICONS.antiCheat;
     drmInfo.isDRMFree = false;
   }
-  
+
   if (VERIFIED_DRM.needsOnlineFix.includes(numAppId)) {
     drmInfo.needsOnlineFix = true;
   }
-  
+
   if (drmInfo.isDRMFree && steamData?.categories) {
-    const hasMultiplayer = steamData.categories.some(cat => 
-      ['multiplayer', 'multi-player', 'co-op', 'online'].some(kw => 
+    const hasMultiplayer = steamData.categories.some(cat =>
+      ['multiplayer', 'multi-player', 'co-op', 'online'].some(kw =>
         cat.toLowerCase().includes(kw)
       )
     );
-    
+
     if (hasMultiplayer) {
       drmInfo.hasSteamDRM = true;
       drmInfo.type = 'Steam DRM';
       drmInfo.severity = 'info';
       drmInfo.icon = ICONS.drm;
       drmInfo.isDRMFree = false;
-      
+
       if (!VERIFIED_DRM.drmFree.includes(numAppId)) {
         drmInfo.needsOnlineFix = true;
       }
     }
   }
-  
+
   if (drmInfo.isDRMFree && !VERIFIED_DRM.drmFree.includes(numAppId)) {
     drmInfo.hasSteamDRM = true;
     drmInfo.type = 'Steam DRM';
@@ -1900,7 +1900,7 @@ function detectDRMAccurate(appId, steamData) {
     drmInfo.icon = ICONS.drm;
     drmInfo.isDRMFree = false;
   }
-  
+
   return drmInfo;
 }
 
@@ -1908,9 +1908,9 @@ function detectPublisher(publishers) {
   if (!publishers || publishers.length === 0) {
     return { name: 'Unknown', isEA: false, isUbisoft: false };
   }
-  
+
   const pub = publishers[0];
-  
+
   return {
     name: pub,
     isEA: ['Electronic Arts', 'EA Games', 'EA Sports'].some(ea => pub.includes(ea)),
@@ -1922,7 +1922,7 @@ function detectPublisher(publishers) {
 
 function getManifestFileMeta(fileName) {
   const ext = path.extname(fileName || '').toLowerCase();
-  
+
   if (ext === '.lua') {
     return {
       kind: 'lua',
@@ -1933,7 +1933,7 @@ function getManifestFileMeta(fileName) {
         '```\n1. Download the Lua file\n2. Place it in your game directory\n3. Use with your Lua loader\n4. Launch the game\n```'
     };
   }
-  
+
   if (ext === '.zip' || ext === '.rar' || ext === '.7z') {
     return {
       kind: 'archive',
@@ -1944,7 +1944,7 @@ function getManifestFileMeta(fileName) {
         '```\n1. Download the archive package\n2. Extract all files\n3. Copy manifests to the correct game folder\n4. Replace files if asked\n```'
     };
   }
-  
+
   return {
     kind: 'file',
     label: 'Manifest File',
@@ -1958,22 +1958,22 @@ function getManifestFileMeta(fileName) {
 function buildManifestSummaryLines({ gameInfo, appId, files, canEmbed }) {
   const lines = [];
   const primaryManifest = files.lua?.[0];
-  
+
   lines.push(`📦 Here are your manifest files for **${gameInfo.name}**`);
-  
+
   if (primaryManifest) {
     const meta = getManifestFileMeta(primaryManifest.name);
     lines.push(`✅ Primary file: \`${primaryManifest.name}\` (${primaryManifest.sizeFormatted}) • ${meta.label}`);
   } else {
     lines.push('⚠️ No local manifest file found yet.');
   }
-  
+
   lines.push(`🆔 App ID: \`${appId}\``);
-  
+
   if (canEmbed === false) {
     lines.push(`${ICONS.warning} Missing permission: **Embed Links**. Showing text + buttons only.`);
   }
-  
+
   return lines;
 }
 
@@ -1983,9 +1983,9 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     log('INFO', `Using cached data for ${appId}`);
     return cached.data;
   }
-  
+
   log('INFO', `Fetching fresh data for ${appId} from multiple sources...`);
-  
+
   const [steamData, steamDBInfo, steamSpyData, steamDlcData, steamGridIcon] = await Promise.all([
     fetchSteamStoreData(appId),
     scrapeSteamDB(appId),
@@ -1993,9 +1993,9 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     fetchSteamDlcForApp(appId),
     getGameIcon(appId)
   ]);
-  
+
   if (!steamData && !steamDBInfo) return null;
-  
+
   const accurateSize = steamDBInfo?.size || await getAccurateGameSize(appId);
   const drmInfo = detectDRMAccurate(appId, steamData || {});
   const publisherInfo = detectPublisher(steamData?.publishers || [steamDBInfo?.publisher]);
@@ -2004,11 +2004,11 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     steamDlcData,
     steamDBInfo
   });
-  
+
   const languageCount = steamData?.supportedLanguages
     ? steamData.supportedLanguages.split(',').filter(l => l.trim()).length
     : 0;
-  
+
   const fullInfo = {
     ...steamData,
     name: steamDBInfo?.name || steamData?.name || getDenuvoGameName(appId),
@@ -2028,18 +2028,18 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     rating: steamDBInfo?.rating,
     reviewCount: steamDBInfo?.reviewCount,
     steamGridIcon: steamGridIcon || null,
-    
+
     isEAGame: publisherInfo.isEA,
-    hasMultiplayer: steamData?.categories?.some(c => 
+    hasMultiplayer: steamData?.categories?.some(c =>
       c.toLowerCase().includes('multi') || c.toLowerCase().includes('co-op')
     ),
-    isEarlyAccess: steamData?.categories?.some(c => 
+    isEarlyAccess: steamData?.categories?.some(c =>
       c.toLowerCase().includes('early access')
     ),
-    
+
     lastUpdated: Date.now(),
   };
-  
+
   gameInfoCache[appId] = {
     data: fullInfo,
     timestamp: Date.now(),
@@ -2063,7 +2063,7 @@ async function getFullGameInfo(appId, forceRefresh = false) {
   }
 
   saveGameInfoCache();
-  
+
   log('SUCCESS', `Got full info for ${fullInfo.name || appId}`, {
     size: fullInfo.sizeFormatted,
     drm: drmInfo.type,
@@ -2071,7 +2071,7 @@ async function getFullGameInfo(appId, forceRefresh = false) {
     dlcCount: fullInfo.dlcCount,
     dlcSource: fullInfo.dlcSource
   });
-  
+
   return fullInfo;
 }
 
@@ -2099,7 +2099,7 @@ function calculateMatchScore(gameName, fileName) {
 
 function findFiles(appId, gameName = null) {
   const result = { lua: [], fix: [], onlineFix: [] };
-  
+
   // Find manifest files in priority order: archive first, then lua.
   const luaPatterns = [
     path.join(CONFIG.LUA_FILES_PATH, `${appId}.zip`),
@@ -2112,7 +2112,7 @@ function findFiles(appId, gameName = null) {
     path.join(CONFIG.LUA_FILES_PATH, appId, `${appId}.lua`),
     path.join(CONFIG.LUA_FILES_PATH, appId, 'game.lua'),
   ];
-  
+
   for (const filePath of luaPatterns) {
     if (fs.existsSync(filePath)) {
       const stats = fs.statSync(filePath);
@@ -2124,14 +2124,14 @@ function findFiles(appId, gameName = null) {
       });
     }
   }
-  
+
   // Find Fix files
   const fixPatterns = [
     path.join(CONFIG.FIX_FILES_PATH, `${appId}.rar`),
     path.join(CONFIG.FIX_FILES_PATH, `${appId}.zip`),
     path.join(CONFIG.FIX_FILES_PATH, `${appId}.7z`),
   ];
-  
+
   for (const filePath of fixPatterns) {
     if (fs.existsSync(filePath)) {
       const stats = fs.statSync(filePath);
@@ -2143,18 +2143,18 @@ function findFiles(appId, gameName = null) {
       });
     }
   }
-  
+
   // Find Online-Fix files from folder
   // Pattern: APPID-online-fix.zip or APPID-onlinefix.zip or online-fix-APPID.zip
   if (fs.existsSync(CONFIG.ONLINE_FIX_PATH)) {
     try {
       const onlineFixFiles = fs.readdirSync(CONFIG.ONLINE_FIX_PATH);
-      
+
       for (const file of onlineFixFiles) {
         // Check if filename contains AppID and online-fix keyword
         const containsAppId = file.includes(appId);
         const isOnlineFix = file.toLowerCase().includes('online-fix') || file.toLowerCase().includes('onlinefix');
-        
+
         if (containsAppId && isOnlineFix) {
           const filePath = path.join(CONFIG.ONLINE_FIX_PATH, file);
           const stats = fs.statSync(filePath);
@@ -2171,20 +2171,20 @@ function findFiles(appId, gameName = null) {
       log('DEBUG', `Online-Fix folder error for ${appId}`, { error: err.message });
     }
   }
-  
+
   return result;
 }
 
 function scanAllGames() {
   const games = new Map(); // AppID -> count of files
-  
+
   function scanFolder(folder) {
     if (!fs.existsSync(folder)) return;
     fs.readdirSync(folder).forEach(item => {
       const parsed = path.parse(item);
       const baseName = parsed.name;
       let appId = null;
-      
+
       // Primary: accept exact numeric file/folder names (e.g. 10.lua, 730.lua, 1245620.lua)
       if (/^\d{1,10}$/.test(baseName)) {
         appId = baseName;
@@ -2195,27 +2195,27 @@ function scanAllGames() {
           appId = embedded[1];
         }
       }
-      
+
       if (!appId) return;
       games.set(appId, (games.get(appId) || 0) + 1);
     });
   }
-  
+
   scanFolder(CONFIG.LUA_FILES_PATH);
   scanFolder(CONFIG.FIX_FILES_PATH);
   // scanFolder(CONFIG.ONLINE_FIX_PATH); // Deprecated
-  
+
   // Return array of AppIDs (unique games count) sorted
   // But also track total files count for logging
   const uniqueGames = Array.from(games.keys()).sort();
   const totalFiles = Array.from(games.values()).reduce((a, b) => a + b, 0);
-  
+
   // Store for use in logging
   global.gameStats = {
     uniqueGames: uniqueGames.length,
     totalFiles: totalFiles
   };
-  
+
   return uniqueGames;
 }
 
@@ -2236,7 +2236,7 @@ async function createGameEmbed(appId, gameInfo, files, links = {}) {
 // Legacy embed function (backup)
 async function createGameEmbedLegacy(appId, gameInfo, files) {
   const embed = new EmbedBuilder();
-  
+
   // Dynamic color based on DRM severity
   const colors = {
     critical: 0xFF0000,  // Denuvo - Red
@@ -2245,67 +2245,67 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
     none: 0x00FF00,      // DRM-Free - Green
   };
   embed.setColor(colors[gameInfo.drm.severity] || 0x5865F2);
-  
+
   // Title with game name
   embed.setTitle(`${getGameTitleStatusIcon(files.lua.length > 0)} ${gameInfo.name}`);
   if (parseBoolean(process.env.EMBED_GAME_TITLE_LINK_ENABLED, true)) {
     embed.setURL(`https://store.steampowered.com/app/${appId}`);
   }
-  
+
   // Thumbnail
   if (gameInfo.headerImage) {
     embed.setThumbnail(gameInfo.headerImage);
   }
-  
+
   // Short description in a compact format
   let description = '';
   if (gameInfo.shortDescription) {
-    const desc = gameInfo.shortDescription.length > 200 
+    const desc = gameInfo.shortDescription.length > 200
       ? gameInfo.shortDescription.substring(0, 200) + '...'
       : gameInfo.shortDescription;
     description = `${desc}\n\n`;
   }
-  
+
   // Links in description
   description += `[🔗 Steam Store](https://store.steampowered.com/app/${appId}) | [📊 SteamDB](https://steamdb.info/app/${appId})`;
   embed.setDescription(description);
-  
+
   // ═══ GAME INFO - Compact Layout ═══
   // Row 1: Price | Size
   const priceDisplay = gameInfo.isFree ? '🆓 Free' : gameInfo.price;
   const sizeDisplay = gameInfo.sizeFormatted || 'N/A';
-  
+
   const updateDate = gameInfo.lastUpdate || gameInfo.releaseDate || 'N/A';
-  
+
   embed.addFields(
     { name: '💰 Giá', value: priceDisplay, inline: true },
     { name: '💾 Dung lượng', value: sizeDisplay, inline: true },
     { name: '🔄 Cập nhật', value: updateDate, inline: true }
   );
-  
+
   // Row 2: DLC | Language | Rating
   embed.addFields(
     { name: '🎯 DLC', value: `${gameInfo.dlcCount}`, inline: true },
     { name: '🌍 Ngôn ngữ', value: `${gameInfo.languageCount}`, inline: true },
     { name: '⭐ Đánh giá', value: `${formatNumber(gameInfo.recommendations)}`, inline: true }
   );
-  
+
   // Row 3: Developer | Publisher | DRM
   const devName = (gameInfo.developers[0] || 'Unknown').substring(0, 25);
   const pubName = gameInfo.publisher.name.substring(0, 25);
   const drmBadge = gameInfo.drm.isDRMFree ? '✅ Không DRM' : `${gameInfo.drm.icon} ${gameInfo.drm.type}`;
-  
+
   embed.addFields(
     { name: '👨‍💻 Dev', value: devName, inline: true },
     { name: '🏢 Pub', value: pubName, inline: true },
     { name: '🔐 DRM', value: drmBadge, inline: true }
   );
-  
+
   // ═══ DRM WARNING SECTION ═══
   if (gameInfo.drm.severity === 'critical') {
     embed.addFields({
       name: '⚠️ DENUVO - CÓ THỂ KHÓ CHƠI',
-      value: 
+      value:
         '❌ Game này có **DENUVO** - bảo vệ rất mạnh\n' +
         '⏳ Có thể chưa bị crack hoặc crack chưa ổn định\n' +
         '⚠️ Chỉ tải nếu bạn chắc chắn đã có crack!',
@@ -2316,7 +2316,7 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
                    gameInfo.drm.hasBattlEye ? 'BattlEye' : 'Anti-Cheat';
     embed.addFields({
       name: `🛡️ ${acName} - CẦN FIX ĐẶC BIỆT`,
-      value: 
+      value:
         `Game dùng **${acName}** - cần bypass riêng\n` +
         `Tải **Crack/Fix** để có thể chơi online/co-op`,
       inline: false
@@ -2324,20 +2324,20 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
   } else if (gameInfo.drm.isDRMFree) {
     embed.addFields({
       name: '✅ DRM-FREE - CHƠI ĐƯỢC NGAY',
-      value: 
+      value:
         '🎉 Game **KHÔNG CÓ BẢO VỆ DRM**\n' +
         '✨ Tải game, giải nén, chơi luôn!',
       inline: false
     });
   }
-  
+
   // ═══ FILE STATUS ═══
-  const hasMultiplayerFeatures = gameInfo.hasMultiplayer || 
+  const hasMultiplayerFeatures = gameInfo.hasMultiplayer ||
                                   gameInfo.drm.needsOnlineFix ||
-                                  gameInfo.categories?.some(c => 
-                                    c.toLowerCase().includes('multi') || 
+                                  gameInfo.categories?.some(c =>
+                                    c.toLowerCase().includes('multi') ||
                                     c.toLowerCase().includes('co-op'));
-  
+
   let fileInfo = [];
   if (files.lua.length > 0) fileInfo.push('✅ **Lua** - ' + files.lua[0].sizeFormatted);
   if (files.fix.length > 0) fileInfo.push('✅ **Crack/Fix** - ' + files.fix[0].sizeFormatted);
@@ -2346,7 +2346,7 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
   } else if (hasMultiplayerFeatures) {
     fileInfo.push('⚠️ **Online-Fix** - Chưa có');
   }
-  
+
   if (fileInfo.length > 0) {
     embed.addFields({
       name: '📦 FILE CÓ SẴN',
@@ -2354,7 +2354,7 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
       inline: false
     });
   }
-  
+
   // EA Game Notice - inline
   if (gameInfo.isEAGame) {
     embed.addFields({
@@ -2363,7 +2363,7 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
       inline: true
     });
   }
-  
+
   // Early Access Notice - inline
   if (gameInfo.isEarlyAccess) {
     embed.addFields({
@@ -2372,12 +2372,12 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
       inline: true
     });
   }
-  
+
   embed.setFooter({
     text: `App ID: ${appId} | Cập nhật: ${new Date().toLocaleDateString('vi-VN')}`,
     iconURL: 'https://steampowered-a.akamaihd.net/steamcommunity/public/images/clans/39049585/5371505ff1c79c7db43dccf05fe86b1933203ce3.png'
   });
-  
+
   return embed;
 }
 
@@ -2390,25 +2390,25 @@ async function handleGameCommand(message, appId) {
     const isInteractionFlow = Boolean(message.isInteractionProxy);
     const loadingMsg = await message.reply(`🔍 **Searching for AppID: ${appId}...**`);
     scheduleMessageDeletion(loadingMsg);
-    
+
     // STEP 1: Get info from SteamDB first
     if (!isInteractionFlow) {
       await loadingMsg.edit(`📊 **Scanning SteamDB...**`);
     }
     const steamDBInfo = await scrapeSteamDB(appId);
-    
+
     if (!isInteractionFlow && steamDBInfo?.name) {
       await loadingMsg.edit(`✅ **Found: ${steamDBInfo.name}**\n⏳ Fetching details...`);
     }
-    
+
     // STEP 2: Get info from Steam API
     let gameInfo = await getFullGameInfo(appId);
-    
+
     if (!gameInfo) {
       const steamDBName = await getGameNameFromSteamDB(appId);
       const denuvoName = getDenuvoGameName(appId);
       const gameName = steamDBName || denuvoName || `App ${appId}`;
-      
+
       if (!steamDBName && !denuvoName) {
         if (!isInteractionFlow) {
           await loadingMsg.edit(
@@ -2421,7 +2421,7 @@ async function handleGameCommand(message, appId) {
       } else if (!isInteractionFlow) {
         await loadingMsg.edit(`✅ **Found: ${gameName}**\n⏳ Preparing details...`);
       }
-      
+
       gameInfo = {
         name: gameName,
         headerImage: null,
@@ -2444,13 +2444,13 @@ async function handleGameCommand(message, appId) {
         },
         publisher: { name: 'Unknown', isEA: false },
       };
-      
+
       log('INFO', `Using minimal data for ${appId}: ${gameName}`);
     }
-    
+
     // Now find files with game name for smart Online-Fix search
     const files = findFiles(appId, gameInfo.name);
-    
+
     // Check for direct crack link
     const crackLink = CRACK_LINKS[appId];
     // Check for direct online-fix link
@@ -2466,22 +2466,22 @@ async function handleGameCommand(message, appId) {
     });
 
     const hasManifestFiles = files.lua.length > 0;
-    
+
     const embed = await createGameEmbed(appId, gameInfo, files, { onlineFixLink, crackLink, autoPatch: database.games[appId]?.autoPatch });
-    
+
     // Create download buttons (Single Row for cleaner layout)
     const rows = [];
     const row = new ActionRowBuilder();
     const primaryManifest = files.lua[0];
     const primaryManifestMeta = primaryManifest ? getManifestFileMeta(primaryManifest.name) : null;
-    
+
     // GIF URLs for buttons
     const gifUrls = {
       lua: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif",
       onlineFix: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif",
       crack: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o6ZtpgLSKicg4p1i8/giphy.gif"
     };
-    
+
     // 1. Download manifest (archive preferred, then lua)
     if (files.lua.length > 0) {
       row.addComponents(
@@ -2496,7 +2496,7 @@ async function handleGameCommand(message, appId) {
           .setEmoji(primaryManifestMeta?.emoji || '📦')
       );
     }
-    
+
     // 2. Download Online-Fix (Link)
     if (onlineFixLink) {
       row.addComponents(
@@ -2513,7 +2513,7 @@ async function handleGameCommand(message, appId) {
     // Fix: Explicit check for FC 26 Showcase or existing crackLink
     if ((crackLink || appId === '3629260') && !row.components.some(btn => btn.data.custom_id?.includes('dl_crack'))) {
       const crackLinks = Array.isArray(crackLink) ? crackLink : (crackLink ? [crackLink] : []);
-      
+
       // Fallback for FC 26 Showcase if not in CRACK_LINKS but requested
       if (appId === '3629260' && crackLinks.length === 0) {
           // Check if link exists in data file, if not add fallback
@@ -2531,8 +2531,8 @@ async function handleGameCommand(message, appId) {
             .setStyle(ButtonStyle.Danger)
             .setEmoji('🛠️')
         );
-        
-        log('INFO', `Created crack button for ${appId}`, { 
+
+        log('INFO', `Created crack button for ${appId}`, {
           linksCount: crackLinks.length,
           buttonId: `dl_crack_${appId}_0`
         });
@@ -2551,10 +2551,10 @@ async function handleGameCommand(message, appId) {
       );
     }
     */
-    
+
     // Add row if it has components
     if (row.components.length > 0) rows.push(row);
-    
+
     const responsePayload = {
       content: hasManifestFiles
         ? null
@@ -2562,17 +2562,17 @@ async function handleGameCommand(message, appId) {
       embeds: [embed],
       components: rows,
     };
-    
+
     if (message.canEmbed === false) {
       responsePayload.content = `${ICONS.warning} Missing permission: **Embed Links**.`;
       responsePayload.embeds = [];
     }
-    
+
     const responseMsg = await loadingMsg.edit(responsePayload);
-    
+
     // Schedule deletion of response message
     scheduleMessageDeletion(responseMsg);
-    
+
     // Update stats
     database.stats.totalSearches++;
     if (!database.games[appId]) {
@@ -2584,18 +2584,18 @@ async function handleGameCommand(message, appId) {
     }
     database.games[appId].lastAccessed = Date.now();
     saveDatabase();
-    
+
     log('INFO', `Game displayed: ${gameInfo.name}`, {
       user: message.author.tag,
       drm: gameInfo.drm.type,
       size: gameInfo.sizeFormatted,
     });
-    
+
   } catch (error) {
-    log('ERROR', 'Error in handleGameCommand', { 
-      appId, 
+    log('ERROR', 'Error in handleGameCommand', {
+      appId,
       error: error.message,
-      stack: error.stack 
+      stack: error.stack
     });
     message.reply(`${ICONS.cross} Error occurred! Please try again later.`).catch(() => {});
   }
@@ -2638,7 +2638,7 @@ async function handleFetchLuaCommand(message) {
   } catch (error) {
     await loadingMsg.edit(`${ICONS.cross} **Error:** ${error.message}`);
   }
-  
+
   scheduleMessageDeletion(loadingMsg, 10000); // Keep result longer
 }
 
@@ -2646,7 +2646,7 @@ async function searchGameByName(query) {
   try {
     // Search directly from Steam Store API
     const steamResults = await searchSteamStore(query);
-    
+
     if (steamResults.length > 0) {
       return steamResults.slice(0, 20).map(game => ({
         appId: game.appId,
@@ -2654,15 +2654,15 @@ async function searchGameByName(query) {
         matchScore: 90
       }));
     }
-    
+
     // Fallback: search in local files
     const normalizedQuery = normalizeGameName(query);
     const allGames = scanAllGames();
     const matches = [];
-    
+
     for (const appId of allGames) {
       let gameName = gameNamesIndex[appId] || gameInfoCache[appId]?.data?.name;
-      
+
       if (!gameName && matches.length < 20) {
         // Try Steam Store HTML first (less likely to be blocked than SteamDB)
         gameName = await getGameNameFromSteamHTML(appId) || await getGameNameFromSteamDB(appId);
@@ -2670,7 +2670,7 @@ async function searchGameByName(query) {
           gameNamesIndex[appId] = gameName;
         }
       }
-      
+
       if (gameName) {
         const normalizedName = normalizeGameName(gameName);
         if (normalizedName.includes(normalizedQuery)) {
@@ -2681,13 +2681,13 @@ async function searchGameByName(query) {
           });
         }
       }
-      
+
       if (matches.length >= 20) break;
     }
-    
+
     matches.sort((a, b) => b.matchScore - a.matchScore);
     return matches;
-    
+
   } catch (error) {
     log('ERROR', 'Failed to search games', { query, error: error.message });
     return [];
@@ -2698,40 +2698,40 @@ async function handleSearchCommand(message, query) {
   try {
     const loadingMsg = await message.reply(`${ICONS.info} Searching on Steam...`);
     scheduleMessageDeletion(loadingMsg);
-    
+
     const results = await searchGameByName(query);
-    
+
     if (results.length === 0) {
       const embedNotFound = new EmbedBuilder()
         .setColor(0xE74C3C) // Red color
         .setTitle(`${ICONS.cross} Game Not Found`)
         .setDescription(`Could not find game "**${query}**" in the system.\n\n**Suggestions:**\n• Check the spelling of the game name\n• Use fewer keywords (e.g. "tekken" instead of "tekken 8 deluxe edition")\n• Try searching by AppID if you know it`)
         .setFooter({ text: 'Auto-deletes in 5min' });
-      
+
       return loadingMsg.edit({ content: null, embeds: [embedNotFound] });
     }
-    
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle(`${ICONS.game} Search Results: "**${query}**"`)
       .setDescription(`Found ${results.length} game(s). Use \`!${CONFIG.COMMAND_PREFIX}<appid>\` to view details.`);
-    
+
     // Show results in pages if too many
     const maxDisplay = 10; // Giảm xuống 10 để hiển thị ảnh đẹp hơn
     const displayResults = results.slice(0, maxDisplay);
-  
+
     const denuvoSet = new Set(DENUVO_GAMES.map(g => String(g.id)));
-    
+
     // Nếu chỉ có 1 kết quả, hiển thị dạng Large Embed
     if (displayResults.length === 1) {
       const game = displayResults[0];
       const isDenuvo = denuvoSet.has(String(game.appId));
       const drmTag = isDenuvo ? ' • ⚠️ **Denuvo Anti-Tamper**' : '';
-      
+
       const hasLua = fs.existsSync(path.join(CONFIG.LUA_FILES_PATH, `${game.appId}.lua`));
       const hasOnlineFix = ONLINE_FIX_LINKS[game.appId] || fs.existsSync(path.join(CONFIG.ONLINE_FIX_PATH, `${game.appId}-online-fix.zip`));
       const hasCrack = CRACK_LINKS[game.appId];
-      
+
       let statusIcons = [];
       if (hasLua) statusIcons.push('📜 Lua');
       if (hasOnlineFix) statusIcons.push('🌐 Online-Fix');
@@ -2755,31 +2755,31 @@ async function handleSearchCommand(message, query) {
       // Hiển thị danh sách nhiều game
       // Discord không hỗ trợ ảnh cho từng field, nên ta chỉ có thể hiển thị text
       // Tuy nhiên, ta có thể set ảnh Thumbnail là game đầu tiên để đẹp hơn
-      
+
       // Try SteamGridDB for first game
       let firstGameImage = `https://cdn.cloudflare.steamstatic.com/steam/apps/${displayResults[0].appId}/header.jpg`;
       try {
         const gridUrl = await getGameGrid(displayResults[0].appId);
         if (gridUrl) firstGameImage = gridUrl;
       } catch (e) { /* ignore */ }
-      
+
       embed.setThumbnail(firstGameImage);
-      
+
       displayResults.forEach((game, index) => {
         const isDenuvo = denuvoSet.has(String(game.appId));
         const drmTag = isDenuvo ? ' • ⚠️ **Denuvo Anti-Tamper**' : '';
-        
+
         const hasLua = fs.existsSync(path.join(CONFIG.LUA_FILES_PATH, `${game.appId}.lua`));
         const hasOnlineFix = ONLINE_FIX_LINKS[game.appId] || fs.existsSync(path.join(CONFIG.ONLINE_FIX_PATH, `${game.appId}-online-fix.zip`));
         const hasCrack = CRACK_LINKS[game.appId];
-        
+
         let statusIcons = [];
         if (hasLua) statusIcons.push('📜');
         if (hasOnlineFix) statusIcons.push('🌐');
         if (hasCrack) statusIcons.push('🔥');
-        
+
         const statusText = statusIcons.length > 0 ? ` [${statusIcons.join(' ')}]` : '';
-  
+
         embed.addFields({
           name: `${index + 1}. ${game.name}`,
           value: `🆔 \`${game.appId}\`${statusText}${isDenuvo ? ' ⚠️ Denuvo' : ''} • \`!${game.appId}\``,
@@ -2787,7 +2787,7 @@ async function handleSearchCommand(message, query) {
         });
       });
     }
-    
+
     if (results.length > maxDisplay) {
       embed.addFields({
         name: '📋 More Results',
@@ -2795,7 +2795,7 @@ async function handleSearchCommand(message, query) {
         inline: false
       });
     }
-    
+
     const warningEmbeds = [];
     displayResults.forEach((game) => {
       const isDenuvo = denuvoSet.has(String(game.appId));
@@ -2812,16 +2812,16 @@ async function handleSearchCommand(message, query) {
         .setThumbnail(`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/capsule_184x69.jpg`);
       warningEmbeds.push(panel);
     });
-    
+
     embed.setFooter({ text: 'Click AppID to view full info • Auto-deletes in 5min' });
-    
+
     await loadingMsg.edit({ embeds: [embed, ...warningEmbeds] });
-    
+
     database.stats.totalSearches++;
     saveDatabase();
-    
+
     log('INFO', 'Search completed', { query, resultsCount: results.length });
-    
+
   } catch (error) {
     log('ERROR', 'Error in handleSearchCommand', { query, error: error.message });
     message.reply(`${ICONS.cross} Error occurred!`).catch(() => {});
@@ -2870,7 +2870,7 @@ async function handleHelpCommand(message) {
     )
     .setFooter({ text: `Enhanced Bot v2.0 © ${new Date().getFullYear()} • Messages auto-delete in 5min` })
     .setTimestamp();
-  
+
   if (isAdmin(message.author.id)) {
     embed.addFields({
       name: `${ICONS.warning} Admin Commands`,
@@ -2884,29 +2884,29 @@ async function handleHelpCommand(message) {
       ].join('\n')
     });
   }
-  
+
   const helpMsg = await message.reply({ embeds: [embed] });
   scheduleMessageDeletion(helpMsg);
 }
 
 async function handleListCommand(message) {
   const allGames = scanAllGames();
-  
+
   if (allGames.length === 0) {
     return message.reply(`${ICONS.cross} No games available yet!`);
   }
-  
+
   const embed = new EmbedBuilder()
     .setColor(0x2ECC71)
     .setTitle(`${ICONS.game} Available Games`)
     .setDescription(`${ICONS.fire} Total: ${allGames.length} game(s)`)
     .addFields({
       name: 'AppIDs',
-      value: allGames.slice(0, 20).map(id => `\`${id}\``).join(', ') + 
+      value: allGames.slice(0, 20).map(id => `\`${id}\``).join(', ') +
              (allGames.length > 20 ? `\n... and ${allGames.length - 20} more games` : '')
     })
     .setFooter({ text: 'Use !<appid> to view details • Auto-deletes in 5min' });
-  
+
   const listMsg = await message.reply({ embeds: [embed] });
   scheduleMessageDeletion(listMsg);
 }
@@ -2915,12 +2915,12 @@ async function handleStatsCommand(message) {
   if (!isAdmin(message.author.id)) {
     return message.reply(`${ICONS.cross} Admin only!`);
   }
-  
+
   const allGames = scanAllGames();
   const uniqueGames = global.gameStats?.uniqueGames || allGames.length;
   const totalFiles = global.gameStats?.totalFiles || 'N/A';
   const cachedGames = Object.keys(gameInfoCache).length;
-  
+
   const embed = new EmbedBuilder()
     .setColor(0xFFAA00)
     .setTitle(`📊 BOT STATISTICS`)
@@ -2932,12 +2932,12 @@ async function handleStatsCommand(message) {
       { name: '🔍 Searches', value: `${database.stats.totalSearches}`, inline: true },
       { name: '⏱️ Uptime', value: `${Math.floor(process.uptime() / 3600)}h`, inline: true }
     )
-    .setFooter({ 
+    .setFooter({
       text: `Updated: ${new Date().toLocaleString('en-US')}`,
       iconURL: client.user?.avatarURL()
     })
     .setTimestamp();
-  
+
   const statsMsg = await message.reply({ embeds: [embed] });
   scheduleMessageDeletion(statsMsg);
 }
@@ -2946,10 +2946,10 @@ async function handleClearCacheCommand(message) {
   if (!isAdmin(message.author.id)) {
     return message.reply(`${ICONS.cross} Admin only!`);
   }
-  
+
   gameInfoCache = {};
   saveGameInfoCache();
-  
+
   const cacheMsg = await message.reply(`${ICONS.check} Cache cleared! All game data will be refreshed on next query.`);
   scheduleMessageDeletion(cacheMsg);
 }
@@ -2958,14 +2958,14 @@ async function handleRefreshCommand(message, appId) {
   try {
     const loadingMsg = await message.reply(`${ICONS.info} Refreshing info from SteamDB...`);
     scheduleMessageDeletion(loadingMsg);
-    
+
     // Force refresh from SteamDB
     const gameInfo = await getFullGameInfo(appId, true);
-    
+
     if (!gameInfo) {
       return loadingMsg.edit(`${ICONS.cross} Cannot fetch new info for AppID: \`${appId}\``);
     }
-    
+
     const refreshMsg = await loadingMsg.edit(
       `${ICONS.check} **Info updated successfully!**\n\n` +
       `${ICONS.game} Game: **${gameInfo.name}**\n` +
@@ -2974,7 +2974,7 @@ async function handleRefreshCommand(message, appId) {
       `${ICONS.info} Use \`!${appId}\` to view details`
     );
     scheduleMessageDeletion(refreshMsg);
-    
+
   } catch (error) {
     log('ERROR', 'Error in handleRefreshCommand', { appId, error: error.message });
     message.reply(`${ICONS.cross} Error refreshing info!`).catch(() => {});
@@ -2985,7 +2985,7 @@ async function handleCollectLuaCommand(message) {
   if (!isAdmin(message.author.id)) {
     return message.reply(`${ICONS.cross} Admin only!`);
   }
-  
+
   try {
     const loadingMsg = await message.reply(
       `${ICONS.info} **Collecting Lua files from multiple sources...**\n\n` +
@@ -2993,18 +2993,18 @@ async function handleCollectLuaCommand(message) {
       `${ICONS.warning} This process may take a few minutes...`
     );
     scheduleMessageDeletion(loadingMsg);
-    
+
     // Import collector
     const { collectAllSources } = require('./lua_collector');
-    
+
     // Run collection
     const startTime = Date.now();
     await collectAllSources();
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    
+
     // Count total files
     const allGames = scanAllGames();
-    
+
     const resultMsg = await loadingMsg.edit(
       `${ICONS.check} **Collection complete!**\n\n` +
       `${ICONS.fire} Total games: **${allGames.length}**\n` +
@@ -3012,7 +3012,7 @@ async function handleCollectLuaCommand(message) {
       `${ICONS.sparkles} Use \`!list\` to view list`
     );
     scheduleMessageDeletion(resultMsg);
-    
+
   } catch (error) {
     log('ERROR', 'Error in handleCollectLuaCommand', { error: error.message });
     message.reply(`${ICONS.cross} Error collecting Lua files!`).catch(() => {});
@@ -3025,10 +3025,10 @@ async function handleBackupCommand(message) {
   }
 
   const loadingMsg = await message.reply(`${ICONS.info} **Starting backup to GitHub...** ⏳`);
-  
+
   try {
     const success = await backupToGitHub();
-    
+
     if (success) {
       await loadingMsg.edit(`${ICONS.check} **Backup successful!** Project source code pushed to GitHub.`);
     } else {
@@ -3038,7 +3038,7 @@ async function handleBackupCommand(message) {
     log('ERROR', 'Backup command failed', { error: error.message });
     await loadingMsg.edit(`${ICONS.cross} **Backup failed:** ${error.message}`);
   }
-  
+
   scheduleMessageDeletion(loadingMsg);
 }
 
@@ -3046,14 +3046,14 @@ async function handleToggleAutoDeleteCommand(message) {
   if (!isAdmin(message.author.id)) {
     return message.reply(`${ICONS.cross} Admin only!`);
   }
-  
+
   CONFIG.ENABLE_AUTO_DELETE = !CONFIG.ENABLE_AUTO_DELETE;
-  
+
   const toggleMsg = await message.reply(
     `${ICONS.check} Auto-delete is now **${CONFIG.ENABLE_AUTO_DELETE ? 'ENABLED' : 'DISABLED'}**\n` +
     `${ICONS.info} Messages will ${CONFIG.ENABLE_AUTO_DELETE ? 'auto-delete after 5 minutes' : 'NOT auto-delete'}.`
   );
-  
+
   if (CONFIG.ENABLE_AUTO_DELETE) {
     scheduleMessageDeletion(toggleMsg);
   }
@@ -3068,22 +3068,22 @@ async function handleGenAutocomplete(interaction) {
     try { await interaction.respond([]); } catch (_) {}
     return;
   }
-  
+
   if (!focused || focused.name !== 'appid') {
     try { await interaction.respond([]); } catch (_) {}
     return;
   }
-  
+
   const query = String(focused.value || '');
   const localMatches = searchLocalGames(query, AUTOCOMPLETE_LIMIT);
   let matches = localMatches;
-  
+
   try {
     const mergedMatches = await Promise.race([
       getAutocompleteGames(query, AUTOCOMPLETE_LIMIT),
       new Promise(resolve => setTimeout(() => resolve(null), AUTOCOMPLETE_RESPONSE_BUDGET_MS))
     ]);
-    
+
     if (Array.isArray(mergedMatches) && mergedMatches.length > 0) {
       matches = mergedMatches;
     }
@@ -3093,9 +3093,9 @@ async function handleGenAutocomplete(interaction) {
       error: error.message
     });
   }
-  
+
   const choices = buildAutocompleteChoices(matches);
-  
+
   try {
     await interaction.respond(choices);
   } catch (error) {
@@ -3117,19 +3117,19 @@ function buildSlashValidationErrorEmbed(rawInput, resolution) {
         ? `Could not resolve \`${rawInput}\` to a valid game.\nUse the autocomplete list for exact results.`
         : 'You must fill the `appid` field with a Steam App ID or game name.'
     );
-  
+
   if (resolution?.suggestions?.length) {
     const suggestionLines = resolution.suggestions
       .slice(0, 5)
       .map((game, idx) => `${idx + 1}. ${game.name} (\`${game.appId}\`)`);
-    
+
     embed.addFields({
       name: 'Did you mean',
       value: suggestionLines.join('\n').slice(0, 1024),
       inline: false
     });
   }
-  
+
   embed.setFooter({ text: 'Tip: type /gen then use autocomplete for appid.' });
   return embed;
 }
@@ -3148,16 +3148,16 @@ function buildProcessingEmbed(displayName, appId) {
 
 async function handleGenSlashCommand(interaction) {
   const rawInput = interaction.options.getString('appid', true).trim();
-  
+
   // Acknowledge early to avoid 3s interaction timeout on slow/network paths.
   await interaction.deferReply();
-  
+
   if (!rawInput) {
     return interaction.editReply({
       embeds: [buildSlashValidationErrorEmbed(rawInput)],
     });
   }
-  
+
   const resolution = await resolveAppIdInput(rawInput);
   if (!resolution.appId) {
     return interaction.editReply({
@@ -3171,16 +3171,16 @@ async function handleGenSlashCommand(interaction) {
     appId: resolution.appId,
     reason: resolution.reason
   });
-  
+
   const resolvedName = resolution.resolvedName || getGameNameById(resolution.appId) || `App ${resolution.appId}`;
   await interaction.editReply({
     embeds: [buildProcessingEmbed(resolvedName, resolution.appId)],
     content: null,
     components: []
   });
-  
+
   await sleep(CONFIG.GEN_PROCESSING_DELAY_MS);
-  
+
   const proxyMessage = createInteractionMessageProxy(interaction);
   await handleGameCommand(proxyMessage, resolution.appId);
 }
@@ -3188,12 +3188,12 @@ async function handleGenSlashCommand(interaction) {
 async function upsertApplicationCommand(commandManager, commandData) {
   const commands = await commandManager.fetch();
   const sameName = commands.filter(cmd => cmd.name === commandData.name);
-  
+
   if (sameName.length > 0) {
     // Keep one canonical command, update it, and delete stale duplicates.
     const canonical = sameName[0];
     await canonical.edit(commandData);
-    
+
     const duplicates = sameName.slice(1);
     for (const duplicate of duplicates) {
       try {
@@ -3206,10 +3206,10 @@ async function upsertApplicationCommand(commandManager, commandData) {
         });
       }
     }
-    
+
     return duplicates.length > 0 ? 'updated+deduplicated' : 'updated';
   }
-  
+
   await commandManager.create(commandData);
   return 'created';
 }
@@ -3217,7 +3217,7 @@ async function upsertApplicationCommand(commandManager, commandData) {
 async function deleteCommandsByName(commandManager, commandName) {
   const commands = await commandManager.fetch();
   const matches = commands.filter(cmd => cmd.name === commandName);
-  
+
   for (const command of matches) {
     try {
       await command.delete();
@@ -3229,7 +3229,7 @@ async function deleteCommandsByName(commandManager, commandName) {
       });
     }
   }
-  
+
   return matches.length;
 }
 
@@ -3259,7 +3259,7 @@ async function registerSlashCommands() {
     log('WARN', 'Cannot register slash commands: client.application missing');
     return;
   }
-  
+
   if (CONFIG.REGISTER_GLOBAL_SLASH_COMMAND) {
     try {
       const commands = await client.application.commands.set([GEN_SLASH_COMMAND]);
@@ -3277,16 +3277,16 @@ async function registerSlashCommands() {
       log('WARN', 'Failed to cleanup global slash commands', { error: error.message });
     }
   }
-  
+
   let guilds = [];
   let successful = 0;
-  
+
   if (CONFIG.REGISTER_GUILD_SLASH_COMMAND) {
     guilds = Array.from(client.guilds.cache.values());
     const guildResults = await Promise.all(guilds.map(registerSlashCommandForGuild));
     successful = guildResults.filter(item => item.ok).length;
   }
-  
+
   log('INFO', 'Slash command registration finished', {
     globalEnabled: CONFIG.REGISTER_GLOBAL_SLASH_COMMAND,
     guildEnabled: CONFIG.REGISTER_GUILD_SLASH_COMMAND,
@@ -3306,33 +3306,33 @@ client.on('messageCreate', async (message) => {
 
   if (message.author.bot) return;
   if (!message.content.startsWith(CONFIG.COMMAND_PREFIX)) return;
-  
+
   // ============================================
   // PREVENT DUPLICATE MESSAGE PROCESSING
   // ============================================
   const messageKey = `${message.id}-${message.channelId}`;
-  
+
   if (MESSAGE_HANDLERS.has(messageKey)) {
     log('WARN', 'Duplicate message detected (ignored)', { messageId: message.id });
     return;
   }
-  
+
   MESSAGE_HANDLERS.add(messageKey);
-  
+
   // Auto-cleanup after timeout
   setTimeout(() => {
     MESSAGE_HANDLERS.delete(messageKey);
   }, PROCESS_TIMEOUT);
-  
+
   const args = message.content.slice(CONFIG.COMMAND_PREFIX.length).trim().split(/ +/);
   const command = args[0].toLowerCase();
-  
+
   try {
     // Help command
     if (command === 'help') {
       return handleHelpCommand(message);
     }
-    
+
     // Search command (support alias 'seach')
     if (command === 'search' || command === 'seach') {
       const query = args.slice(1).join(' ');
@@ -3343,12 +3343,12 @@ client.on('messageCreate', async (message) => {
       }
       return handleSearchCommand(message, query);
     }
-    
+
     // List command
     if (command === 'list') {
       return handleListCommand(message);
     }
-    
+
     // Refresh command (available to all users)
     if (command === 'refresh') {
       const appId = args[1];
@@ -3359,13 +3359,13 @@ client.on('messageCreate', async (message) => {
       }
       return handleRefreshCommand(message, appId);
     }
-    
+
     // Admin commands
     if (isAdmin(message.author.id)) {
       if (command === 'stats') {
         return handleStatsCommand(message);
       }
-      
+
       if (command === 'reload') {
         loadDatabase();
         loadGameInfoCache();
@@ -3373,47 +3373,47 @@ client.on('messageCreate', async (message) => {
         scheduleMessageDeletion(reloadMsg);
         return;
       }
-      
+
       if (command === 'clearcache') {
         return handleClearCacheCommand(message);
       }
-      
+
       if (command === 'toggleautodelete') {
         return handleToggleAutoDeleteCommand(message);
       }
-      
+
       if (command === 'collectlua') {
         return handleCollectLuaCommand(message);
       }
-      
+
       if (command === 'backup') {
         return handleBackupCommand(message);
       }
-      
+
       if (command === 'fetchlua') {
         return handleFetchLuaCommand(message);
       }
     }
-    
+
     // Default: treat as AppID
     const appId = command.replace(/\D/g, ''); // Remove non-digits
     if (appId && appId.length >= 1 && /^\d+$/.test(appId)) {
       return handleGameCommand(message, appId);
     }
-    
+
     // Unknown command
     const unknownMsg = await message.reply(
       `${ICONS.cross} Unknown command! Use \`${CONFIG.COMMAND_PREFIX}help\` for help.`
     );
     scheduleMessageDeletion(unknownMsg);
-    
+
   } catch (error) {
-    log('ERROR', 'Error handling message', { 
-      command: message.content, 
+    log('ERROR', 'Error handling message', {
+      command: message.content,
       error: error.message,
       stack: error.stack
     });
-    
+
     const errorMsg = await message.reply(`${ICONS.cross} An error occurred! Please try again later.`);
     scheduleMessageDeletion(errorMsg);
   }
@@ -3427,10 +3427,10 @@ client.on('interactionCreate', async (interaction) => {
       }
       return;
     }
-    
+
     if (!interaction.isChatInputCommand()) return;
     if (interaction.commandName !== GEN_SLASH_COMMAND.name) return;
-    
+
     await handleGenSlashCommand(interaction);
   } catch (error) {
     log('ERROR', 'Slash command handler failed', {
@@ -3438,12 +3438,12 @@ client.on('interactionCreate', async (interaction) => {
       user: interaction.user?.tag,
       error: error.message
     });
-    
+
     if (interaction.isAutocomplete()) {
       try { await interaction.respond([]); } catch (_) {}
       return;
     }
-    
+
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: `${ICONS.cross} Failed to execute /gen. Please try again.`,
@@ -3451,7 +3451,7 @@ client.on('interactionCreate', async (interaction) => {
       }).catch(() => {});
       return;
     }
-    
+
     if (interaction.deferred && !interaction.replied) {
       await interaction.editReply({
         content: `${ICONS.cross} Failed to execute /gen. Please try again.`
@@ -3476,7 +3476,7 @@ async function uploadToGitHub(filePath, fileName) {
     });
     return null;
   }
-  
+
   // Validate file exists
   if (!fs.existsSync(filePath)) {
     log('ERROR', 'File not found for upload', { filePath, fileName });
@@ -3488,9 +3488,9 @@ async function uploadToGitHub(filePath, fileName) {
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
   const githubPath = `online-fix/${sanitizedFileName}`;
   const maxAttempts = Math.max(CONFIG.GITHUB_UPLOAD_MAX_RETRIES, 1);
-  
-  log('INFO', 'Starting GitHub upload', { 
-    fileName, 
+
+  log('INFO', 'Starting GitHub upload', {
+    fileName,
     sanitizedFileName,
     fileSizeBytes: fileContent.length,
     fileSizeMB: (fileContent.length / (1024 * 1024)).toFixed(2),
@@ -3498,13 +3498,13 @@ async function uploadToGitHub(filePath, fileName) {
     maxAttempts,
     timeoutMs: CONFIG.GITHUB_UPLOAD_TIMEOUT_MS
   });
-  
+
   let lastError = null;
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       let sha = null;
-      
+
       try {
         const checkResponse = await axios.get(
           `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
@@ -3522,7 +3522,7 @@ async function uploadToGitHub(filePath, fileName) {
         if (error.response?.status === 404) {
           // File not found means create new file, which is valid.
         } else if (error.response?.status === 401) {
-          log('ERROR', 'GitHub authentication failed! Token may be invalid or expired', { 
+          log('ERROR', 'GitHub authentication failed! Token may be invalid or expired', {
             error: error.message,
             hint: 'Check your GITHUB_TOKEN in .env file'
           });
@@ -3531,17 +3531,17 @@ async function uploadToGitHub(filePath, fileName) {
           throw error;
         }
       }
-      
+
       const payload = {
         message: `[Bot] Upload ${sanitizedFileName} via Discord`,
         content: base64Content,
         branch: 'main',
       };
-      
+
       if (sha) {
         payload.sha = sha;
       }
-      
+
       const response = await axios.put(
         `https://api.github.com/repos/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/contents/${githubPath}`,
         payload,
@@ -3555,18 +3555,18 @@ async function uploadToGitHub(filePath, fileName) {
           timeout: CONFIG.GITHUB_UPLOAD_TIMEOUT_MS,
         }
       );
-      
+
       if (response.status === 200 || response.status === 201) {
         const downloadUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO_OWNER}/${CONFIG.GITHUB_REPO_NAME}/main/${githubPath}`;
-        log('SUCCESS', 'Uploaded to GitHub', { 
-          fileName, 
+        log('SUCCESS', 'Uploaded to GitHub', {
+          fileName,
           downloadUrl,
           responseStatus: response.status,
           attempt
         });
         return downloadUrl;
       }
-      
+
       throw new Error(`Unexpected GitHub status: ${response.status}`);
     } catch (error) {
       lastError = error;
@@ -3579,14 +3579,14 @@ async function uploadToGitHub(filePath, fileName) {
         code: error.code,
         status: error.response?.status
       });
-      
+
       if (!isLast) {
         await sleep(CONFIG.GITHUB_UPLOAD_RETRY_DELAY_MS);
       }
     }
   }
-  
-  log('ERROR', 'Failed to upload to GitHub after all retries', { 
+
+  log('ERROR', 'Failed to upload to GitHub after all retries', {
     fileName,
     attempts: maxAttempts,
     error: lastError?.message,
@@ -3596,17 +3596,17 @@ async function uploadToGitHub(filePath, fileName) {
     responseData: lastError?.response?.data,
     hint: 'Check GitHub token, repo exists, rate limits, and payload size'
   });
-  
+
   return null;
 }
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
-  
+
   const [action, rawType, appId, fileIdx] = interaction.customId.split('_');
   let type = rawType;
   if (action !== 'dl') return;
-  
+
   try {
     const quotaBeforeDownload = await getDailyDownloadQuota(interaction.user.id);
     if (quotaBeforeDownload.enabled && quotaBeforeDownload.remaining <= 0) {
@@ -3631,7 +3631,7 @@ client.on('interactionCreate', async (interaction) => {
 
       const gameInfo = await getFullGameInfo(appId);
       let requirements = 'Extract and overwrite game folder.';
-      
+
       if (gameInfo) {
         if (gameInfo.publisher?.isUbisoft || gameInfo.name.toLowerCase().includes('assassin') || gameInfo.name.toLowerCase().includes('ubisoft')) {
           requirements = '🛠️ **Requirement:** Install **Ubisoft Connect** and login with emulator account (if needed).';
@@ -3644,13 +3644,13 @@ client.on('interactionCreate', async (interaction) => {
 
       // Support multiple crack links - show all in one beautiful embed
       const crackLinks = Array.isArray(crackLink) ? crackLink : [crackLink];
-      
+
       // GIF for crack button
       const crackGif = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExbmllMmp2eWV5ODFoM2N4OXhqd3B6OTVucXA5NW82ZjZpOXJmMWY5ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/AHeTfHgVFPHgs/giphy.gif";
-      
+
       // Get file sizes for all links
       await interaction.deferReply({ ephemeral: true });
-      
+
       const linksWithSizes = await Promise.all(
         crackLinks.map(async (link, idx) => {
           const fileSize = await getFileSizeFromUrl(link);
@@ -3663,35 +3663,35 @@ client.on('interactionCreate', async (interaction) => {
           };
         })
       );
-      
+
       // Beautiful formatted links with file sizes
-      const linksField = linksWithSizes.map(item => 
+      const linksField = linksWithSizes.map(item =>
         `**[🔗 Download Link ${item.number}](${item.url})**${item.sizeText}`
       ).join('\n');
-      
+
       const totalSize = linksWithSizes.reduce((sum, item) => sum + (item.size || 0), 0);
       const totalSizeText = totalSize > 0 ? `\n\n**📊 Total Size:** \`${formatFileSize(totalSize)}\`` : '';
 
       // Custom instructions for specific games
       let instructions = '```\n1. Download the crack file(s)\n2. Extract the archive\n3. Copy files to game directory\n4. Overwrite existing files\n5. Run the game\n```';
-      
+
       // FC 26 Showcase Custom Guide
       if (appId === '3629260') {
         requirements = '🛠️ **Requirement:** EA App installed, clean game files.';
-        instructions = 
+        instructions =
           '**1. Copy files**\n' +
           'Copy all extracted files into the game’s folder.\n' +
           'When prompted, click **Replace the file in the destination** (this may appear multiple times).\n\n' +
-          
+
           '**2. Replace the executable**\n' +
           'Delete `FC26_Showcase.exe`\n' +
           'Rename `FC26_Showcase fixed.exe` to `FC26_Showcase.exe`\n\n' +
-          
+
           '**3. Generate the Denuvo token**\n' +
           'Open `EA.Denuvo.Token.Dumper.exe`\n' +
           'Click **Start**\n' +
           '⚠️ **Important:** Make sure "Add DenuvoToken to anadius.cfg even if it exists" is **unchecked**\n\n' +
-          
+
           '**4. Apply the Denuvo token**\n' +
           'Copy the generated Denuvo token\n' +
           'Open `anadius.cfg` in the game folder\n' +
@@ -3727,7 +3727,7 @@ client.on('interactionCreate', async (interaction) => {
               inline: false
             }
           ],
-          footer: { 
+          footer: {
             text: `App ID: ${appId} • Auto-deletes in 5 minutes`,
             iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
           },
@@ -3758,16 +3758,16 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       const gameInfo = await getFullGameInfo(appId);
-      
+
       // GIF for online-fix button
       const onlineFixGif = "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbml3azA3Ym01NmozNG1odjF0d3RqbWx6cW52anNlbzZucXlwaTlyYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/HhOg2ijdiymuoHDb1k/giphy.gif";
-      
+
       // Get file size from URL
       await interaction.deferReply({ ephemeral: true });
-      
+
       const fileSize = await getFileSizeFromUrl(onlineLink);
       const sizeText = fileSize ? ` \`${formatFileSize(fileSize)}\`` : '';
-      
+
       await interaction.editReply({
         embeds: [{
           color: 0x00FF00,
@@ -3796,7 +3796,7 @@ client.on('interactionCreate', async (interaction) => {
               inline: false
             }
           ],
-          footer: { 
+          footer: {
             text: `App ID: ${appId} • Auto-deletes in 5 minutes`,
             iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
           },
@@ -3826,14 +3826,14 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     await interaction.deferReply({ ephemeral: true });
-    
+
     // Get game info to find files by name
     const gameInfo = await getFullGameInfo(appId);
     const files = findFiles(appId, gameInfo?.name);
     let fileToSend = null;
-    
+
     const idx = parseInt(fileIdx || '0');
-    
+
     // Determine which file type to send
     if (type === 'lua' && files.lua[idx]) {
       fileToSend = files.lua[idx];
@@ -3842,7 +3842,7 @@ client.on('interactionCreate', async (interaction) => {
     } else if (type === 'online' && files.onlineFix[idx]) { // This now only triggers for legacy 'onlinefile' remapped to 'online'
       fileToSend = files.onlineFix[idx];
     }
-    
+
     if (!fileToSend || !fs.existsSync(fileToSend.path)) {
       if (type === 'lua') {
         const notFoundEmbed = new EmbedBuilder()
@@ -3861,7 +3861,7 @@ client.on('interactionCreate', async (interaction) => {
               inline: false
             }
           );
-        
+
         await scheduleInteractionDeletion(interaction, {
           content: '⚠️ Game found, but this title currently has no Lua/Package in library.',
           embeds: [notFoundEmbed],
@@ -3869,14 +3869,14 @@ client.on('interactionCreate', async (interaction) => {
         });
         return;
       }
-      
+
       await scheduleInteractionDeletion(interaction, {
         content: `❌ **File not found!**\n\n` +
                  `⏱️ *This message will auto-delete in 5 minutes*`
       });
       return;
     }
-    
+
     const selectedManifestMeta = type === 'lua' ? getManifestFileMeta(fileToSend.name) : null;
     const summaryLines = type === 'lua'
       ? buildManifestSummaryLines({
@@ -3886,7 +3886,7 @@ client.on('interactionCreate', async (interaction) => {
           canEmbed: true
         })
       : [];
-    
+
     let archiveInspection = null;
     if (type === 'lua' && selectedManifestMeta?.kind === 'archive') {
       archiveInspection = await inspectArchiveManifestCount(fileToSend.path);
@@ -3898,36 +3898,36 @@ client.on('interactionCreate', async (interaction) => {
         }
       }
     }
-    
+
     const summaryContent = summaryLines.join('\n');
     const sizeMB = fileToSend.size / (1024 * 1024);
     const likelyGitHubContentsLimitIssue =
       type !== 'online' && sizeMB > CONFIG.GITHUB_CONTENTS_SAFE_LIMIT_MB;
-    
+
     // For Online-Fix files OR large files (>25MB), upload to GitHub
     if (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
       await scheduleInteractionDeletion(interaction, {
         content: `⏳ **Processing** \`${fileToSend.name}\`...\n\n` +
                  `✨ Please wait...`
       });
-      
+
       let downloadUrl = null;
       let deliveryMethod = 'github';
-      
+
       downloadUrl = await uploadToGitHub(fileToSend.path, fileToSend.name);
-      
+
       if (!downloadUrl && !CONFIG.DISABLE_DIRECT_DOWNLOAD_FALLBACK) {
         downloadUrl = createTemporaryDownloadLink(fileToSend.path, fileToSend.name);
         if (downloadUrl) {
           deliveryMethod = 'direct';
         }
       }
-      
+
       if (!downloadUrl) {
         const fallbackHint = CONFIG.DISABLE_DIRECT_DOWNLOAD_FALLBACK
           ? '• Direct fallback is disabled by configuration\n'
           : '• Set PUBLIC_BASE_URL for direct fallback links\n';
-        
+
         await scheduleInteractionDeletion(interaction, {
           content: `❌ **Failed to process file for download!**\n\n` +
                    `🔧 **Troubleshooting:**\n` +
@@ -3943,19 +3943,19 @@ client.on('interactionCreate', async (interaction) => {
         });
         return;
       }
-      
+
       // Beautiful embed for large files uploaded to GitHub
       const fileTypeName = type === 'online'
         ? 'Online-Fix'
         : type === 'lua'
         ? (selectedManifestMeta?.label || 'Manifest File')
         : 'File';
-      const fileTypeGif = type === 'online' 
+      const fileTypeGif = type === 'online'
         ? "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/YO7P8VC7nlQlO/giphy.gif"
         : type === 'lua'
         ? "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif"
         : null;
-      
+
       await scheduleInteractionDeletion(interaction, {
         content: type === 'lua' ? summaryContent : null,
         embeds: [{
@@ -3967,12 +3967,12 @@ client.on('interactionCreate', async (interaction) => {
               : '**✅ Direct download link generated from server!**'),
           thumbnail: fileTypeGif ? { url: fileTypeGif } : undefined,
           fields: [
-            { 
+            {
               name: '📁 File Information',
               value: `**Name:** \`${fileToSend.name}\`\n**Size:** \`${fileToSend.sizeFormatted}\``,
               inline: false
             },
-            { 
+            {
               name: '🔗 Download Link',
               value: `**[⬇️ CLICK HERE TO DOWNLOAD](${downloadUrl})**`,
               inline: false
@@ -3985,7 +3985,7 @@ client.on('interactionCreate', async (interaction) => {
               inline: false
             }
           ],
-          footer: { 
+          footer: {
             text: `App ID: ${appId} • Auto-deletes in 5 minutes • ${deliveryMethod === 'github' ? 'GitHub Link' : 'Direct Link'}`,
             iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
           },
@@ -4004,33 +4004,33 @@ client.on('interactionCreate', async (interaction) => {
       await sendDailyQuotaRemaining(interaction, largeFileQuota);
       return;
     }
-    
+
     // GIF for manifest button (lua/package)
-    const manifestGif = type === 'lua' 
+    const manifestGif = type === 'lua'
       ? "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDB1anh5dGRqOThzcWtuMzltcGdrdGtkbWtmNDN4OHp2d3NieW8zbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/EnrH0xdlmT5uBZ9BCe/giphy.gif"
       : null;
-    
+
     // Send small files directly via Discord
     const replyContent = {
-      files: [{ 
-        attachment: fileToSend.path, 
-        name: fileToSend.name 
+      files: [{
+        attachment: fileToSend.path,
+        name: fileToSend.name
       }]
     };
-    
+
     // Beautiful embed for manifest files
     if (manifestGif && type === 'lua') {
       if (summaryContent) {
         replyContent.content = summaryContent;
       }
-      
+
       replyContent.embeds = [{
         color: 0x2ECC71,
         title: `${(selectedManifestMeta?.label || 'Manifest File').toUpperCase()} READY`,
         description: `**Game:** ${gameInfo?.name || appId}\n\n**File ready for download.**`,
         thumbnail: { url: manifestGif },
         fields: [
-          { 
+          {
             name: '📁 File Information',
             value: `**Name:** \`${fileToSend.name}\`\n**Size:** \`${fileToSend.sizeFormatted}\``,
             inline: false
@@ -4048,7 +4048,7 @@ client.on('interactionCreate', async (interaction) => {
             inline: false
           }
         ],
-        footer: { 
+        footer: {
           text: `App ID: ${appId} • Auto-deletes in 5 minutes`,
           iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
         },
@@ -4058,9 +4058,9 @@ client.on('interactionCreate', async (interaction) => {
       // Fallback for other file types
       replyContent.content = `✅ **Sending** \`${fileToSend.name}\` (\`${fileToSend.sizeFormatted}\`)\n\n🚀 Download started!`;
     }
-    
+
     await scheduleInteractionDeletion(interaction, replyContent);
-    
+
     const directFileQuota = await registerSuccessfulDownload({
       appId,
       gameName: gameInfo?.name,
@@ -4070,16 +4070,16 @@ client.on('interactionCreate', async (interaction) => {
       user: interaction.user
     });
     await sendDailyQuotaRemaining(interaction, directFileQuota);
-    
+
   } catch (error) {
     console.error('❌ Button Handler Error:', error);
-    log('ERROR', 'Error sending file', { 
-      appId, 
+    log('ERROR', 'Error sending file', {
+      appId,
       type,
       error: error.message,
       stack: error.stack
     });
-    
+
     try {
       if (!interaction.replied) {
         await scheduleInteractionDeletion(interaction, {
@@ -4126,16 +4126,16 @@ client.once('clientReady', async () => {
   } catch (error) {
     log('WARN', 'Slash command registration failed on ready', { error: error.message });
   }
-  
+
   // Set bot presence
   client.user.setPresence({
-    activities: [{ 
+    activities: [{
       name: `/gen appid:<id-or-name>`,
       type: ActivityType.Watching
     }],
     status: 'online',
   });
-  
+
   log('INFO', 'Bot started successfully', {
     uniqueGames: global.gameStats?.uniqueGames || 0,
     totalFiles: global.gameStats?.totalFiles || 0,
@@ -4156,9 +4156,9 @@ client.on('guildCreate', async (guild) => {
 
 client.on('error', error => {
   console.error('❌ Discord client error:', error);
-  log('ERROR', 'Discord client error', { 
+  log('ERROR', 'Discord client error', {
     error: error.message,
-    stack: error.stack 
+    stack: error.stack
   });
 });
 
@@ -4169,30 +4169,30 @@ client.on('warn', warning => {
 
 process.on('unhandledRejection', error => {
   console.error('❌ Unhandled promise rejection:', error);
-  log('ERROR', 'Unhandled rejection', { 
+  log('ERROR', 'Unhandled rejection', {
     error: error.message,
-    stack: error.stack 
+    stack: error.stack
   });
 });
 
 process.on('uncaughtException', error => {
   console.error('❌ Uncaught exception:', error);
-  log('ERROR', 'Uncaught exception', { 
+  log('ERROR', 'Uncaught exception', {
     error: error.message,
-    stack: error.stack 
+    stack: error.stack
   });
 });
 
 process.on('SIGINT', () => {
   console.log('\n\n🛑 Gracefully shutting down bot...');
   console.log('💾 Saving database and cache...');
-  
+
   saveDatabase();
   saveGameInfoCache();
-  
+
   console.log('✅ Data saved successfully!');
   console.log('👋 Goodbye!\n');
-  
+
   client.destroy();
   process.exit(0);
 });
@@ -4277,21 +4277,21 @@ app.get('/health', (req, res) => {
 app.get('/download/:token', (req, res) => {
   const { token } = req.params;
   const entry = temporaryDownloads.get(token);
-  
+
   if (!entry) {
     return res.status(404).json({ error: 'Download link not found or expired.' });
   }
-  
+
   if (entry.expiresAt <= Date.now()) {
     temporaryDownloads.delete(token);
     return res.status(410).json({ error: 'Download link expired.' });
   }
-  
+
   if (!fs.existsSync(entry.filePath)) {
     temporaryDownloads.delete(token);
     return res.status(410).json({ error: 'File no longer available on server.' });
   }
-  
+
   res.setHeader('Cache-Control', 'private, max-age=60');
   res.setHeader('X-Link-Expires-At', new Date(entry.expiresAt).toISOString());
   res.download(entry.filePath, entry.fileName, (error) => {
@@ -4327,7 +4327,7 @@ app.get('/', (req, res) => {
         }
         h1 { font-size: 3em; margin: 0; }
         p { font-size: 1.2em; opacity: 0.9; }
-        .status { 
+        .status {
           display: inline-block;
           padding: 10px 20px;
           background: #00ff00;
@@ -4357,13 +4357,13 @@ function formatUptime(seconds) {
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
-  
+
   const parts = [];
   if (days > 0) parts.push(`${days}d`);
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
   if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
-  
+
   return parts.join(' ');
 }
 

@@ -1,13 +1,6 @@
 addappid(1213300)
-addappid(3573840)
-addappid(3573870)
+setManifestid(228988,"6645201662696499616")
+setManifestid(228990,"1829726630299308803")
+setManifestid(229002,"7260605429366465749")
 addappid(1213302,0,"a237589c759350160f6eaa4255cfbb51b778235d41e60ca9b6b5ce7936dcca04")
---setManifestid(1213302,"3060140347731074067")
-
-
-
-
---[[
-This file belongs to Ahmeds Bot Discord Server
------> join discord Server : https://discord.gg/sv6EGxCRnC
-]]
+setManifestid(1213302,"5919361781347436317")

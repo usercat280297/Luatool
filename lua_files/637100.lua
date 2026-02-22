@@ -1,24 +1,17 @@
--- Sonic​​‌‌​‌​​​‌‌​​​‌​​‌‌​​​​‌​​‌‌​‌​‌​​‌‌​‌‌​​​‌‌‌​​​​​‌‌​‌​‌​‌‌​​‌‌​​‌‌​​‌‌​​‌‌​​​‌​​​‌‌‌​​‌​​‌‌​​​​​‌‌​​‌​‌​‌‌​​‌​‌​​‌‌​​‌‌​​‌‌​‌‌‌ Forces
--- AppID 637100 | Generated on 2026-02-07 17:42 UTC | openlua.cloud
--- Warning: This game uses DRM (Denuvo Anti-Tamper)
--- Note: This game supports Steam Workshop content
-
--- Main Application
-addappid(637100, 1, "fe23f7a2fef0df5c0359b4cd404e3e2284aa92c95946aab6ffec7b42b447f959")
-
--- Content Depots (1)
-addappid(637101, 1, "2367cba961ebd064193a9a82d89ae6cac934d744813571d86573dc5608f2451f") -- SonicForces Content
-
--- Shared Depots (2)
-addappid(228985, 1, "6711a61fca466a4cb3b185ad0dfb5b8207e03b32fad4d4302f22872f006ca66d") -- VC 2013 Redist (from 228980)
-addappid(228990, 1, "35c1cd60d6180f6628f345d6929bb1af6890d131b6f929488750963dcdb632eb") -- DirectX Jun 2010 Redist (from 228980)
-
--- DLCs with Content (6)
-addappid(715910, 1, "6256d97f1d6c066b05842afaa9534296de10c79e0c66875129986f241ebc9288") -- Persona 5 Costume DLC
-addappid(715850, 1, "c72c7d52dcd9c1346e0965a305d827b0a2e89d2f6d606edc1c61b26a3c1831a1") -- Episode Shadow DLC
-addappid(715890, 1, "8c2468f110122ad24011a75e5f40f07c1466bfda5e669893d9df659029a6f2a8") -- Sanic T-Shirts DLC
-addtoken(715890, "1359868568552714527")
-addappid(715860, 1, "c1a11ce08a147a6bde6800a29ac775408ba1ca63be9781a05aa3185add0a2a11") -- Super Sonic DLC
-addtoken(715860, "16736109979682698009")
-addappid(715900, 1, "33ed0c98f20221f54433a265cd6ed611fb9553b7c923041f3ab63e5c883fbbb5") -- Shadow Costume DLC
-addappid(715870, 1, "a99c5e809c787686f1ac1e02ccde78a26b7bf2a25fca94c632ecb2357111bb8f") -- SEGA Pack DLC
+addappid(637100)
+setManifestid(228985,"3966345552745568756")
+setManifestid(228990,"1829726630299308803")
+addappid(637101,0,"34786f5764c058209f977aa97cf340d54581cb6c4338c357eb60043ee04d250d")
+setManifestid(637101,"6733815604721662246")
+addappid(715870,0,"532993be0075a75032142c0cb27061178bed95b2ad293b0b235d575833155ffc")
+setManifestid(715870,"254445834820279752")
+addappid(715910,0,"07cd9314fd84a30f80f17d3cc8177c70d8c60f6a390b3a023c67ec50c4a5f393")
+setManifestid(715910,"1263084534968804237")
+addappid(715900,0,"808a3f18b9b4a57f270ae477194a037e9b36fb3bdc488797a3a2d0582dc20a2d")
+setManifestid(715900,"384953965959581805")
+addappid(715890,0,"fb2f87dc682b73f5cda00cceaa7f79a6749e75794655f9f2a7b76ea4db365527")
+setManifestid(715890,"396375742410765264")
+addappid(715850,0,"fb6ff935866eacc93f05de899032058e28b39a7e52220a92da41dd648a1f005e")
+setManifestid(715850,"2510383889453322309")
+addappid(715860,0,"0a67f95ed87c9b0f8195770fa6d31b367de0a1e12359bb23bc3c333b603a7a83")
+setManifestid(715860,"1579020075937971387")

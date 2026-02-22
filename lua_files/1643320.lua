@@ -1,17 +1,18 @@
--- manifest & lua provided by: https://www.piracybound.com/discord
--- via manilua
-addappid(1643320)
-addappid(1643321,0,"71c29e58911c13991edea02ac06db5f5991e43e52cdcd76c19126d657c4a38e7")
-setManifestid(1643321,"3368685621888360188")
+-- This file was fetched from twentytwo cloud which is the exclusive property of Twentytwo server.
+-- Redistribution of twentytwo's files is not allowed AT ALL
+-- Join the server here: https://discord.com/invite/vwGWeTFTXW
 
--- dlc
-addappid(1661623) -- S.T.A.L.K.E.R. 2: Heart of Chornobyl - Pre-order Bonus
-addappid(1661622) -- S.T.A.L.K.E.R. 2: Heart of Chornobyl - Season Pass
-addappid(1661621) -- S.T.A.L.K.E.R. 2: Heart of Chornobyl - Ultimate Content
-addappid(1661620) -- S.T.A.L.K.E.R. 2: Heart of Chornobyl - Deluxe Content
-addappid(3332950) -- S.T.A.L.K.E.R. 2: Heart of Chornobyl — OST and Artbook
-addtoken(3332950,"1610503047386597590")
-addappid(3332951,0,"bbc6a28d2ba65a7efa0e1ae5d445e18b6c62f9b74f235761f95d3ec00201974e")
-addappid(3332952,0,"ef8e291f55cede6e64183baac65954c90b2b4466ee9f1ca9b1f219f1a72073f0")
-setManifestid(3332951,"8015766615333808098")
-setManifestid(3332952,"5587306026943101600")
+addappid(1643320)
+addappid(228989)
+setManifestid(228989,"550968249685141759")
+addappid(228990)
+setManifestid(228990,"1829726630299308803")
+addappid(229005)
+setManifestid(229005,"7992454656023763365")
+addappid(1643321,0,"71c29e58911c13991edea02ac06db5f5991e43e52cdcd76c19126d657c4a38e7")
+setManifestid(1643321,"8777620810722077542")
+addappid(1643322)
+addappid(1643323)
+addappid(1643324)
+addappid(1643325)
+addappid(1643326)
