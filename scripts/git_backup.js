@@ -18,9 +18,12 @@ function log(message) {
 function runCommand(command) {
   return new Promise((resolve, reject) => {
     // Execute in project root, not in scripts/ folder
-    exec(command, { cwd: path.join(__dirname, '..') }, (error, stdout, stderr) => {
+    exec(command, { 
+      cwd: path.join(__dirname, '..'),
+      maxBuffer: 10 * 1024 * 1024 // 10MB buffer to handle large git output
+    }, (error, stdout, stderr) => {
       if (error) {
-        reject({ error, stderr });
+        reject({ error, stderr, stdout });
         return;
       }
       resolve(stdout.trim());
@@ -58,7 +61,8 @@ async function backupToGitHub() {
       log(`Committing changes: "${commitMsg}"...`);
       await runCommand(`git commit -m "${commitMsg}"`);
     } catch (e) {
-      if (e.stdout && e.stdout.includes('nothing to commit')) {
+      const errorMsg = (e.stdout || '') + (e.stderr || '');
+      if (errorMsg.includes('nothing to commit') || errorMsg.includes('working tree clean')) {
         log('⚠️ No changes to commit.');
         // Proceed to push anyway in case there are unpushed commits
       } else {
