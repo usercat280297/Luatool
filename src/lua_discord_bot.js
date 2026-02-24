@@ -259,9 +259,6 @@ const temporaryDownloads = new Map(); // token -> { filePath, fileName, expiresA
 const GEN_SLASH_COMMAND = {
   name: 'gen',
   description: 'Generate manifest files for a game',
-  // Restrict to guild install/context to avoid duplicate command variants in client picker.
-  integration_types: [0], // 0 = GUILD_INSTALL
-  contexts: [0], // 0 = GUILD
   dm_permission: false,
   defaultMemberPermissions: null,
   options: [
@@ -278,8 +275,6 @@ const GEN_SLASH_COMMAND = {
 const GET_SLASH_COMMAND = {
   name: 'get',
   description: 'Fetch manifest/lua from upstream and store it in library',
-  integration_types: [0], // 0 = GUILD_INSTALL
-  contexts: [0], // 0 = GUILD
   dm_permission: false,
   defaultMemberPermissions: null,
   options: [
@@ -3755,13 +3750,20 @@ async function deleteCommandsByName(commandManager, commandName) {
 
 async function registerSlashCommandForGuild(guild) {
   try {
-    const commands = await guild.commands.set(SLASH_COMMAND_DEFINITIONS);
-    const activeNames = commands.map(cmd => cmd.name).join(', ');
+    const results = [];
+    for (const commandDef of SLASH_COMMAND_DEFINITIONS) {
+      const action = await upsertApplicationCommand(guild.commands, commandDef);
+      results.push({ name: commandDef.name, action });
+    }
+
+    const commands = await guild.commands.fetch();
+    const activeNames = Array.from(commands.values()).map(cmd => cmd.name).join(', ');
     log('INFO', 'Guild slash command set synced', {
       guildId: guild.id,
       guildName: guild.name,
       commandCount: commands.size,
-      activeCommands: activeNames
+      activeCommands: activeNames,
+      updates: results
     });
     return { ok: true, guildId: guild.id };
   } catch (error) {
@@ -3782,9 +3784,16 @@ async function registerSlashCommands() {
 
   if (CONFIG.REGISTER_GLOBAL_SLASH_COMMAND) {
     try {
-      const commands = await client.application.commands.set(SLASH_COMMAND_DEFINITIONS);
+      const globalResults = [];
+      for (const commandDef of SLASH_COMMAND_DEFINITIONS) {
+        const action = await upsertApplicationCommand(client.application.commands, commandDef);
+        globalResults.push({ name: commandDef.name, action });
+      }
+
+      const commands = await client.application.commands.fetch();
       log('INFO', 'Global slash commands set synced', {
-        commandCount: commands.size
+        commandCount: commands.size,
+        updates: globalResults
       });
     } catch (error) {
       log('WARN', 'Failed to register global slash command', { error: error.message });
