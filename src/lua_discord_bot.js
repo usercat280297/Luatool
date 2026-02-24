@@ -263,7 +263,7 @@ const GEN_SLASH_COMMAND = {
   integration_types: [0], // 0 = GUILD_INSTALL
   contexts: [0], // 0 = GUILD
   dm_permission: false,
-  defaultMemberPermissions: '0', // Allow all members to use this command
+  defaultMemberPermissions: null,
   options: [
     {
       type: ApplicationCommandOptionType.String,
@@ -281,7 +281,7 @@ const GET_SLASH_COMMAND = {
   integration_types: [0], // 0 = GUILD_INSTALL
   contexts: [0], // 0 = GUILD
   dm_permission: false,
-  defaultMemberPermissions: '0',
+  defaultMemberPermissions: null,
   options: [
     {
       type: ApplicationCommandOptionType.String,
