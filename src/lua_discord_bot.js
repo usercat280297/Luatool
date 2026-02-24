@@ -84,6 +84,14 @@ const CONFIG = {
     Math.max(parsePositiveInt(process.env.GEN_PROCESSING_DELAY_MS, 3500), 3000),
     4000
   ),
+  GET_PROCESSING_DELAY_MS: Math.min(
+    Math.max(parsePositiveInt(process.env.GET_PROCESSING_DELAY_MS, 9000), 5000),
+    18000
+  ),
+  MORRENUS_API_BASE_URL: (process.env.MORRENUS_API_BASE_URL || 'https://manifest.morrenus.xyz').replace(/\/+$/, ''),
+  MORRENUS_API_KEY: (process.env.MORRENUS_API_KEY || '').trim(),
+  MORRENUS_API_KEYS: process.env.MORRENUS_API_KEYS || '',
+  MORRENUS_REQUEST_TIMEOUT_MS: parsePositiveInt(process.env.MORRENUS_REQUEST_TIMEOUT_MS, 120000),
 
   // AUTO-DELETE: Messages auto-delete after 5 minutes
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
@@ -266,6 +274,26 @@ const GEN_SLASH_COMMAND = {
     }
   ]
 };
+
+const GET_SLASH_COMMAND = {
+  name: 'get',
+  description: 'Fetch manifest/lua from upstream and store it in library',
+  integration_types: [0], // 0 = GUILD_INSTALL
+  contexts: [0], // 0 = GUILD
+  dm_permission: false,
+  defaultMemberPermissions: '0',
+  options: [
+    {
+      type: ApplicationCommandOptionType.String,
+      name: 'appid',
+      description: 'The Steam App ID or game name',
+      required: true,
+      autocomplete: true
+    }
+  ]
+};
+
+const SLASH_COMMAND_DEFINITIONS = [GEN_SLASH_COMMAND, GET_SLASH_COMMAND];
 
 const AUTOCOMPLETE_LIMIT = 25;
 const AUTOCOMPLETE_CACHE_TTL = 60 * 1000;
@@ -735,6 +763,117 @@ function formatFileSize(bytes) {
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getMorrenusApiKeyPool() {
+  const unique = new Set();
+  const pushIfValid = (candidate) => {
+    const normalized = String(candidate || '').trim();
+    if (normalized) unique.add(normalized);
+  };
+
+  pushIfValid(CONFIG.MORRENUS_API_KEY);
+  for (const token of String(CONFIG.MORRENUS_API_KEYS || '').split(',')) {
+    pushIfValid(token);
+  }
+
+  return Array.from(unique);
+}
+
+function isMorrenusAuthOrRateStatus(statusCode) {
+  return statusCode === 401 || statusCode === 403 || statusCode === 429;
+}
+
+let crc32LookupTable = null;
+
+function getCRC32LookupTable() {
+  if (crc32LookupTable) return crc32LookupTable;
+
+  crc32LookupTable = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let value = i;
+    for (let bit = 0; bit < 8; bit++) {
+      value = (value & 1) ? (0xEDB88320 ^ (value >>> 1)) : (value >>> 1);
+    }
+    crc32LookupTable[i] = value >>> 0;
+  }
+  return crc32LookupTable;
+}
+
+function calculateCRC32(buffer) {
+  const input = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer || '');
+  const table = getCRC32LookupTable();
+  let crc = 0xFFFFFFFF;
+
+  for (let i = 0; i < input.length; i++) {
+    crc = table[(crc ^ input[i]) & 0xFF] ^ (crc >>> 8);
+  }
+
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function createStoredZipWithSingleEntry(outputPath, entryName, contentBuffer) {
+  const payload = Buffer.isBuffer(contentBuffer) ? contentBuffer : Buffer.from(contentBuffer || '');
+  const entryNameBuffer = Buffer.from(String(entryName || 'file.lua'), 'utf8');
+  const crc32 = calculateCRC32(payload);
+  const localHeader = Buffer.alloc(30);
+
+  // Local file header
+  localHeader.writeUInt32LE(0x04034b50, 0); // signature
+  localHeader.writeUInt16LE(20, 4); // version needed to extract
+  localHeader.writeUInt16LE(0, 6); // general purpose bit flag
+  localHeader.writeUInt16LE(0, 8); // compression method (stored)
+  localHeader.writeUInt16LE(0, 10); // file time
+  localHeader.writeUInt16LE(0, 12); // file date
+  localHeader.writeUInt32LE(crc32, 14); // CRC-32
+  localHeader.writeUInt32LE(payload.length, 18); // compressed size
+  localHeader.writeUInt32LE(payload.length, 22); // uncompressed size
+  localHeader.writeUInt16LE(entryNameBuffer.length, 26); // file name length
+  localHeader.writeUInt16LE(0, 28); // extra field length
+
+  const centralHeader = Buffer.alloc(46);
+  const localHeaderSize = localHeader.length + entryNameBuffer.length;
+  const centralDirectoryOffset = localHeaderSize + payload.length;
+
+  // Central directory header
+  centralHeader.writeUInt32LE(0x02014b50, 0); // signature
+  centralHeader.writeUInt16LE(20, 4); // version made by
+  centralHeader.writeUInt16LE(20, 6); // version needed to extract
+  centralHeader.writeUInt16LE(0, 8); // general purpose bit flag
+  centralHeader.writeUInt16LE(0, 10); // compression method
+  centralHeader.writeUInt16LE(0, 12); // file time
+  centralHeader.writeUInt16LE(0, 14); // file date
+  centralHeader.writeUInt32LE(crc32, 16); // CRC-32
+  centralHeader.writeUInt32LE(payload.length, 20); // compressed size
+  centralHeader.writeUInt32LE(payload.length, 24); // uncompressed size
+  centralHeader.writeUInt16LE(entryNameBuffer.length, 28); // file name length
+  centralHeader.writeUInt16LE(0, 30); // extra field length
+  centralHeader.writeUInt16LE(0, 32); // file comment length
+  centralHeader.writeUInt16LE(0, 34); // disk number start
+  centralHeader.writeUInt16LE(0, 36); // internal file attributes
+  centralHeader.writeUInt32LE(0, 38); // external file attributes
+  centralHeader.writeUInt32LE(0, 42); // relative offset of local header
+
+  const endOfCentralDir = Buffer.alloc(22);
+  endOfCentralDir.writeUInt32LE(0x06054b50, 0); // signature
+  endOfCentralDir.writeUInt16LE(0, 4); // number of this disk
+  endOfCentralDir.writeUInt16LE(0, 6); // number of the disk with central directory start
+  endOfCentralDir.writeUInt16LE(1, 8); // total entries on this disk
+  endOfCentralDir.writeUInt16LE(1, 10); // total entries overall
+  endOfCentralDir.writeUInt32LE(centralHeader.length + entryNameBuffer.length, 12); // central dir size
+  endOfCentralDir.writeUInt32LE(centralDirectoryOffset, 16); // offset of central dir
+  endOfCentralDir.writeUInt16LE(0, 20); // comment length
+
+  const zipBuffer = Buffer.concat([
+    localHeader,
+    entryNameBuffer,
+    payload,
+    centralHeader,
+    entryNameBuffer,
+    endOfCentralDir
+  ]);
+
+  fs.writeFileSync(outputPath, zipBuffer);
 }
 
 const archiveCommandCache = new Map();
@@ -2558,7 +2697,8 @@ async function handleGameCommand(message, appId) {
     const responsePayload = {
       content: hasManifestFiles
         ? null
-        : `⚠️ **No Lua/Package available yet** for \`${appId}\`. Game info is shown below.`,
+        : `${ICONS.warning} **No Lua/Package available yet** for \`${appId}\`.\n` +
+          `Use \`/get appid:${appId}\` (or \`${CONFIG.COMMAND_PREFIX}get ${appId}\`) to request upstream fetch.`,
       embeds: [embed],
       components: rows,
     };
@@ -2640,6 +2780,197 @@ async function handleFetchLuaCommand(message) {
   }
 
   scheduleMessageDeletion(loadingMsg, 10000); // Keep result longer
+}
+
+async function requestMorrenusEndpoint(endpoint, { apiKey, responseType = 'arraybuffer' } = {}) {
+  const url = `${CONFIG.MORRENUS_API_BASE_URL}${endpoint}`;
+  const params = {};
+  if (apiKey) params.api_key = apiKey;
+
+  try {
+    const response = await axios.get(url, {
+      timeout: CONFIG.MORRENUS_REQUEST_TIMEOUT_MS,
+      responseType,
+      validateStatus: () => true,
+      params,
+      headers: {
+        'Authorization': apiKey ? `Bearer ${apiKey}` : undefined,
+        'X-API-Key': apiKey || undefined,
+        'User-Agent': 'Discord-Lua-Bot/2.0',
+        'Accept': responseType === 'text' ? 'text/plain,*/*' : '*/*',
+      }
+    });
+    return response;
+  } catch (error) {
+    return {
+      status: 0,
+      error,
+      data: null
+    };
+  }
+}
+
+function normalizeMorrenusTextPayload(payload) {
+  if (typeof payload === 'string') return payload;
+  if (Buffer.isBuffer(payload)) return payload.toString('utf8');
+  if (payload == null) return '';
+  return Buffer.from(payload).toString('utf8');
+}
+
+function isZipBuffer(buffer) {
+  return Buffer.isBuffer(buffer) && buffer.length >= 4 &&
+    buffer[0] === 0x50 && buffer[1] === 0x4B;
+}
+
+async function fetchAndStoreManifestFromMorrenus(appId) {
+  const keyPool = getMorrenusApiKeyPool();
+  if (keyPool.length === 0) {
+    return {
+      ok: false,
+      code: 'MISSING_API_KEY',
+      message: 'Morrenus API key is missing. Configure MORRENUS_API_KEY in .env.'
+    };
+  }
+
+  const attempts = [];
+  let fallbackNotFound = false;
+
+  for (let index = 0; index < keyPool.length; index++) {
+    const apiKey = keyPool[index];
+
+    const manifestResponse = await requestMorrenusEndpoint(`/api/v1/manifest/${appId}`, {
+      apiKey,
+      responseType: 'arraybuffer'
+    });
+
+    attempts.push({
+      keyIndex: index + 1,
+      endpoint: 'manifest',
+      status: manifestResponse.status || 0,
+      error: manifestResponse.error?.message || null
+    });
+
+    if (manifestResponse.status === 200) {
+      const buffer = Buffer.isBuffer(manifestResponse.data)
+        ? manifestResponse.data
+        : Buffer.from(manifestResponse.data || []);
+      const zipPath = path.join(CONFIG.LUA_FILES_PATH, `${appId}.zip`);
+      const luaPath = path.join(CONFIG.LUA_FILES_PATH, `${appId}.lua`);
+
+      if (isZipBuffer(buffer)) {
+        fs.writeFileSync(zipPath, buffer);
+        return {
+          ok: true,
+          sourceEndpoint: 'manifest',
+          sourceType: 'zip',
+          keyIndex: index + 1,
+          keyCount: keyPool.length,
+          primaryFilePath: zipPath,
+          savedFiles: [zipPath]
+        };
+      }
+
+      const textPayload = normalizeMorrenusTextPayload(buffer).trim();
+      fs.writeFileSync(luaPath, textPayload, 'utf8');
+      createStoredZipWithSingleEntry(zipPath, `${appId}.lua`, Buffer.from(textPayload, 'utf8'));
+
+      return {
+        ok: true,
+        sourceEndpoint: 'manifest',
+        sourceType: 'text',
+        keyIndex: index + 1,
+        keyCount: keyPool.length,
+        primaryFilePath: zipPath,
+        savedFiles: [zipPath, luaPath]
+      };
+    }
+
+    if (manifestResponse.status !== 404) {
+      if (isMorrenusAuthOrRateStatus(manifestResponse.status)) {
+        continue;
+      }
+      if (manifestResponse.status >= 500 || manifestResponse.status === 0) {
+        continue;
+      }
+    }
+
+    const luaResponse = await requestMorrenusEndpoint(`/api/v1/lua/${appId}`, {
+      apiKey,
+      responseType: 'text'
+    });
+
+    attempts.push({
+      keyIndex: index + 1,
+      endpoint: 'lua',
+      status: luaResponse.status || 0,
+      error: luaResponse.error?.message || null
+    });
+
+    if (luaResponse.status === 200) {
+      const luaText = normalizeMorrenusTextPayload(luaResponse.data).trim();
+      const luaPath = path.join(CONFIG.LUA_FILES_PATH, `${appId}.lua`);
+      const zipPath = path.join(CONFIG.LUA_FILES_PATH, `${appId}.zip`);
+
+      fs.writeFileSync(luaPath, luaText, 'utf8');
+      createStoredZipWithSingleEntry(zipPath, `${appId}.lua`, Buffer.from(luaText, 'utf8'));
+
+      return {
+        ok: true,
+        sourceEndpoint: 'lua',
+        sourceType: 'text',
+        keyIndex: index + 1,
+        keyCount: keyPool.length,
+        primaryFilePath: zipPath,
+        savedFiles: [zipPath, luaPath]
+      };
+    }
+
+    if (luaResponse.status === 404) {
+      fallbackNotFound = true;
+      continue;
+    }
+  }
+
+  const statuses = attempts.map(item => item.status);
+  const allAuthOrRate = statuses.length > 0 && statuses.every(status => isMorrenusAuthOrRateStatus(status));
+  const hasRateLimit = statuses.includes(429);
+  const hasAuthError = statuses.includes(401) || statuses.includes(403);
+  const all404 = statuses.length > 0 && statuses.every(status => status === 404);
+  const lastStatus = statuses.length ? statuses[statuses.length - 1] : 0;
+
+  if (all404 || (fallbackNotFound && !hasAuthError && !hasRateLimit)) {
+    return {
+      ok: false,
+      code: 'NOT_FOUND',
+      message: 'No manifest/lua available on upstream for this AppID.',
+      attempts
+    };
+  }
+
+  if (allAuthOrRate && hasRateLimit) {
+    return {
+      ok: false,
+      code: 'RATE_LIMIT',
+      message: 'All configured Morrenus keys hit rate limit (429). Please rotate/revoke and retry.',
+      attempts
+    };
+  }
+
+  if (allAuthOrRate || hasAuthError) {
+    return {
+      ok: false,
+      code: 'AUTH_ERROR',
+      message: 'Morrenus API key unauthorized/forbidden. Please reset key in dashboard and update .env.',
+      attempts
+    };
+  }
+
+  return {
+    ok: false,
+    code: 'UPSTREAM_ERROR',
+    message: `Morrenus request failed (last status: ${lastStatus || 'network error'}).`,
+    attempts
+  };
 }
 
 async function searchGameByName(query) {
@@ -2728,7 +3059,7 @@ async function handleSearchCommand(message, query) {
       const isDenuvo = denuvoSet.has(String(game.appId));
       const drmTag = isDenuvo ? ' • ⚠️ **Denuvo Anti-Tamper**' : '';
 
-      const hasLua = fs.existsSync(path.join(CONFIG.LUA_FILES_PATH, `${game.appId}.lua`));
+      const hasLua = findFiles(String(game.appId)).lua.length > 0;
       const hasOnlineFix = ONLINE_FIX_LINKS[game.appId] || fs.existsSync(path.join(CONFIG.ONLINE_FIX_PATH, `${game.appId}-online-fix.zip`));
       const hasCrack = CRACK_LINKS[game.appId];
 
@@ -2769,7 +3100,7 @@ async function handleSearchCommand(message, query) {
         const isDenuvo = denuvoSet.has(String(game.appId));
         const drmTag = isDenuvo ? ' • ⚠️ **Denuvo Anti-Tamper**' : '';
 
-        const hasLua = fs.existsSync(path.join(CONFIG.LUA_FILES_PATH, `${game.appId}.lua`));
+        const hasLua = findFiles(String(game.appId)).lua.length > 0;
         const hasOnlineFix = ONLINE_FIX_LINKS[game.appId] || fs.existsSync(path.join(CONFIG.ONLINE_FIX_PATH, `${game.appId}-online-fix.zip`));
         const hasCrack = CRACK_LINKS[game.appId];
 
@@ -2842,7 +3173,9 @@ async function handleHelpCommand(message) {
         name: `${ICONS.sparkles} Commands`,
         value: [
           '`/gen appid:<id-or-name>` - Default slash command',
+          '`/get appid:<id-or-name>` - Fetch upstream and store in library',
           `\`${CONFIG.COMMAND_PREFIX}<appid>\` - View full game info`,
+          `\`${CONFIG.COMMAND_PREFIX}get <id-or-name>\` - Same as /get`,
           `\`${CONFIG.COMMAND_PREFIX}search <name>\` - Search games`,
           `\`${CONFIG.COMMAND_PREFIX}refresh <appid>\` - Refresh game info`,
           `\`${CONFIG.COMMAND_PREFIX}list\` - List available games`,
@@ -2864,6 +3197,7 @@ async function handleHelpCommand(message) {
         value: [
           '`!1623730` - Palworld',
           '`!2245450` - Black Myth: Wukong',
+          '`!get 400` - Request upstream fetch for AppID 400',
           '`!search tekken` - Search Tekken games',
         ].join('\n')
       }
@@ -3108,7 +3442,7 @@ async function handleGenAutocomplete(interaction) {
   }
 }
 
-function buildSlashValidationErrorEmbed(rawInput, resolution) {
+function buildSlashValidationErrorEmbed(rawInput, resolution, commandName = 'gen') {
   const embed = new EmbedBuilder()
     .setColor(0xED4245)
     .setTitle('Game not found')
@@ -3130,7 +3464,7 @@ function buildSlashValidationErrorEmbed(rawInput, resolution) {
     });
   }
 
-  embed.setFooter({ text: 'Tip: type /gen then use autocomplete for appid.' });
+  embed.setFooter({ text: `Tip: type /${commandName} then use autocomplete for appid.` });
   return embed;
 }
 
@@ -3144,6 +3478,18 @@ function buildProcessingEmbed(displayName, appId) {
       'This may take a few seconds depending on game size.'
     )
     .setFooter({ text: 'Solus Gen • Preparing accurate game data & manifests' });
+}
+
+function buildGetProcessingEmbed(displayName, appId) {
+  return new EmbedBuilder()
+    .setColor(0xF1C40F)
+    .setTitle('Preparing upstream fetch...')
+    .setDescription(
+      `**${displayName}** (Game ID: \`${appId}\`)\n\n` +
+      'Checking upstream manifest/lua source and storing to local library.\n' +
+      'Please wait while we process your request.'
+    )
+    .setFooter({ text: 'Solus Get • Upstream fetch queue in progress' });
 }
 
 async function handleGenSlashCommand(interaction) {
@@ -3183,6 +3529,180 @@ async function handleGenSlashCommand(interaction) {
 
   const proxyMessage = createInteractionMessageProxy(interaction);
   await handleGameCommand(proxyMessage, resolution.appId);
+}
+
+function formatSavedFilesList(savedFiles = []) {
+  if (!Array.isArray(savedFiles) || savedFiles.length === 0) {
+    return 'No files saved';
+  }
+
+  return savedFiles
+    .map(filePath => `- \`${path.basename(filePath)}\``)
+    .join('\n')
+    .slice(0, 1024);
+}
+
+async function handleGetSlashCommand(interaction) {
+  const rawInput = interaction.options.getString('appid', true).trim();
+  await interaction.deferReply();
+
+  if (!rawInput) {
+    return interaction.editReply({
+      embeds: [buildSlashValidationErrorEmbed(rawInput, null, GET_SLASH_COMMAND.name)],
+    });
+  }
+
+  const resolution = await resolveAppIdInput(rawInput);
+  if (!resolution.appId) {
+    return interaction.editReply({
+      embeds: [buildSlashValidationErrorEmbed(rawInput, resolution, GET_SLASH_COMMAND.name)],
+    });
+  }
+
+  const appId = String(resolution.appId);
+  const resolvedName = resolution.resolvedName || getGameNameById(appId) || `App ${appId}`;
+
+  await interaction.editReply({
+    embeds: [buildGetProcessingEmbed(resolvedName, appId)],
+    content: null,
+    components: []
+  });
+
+  await sleep(CONFIG.GET_PROCESSING_DELAY_MS);
+
+  const fetchResult = await fetchAndStoreManifestFromMorrenus(appId);
+  if (!fetchResult.ok) {
+    const failureEmbed = new EmbedBuilder()
+      .setColor(0xE74C3C)
+      .setTitle('Upstream fetch failed')
+      .setDescription(
+        `${fetchResult.message}\n\n` +
+        `You can retry later with \`/get appid:${appId}\`.`
+      )
+      .addFields({
+        name: 'Next step',
+        value: `If this game is unavailable upstream, use \`/gen appid:${appId}\` after adding files manually.`,
+        inline: false
+      });
+
+    return interaction.editReply({
+      embeds: [failureEmbed],
+      components: []
+    });
+  }
+
+  const primaryPath = fetchResult.primaryFilePath || fetchResult.savedFiles?.[0];
+  let githubUrl = null;
+  if (primaryPath && fs.existsSync(primaryPath)) {
+    githubUrl = await uploadToGitHub(primaryPath, path.basename(primaryPath), 'lua_files');
+  }
+
+  if (!database.games[appId]) {
+    database.games[appId] = {
+      name: resolvedName,
+      downloads: 0,
+      lastAccessed: Date.now(),
+    };
+  } else if (!database.games[appId].name && resolvedName) {
+    database.games[appId].name = resolvedName;
+  }
+  database.games[appId].lastAccessed = Date.now();
+  saveDatabase();
+
+  const successEmbed = new EmbedBuilder()
+    .setColor(0x2ECC71)
+    .setTitle('Fetch completed and stored')
+    .setDescription(
+      `Stored upstream data for **${resolvedName}** (\`${appId}\`).\n` +
+      `Source endpoint: \`${fetchResult.sourceEndpoint}\``
+    )
+    .addFields(
+      {
+        name: 'Saved files',
+        value: formatSavedFilesList(fetchResult.savedFiles),
+        inline: false
+      },
+      {
+        name: 'GitHub storage',
+        value: githubUrl
+          ? `Uploaded to \`lua_files/\` successfully.\n[Open raw file](${githubUrl})`
+          : 'Local save successful, but GitHub upload failed (check GITHUB_TOKEN/repo permissions).',
+        inline: false
+      },
+      {
+        name: 'Use now',
+        value: `Run \`/gen appid:${appId}\` to serve this game.`,
+        inline: false
+      }
+    )
+    .setFooter({
+      text: `Key ${fetchResult.keyIndex}/${fetchResult.keyCount} • Delay ${Math.round(CONFIG.GET_PROCESSING_DELAY_MS / 1000)}s`
+    });
+
+  return interaction.editReply({
+    embeds: [successEmbed],
+    components: []
+  });
+}
+
+async function handleGetLegacyCommand(message, rawInput) {
+  const input = String(rawInput || '').trim();
+  if (!input) {
+    const usageMsg = await message.reply(`${ICONS.info} Usage: \`${CONFIG.COMMAND_PREFIX}get <appid-or-name>\``);
+    scheduleMessageDeletion(usageMsg);
+    return;
+  }
+
+  const resolution = await resolveAppIdInput(input);
+  if (!resolution.appId) {
+    const failMsg = await message.reply(`${ICONS.cross} Could not resolve \`${input}\`. Try exact AppID or use search first.`);
+    scheduleMessageDeletion(failMsg);
+    return;
+  }
+
+  const appId = String(resolution.appId);
+  const resolvedName = resolution.resolvedName || getGameNameById(appId) || `App ${appId}`;
+  const loadingMsg = await message.reply(
+    `${ICONS.info} Queueing upstream fetch for **${resolvedName}** (\`${appId}\`)...\n` +
+    `Please wait ${Math.round(CONFIG.GET_PROCESSING_DELAY_MS / 1000)}s.`
+  );
+  scheduleMessageDeletion(loadingMsg);
+
+  await sleep(CONFIG.GET_PROCESSING_DELAY_MS);
+
+  const fetchResult = await fetchAndStoreManifestFromMorrenus(appId);
+  if (!fetchResult.ok) {
+    await loadingMsg.edit(`${ICONS.cross} Upstream fetch failed for \`${appId}\`: ${fetchResult.message}`);
+    return;
+  }
+
+  if (!database.games[appId]) {
+    database.games[appId] = {
+      name: resolvedName,
+      downloads: 0,
+      lastAccessed: Date.now(),
+    };
+  } else if (!database.games[appId].name && resolvedName) {
+    database.games[appId].name = resolvedName;
+  }
+  database.games[appId].lastAccessed = Date.now();
+  saveDatabase();
+
+  const primaryPath = fetchResult.primaryFilePath || fetchResult.savedFiles?.[0];
+  let githubUrl = null;
+  if (primaryPath && fs.existsSync(primaryPath)) {
+    githubUrl = await uploadToGitHub(primaryPath, path.basename(primaryPath), 'lua_files');
+  }
+
+  const successLines = [
+    `${ICONS.check} Stored upstream data for \`${appId}\`.`,
+    `Source: \`${fetchResult.sourceEndpoint}\` (key ${fetchResult.keyIndex}/${fetchResult.keyCount})`,
+    `Saved: ${fetchResult.savedFiles.map(item => `\`${path.basename(item)}\``).join(', ') || 'none'}`,
+    githubUrl ? `GitHub: ${githubUrl}` : 'GitHub upload: failed or skipped',
+    `Now use \`/gen appid:${appId}\` or \`${CONFIG.COMMAND_PREFIX}${appId}\`.`
+  ];
+
+  await loadingMsg.edit(successLines.join('\n'));
 }
 
 async function upsertApplicationCommand(commandManager, commandData) {
@@ -3235,13 +3755,13 @@ async function deleteCommandsByName(commandManager, commandName) {
 
 async function registerSlashCommandForGuild(guild) {
   try {
-    const commands = await guild.commands.set([GEN_SLASH_COMMAND]);
-    const active = commands.find(cmd => cmd.name === GEN_SLASH_COMMAND.name);
+    const commands = await guild.commands.set(SLASH_COMMAND_DEFINITIONS);
+    const activeNames = commands.map(cmd => cmd.name).join(', ');
     log('INFO', 'Guild slash command set synced', {
       guildId: guild.id,
       guildName: guild.name,
       commandCount: commands.size,
-      activeCommandId: active?.id || null
+      activeCommands: activeNames
     });
     return { ok: true, guildId: guild.id };
   } catch (error) {
@@ -3262,7 +3782,7 @@ async function registerSlashCommands() {
 
   if (CONFIG.REGISTER_GLOBAL_SLASH_COMMAND) {
     try {
-      const commands = await client.application.commands.set([GEN_SLASH_COMMAND]);
+      const commands = await client.application.commands.set(SLASH_COMMAND_DEFINITIONS);
       log('INFO', 'Global slash commands set synced', {
         commandCount: commands.size
       });
@@ -3344,6 +3864,12 @@ client.on('messageCreate', async (message) => {
       return handleSearchCommand(message, query);
     }
 
+    // Request upstream fetch for missing games
+    if (command === 'get' || command === 'add') {
+      const query = args.slice(1).join(' ');
+      return handleGetLegacyCommand(message, query);
+    }
+
     // List command
     if (command === 'list') {
       return handleListCommand(message);
@@ -3422,16 +3948,22 @@ client.on('messageCreate', async (message) => {
 client.on('interactionCreate', async (interaction) => {
   try {
     if (interaction.isAutocomplete()) {
-      if (interaction.commandName === GEN_SLASH_COMMAND.name) {
+      if (interaction.commandName === GEN_SLASH_COMMAND.name || interaction.commandName === GET_SLASH_COMMAND.name) {
         await handleGenAutocomplete(interaction);
       }
       return;
     }
 
     if (!interaction.isChatInputCommand()) return;
-    if (interaction.commandName !== GEN_SLASH_COMMAND.name) return;
+    if (interaction.commandName === GEN_SLASH_COMMAND.name) {
+      await handleGenSlashCommand(interaction);
+      return;
+    }
 
-    await handleGenSlashCommand(interaction);
+    if (interaction.commandName === GET_SLASH_COMMAND.name) {
+      await handleGetSlashCommand(interaction);
+      return;
+    }
   } catch (error) {
     log('ERROR', 'Slash command handler failed', {
       command: interaction.commandName,
@@ -3444,9 +3976,11 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
+    const commandLabel = interaction.commandName ? `/${interaction.commandName}` : 'this command';
+
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
-        content: `${ICONS.cross} Failed to execute /gen. Please try again.`,
+        content: `${ICONS.cross} Failed to execute ${commandLabel}. Please try again.`,
         ephemeral: true
       }).catch(() => {});
       return;
@@ -3454,7 +3988,7 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.deferred && !interaction.replied) {
       await interaction.editReply({
-        content: `${ICONS.cross} Failed to execute /gen. Please try again.`
+        content: `${ICONS.cross} Failed to execute ${commandLabel}. Please try again.`
       }).catch(() => {});
     }
   }
@@ -3464,7 +3998,7 @@ client.on('interactionCreate', async (interaction) => {
 // BUTTON HANDLER (Download files)
 // ============================================
 
-async function uploadToGitHub(filePath, fileName) {
+async function uploadToGitHub(filePath, fileName, targetFolder = 'online-fix') {
   // ============================================
   // VALIDATE GITHUB CREDENTIALS
   // ============================================
@@ -3486,7 +4020,11 @@ async function uploadToGitHub(filePath, fileName) {
   const fileContent = fs.readFileSync(filePath);
   const base64Content = fileContent.toString('base64');
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const githubPath = `online-fix/${sanitizedFileName}`;
+  const sanitizedFolder = String(targetFolder || 'online-fix')
+    .replace(/\\/g, '/')
+    .replace(/[^a-zA-Z0-9/_-]/g, '')
+    .replace(/^\/+|\/+$/g, '') || 'online-fix';
+  const githubPath = `${sanitizedFolder}/${sanitizedFileName}`;
   const maxAttempts = Math.max(CONFIG.GITHUB_UPLOAD_MAX_RETRIES, 1);
 
   log('INFO', 'Starting GitHub upload', {
@@ -3848,7 +4386,10 @@ client.on('interactionCreate', async (interaction) => {
         const notFoundEmbed = new EmbedBuilder()
           .setColor(0xF1C40F)
           .setTitle(`⚠️ No Lua/Package Available: App ${appId}`)
-          .setDescription('Game was found, but Lua/Package files are not available yet.')
+          .setDescription(
+            'Game was found, but Lua/Package files are not available yet.\n' +
+            'Use `/get` to request upstream fetch into the bot library.'
+          )
           .addFields(
             {
               name: 'Links',
@@ -3859,11 +4400,16 @@ client.on('interactionCreate', async (interaction) => {
               name: 'App ID',
               value: `\`${appId}\``,
               inline: false
+            },
+            {
+              name: 'Request fetch',
+              value: `\`/get appid:${appId}\` or \`${CONFIG.COMMAND_PREFIX}get ${appId}\``,
+              inline: false
             }
           );
 
         await scheduleInteractionDeletion(interaction, {
-          content: '⚠️ Game found, but this title currently has no Lua/Package in library.',
+          content: `${ICONS.warning} Game found, but this title has no Lua/Package in library.\nUse \`/get appid:${appId}\` to request fetch.`,
           embeds: [notFoundEmbed],
           components: []
         });
@@ -4105,7 +4651,8 @@ client.once('clientReady', async () => {
   console.log(`✅ Logged in as: ${client.user.tag}`);
   console.log(`🎮 Bot ID: ${client.user.id}`);
   console.log(`📊 Legacy command prefix: ${enableMessageContentIntent ? CONFIG.COMMAND_PREFIX : `${CONFIG.COMMAND_PREFIX} (disabled in slash-only mode)`}`);
-  console.log(`🧭 Slash command: /${GEN_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
+  console.log(`Slash command: /${GEN_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
+  console.log(`Slash command: /${GET_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
   console.log(`📝 Message Content Intent: ${enableMessageContentIntent ? 'ENABLED' : 'DISABLED (slash-only mode)'}`);
   const allGames = scanAllGames();
   console.log(`🎯 Total available games: ${global.gameStats?.uniqueGames || allGames.length} (${global.gameStats?.totalFiles || 'N/A'} files)`);
@@ -4130,7 +4677,7 @@ client.once('clientReady', async () => {
   // Set bot presence
   client.user.setPresence({
     activities: [{
-      name: `/gen appid:<id-or-name>`,
+      name: `/gen | /get appid:<id-or-name>`,
       type: ActivityType.Watching
     }],
     status: 'online',
