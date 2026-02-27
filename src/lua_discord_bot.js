@@ -97,6 +97,9 @@ const CONFIG = {
   MORRENUS_API_KEY: (process.env.MORRENUS_API_KEY || '').trim(),
   MORRENUS_API_KEYS: process.env.MORRENUS_API_KEYS || '',
   MORRENUS_REQUEST_TIMEOUT_MS: parsePositiveInt(process.env.MORRENUS_REQUEST_TIMEOUT_MS, 120000),
+  DISCORD_REST_CHECK_TIMEOUT_MS: parsePositiveInt(process.env.DISCORD_REST_CHECK_TIMEOUT_MS, 10000),
+  DISCORD_LOGIN_TIMEOUT_MS: parsePositiveInt(process.env.DISCORD_LOGIN_TIMEOUT_MS, 45000),
+  DISCORD_LOGIN_RETRY_MAX_DELAY_MS: parsePositiveInt(process.env.DISCORD_LOGIN_RETRY_MAX_DELAY_MS, 300000),
 
   // AUTO-DELETE: Messages auto-delete after 5 minutes
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
@@ -326,8 +329,13 @@ const loginState = {
   attempts: 0,
   lastAttemptAt: null,
   lastError: null,
-  readyAt: null
+  readyAt: null,
+  inProgress: false,
+  lastRestCheckAt: null,
+  lastGatewayUrl: null
 };
+
+let loginRetryTimer = null;
 
 function ensureDatabaseSchema() {
   if (!database || typeof database !== 'object') {
@@ -4740,6 +4748,34 @@ client.on('warn', warning => {
   log('WARN', 'Discord client warning', { warning });
 });
 
+client.on('shardReady', (id) => {
+  log('INFO', 'Discord shard ready', { shardId: id });
+});
+
+client.on('shardError', (error, shardId) => {
+  const message = error?.message || String(error);
+  loginState.lastError = `Shard ${shardId ?? 'unknown'} error: ${message}`;
+  log('ERROR', 'Discord shard error', {
+    shardId,
+    error: message
+  });
+});
+
+client.on('shardDisconnect', (event, shardId) => {
+  const code = event?.code;
+  const reason = event?.reason;
+  loginState.lastError = `Shard ${shardId ?? 'unknown'} disconnected (code ${code ?? 'N/A'})`;
+  log('WARN', 'Discord shard disconnected', {
+    shardId,
+    code,
+    reason
+  });
+});
+
+client.on('shardReconnecting', (shardId) => {
+  log('WARN', 'Discord shard reconnecting', { shardId });
+});
+
 process.on('unhandledRejection', error => {
   console.error('❌ Unhandled promise rejection:', error);
   log('ERROR', 'Unhandled rejection', {
@@ -4794,8 +4830,67 @@ loadGameInfoCache();
 
 console.log('🔐 Logging in to Discord...\n');
 
+function getLoginRetryDelayMs(retries) {
+  return Math.min(
+    60000 * Math.pow(2, Math.min(retries, 4)),
+    CONFIG.DISCORD_LOGIN_RETRY_MAX_DELAY_MS
+  );
+}
+
+function scheduleLoginRetry(nextRetries, reason) {
+  if (loginRetryTimer) {
+    clearTimeout(loginRetryTimer);
+    loginRetryTimer = null;
+  }
+
+  const delay = getLoginRetryDelayMs(nextRetries);
+  console.log(
+    `⏳ Retrying Discord login in ${Math.round(delay / 1000)}s (attempt ${nextRetries + 1})` +
+    (reason ? ` - ${reason}` : '')
+  );
+
+  loginRetryTimer = setTimeout(() => {
+    loginRetryTimer = null;
+    attemptLogin(nextRetries);
+  }, delay);
+}
+
+async function checkDiscordRestReachability() {
+  const startedAt = Date.now();
+  const response = await axios.get('https://discord.com/api/v10/gateway', {
+    timeout: CONFIG.DISCORD_REST_CHECK_TIMEOUT_MS,
+    headers: {
+      'User-Agent': 'LuatoolBot/2.0'
+    },
+    validateStatus: () => true
+  });
+
+  loginState.lastRestCheckAt = new Date().toISOString();
+
+  if (response.status >= 200 && response.status < 300) {
+    loginState.lastGatewayUrl = response.data?.url || null;
+    return {
+      latencyMs: Date.now() - startedAt,
+      gatewayUrl: loginState.lastGatewayUrl
+    };
+  }
+
+  throw new Error(`Discord REST check failed with status ${response.status}`);
+}
+
+function createLoginTimeoutPromise() {
+  return new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Discord login timed out after ${CONFIG.DISCORD_LOGIN_TIMEOUT_MS}ms`));
+    }, CONFIG.DISCORD_LOGIN_TIMEOUT_MS);
+  });
+}
+
 // Start Discord login with retries, but DO NOT exit process on failure.
 async function attemptLogin(retries = 0) {
+  if (loginState.inProgress) return;
+
+  loginState.inProgress = true;
   loginState.attempts = retries + 1;
   loginState.lastAttemptAt = new Date().toISOString();
 
@@ -4804,14 +4899,28 @@ async function attemptLogin(retries = 0) {
     loginState.lastError = errorMessage;
     console.error('\n❌ FAILED TO LOGIN TO DISCORD! (missing token)\n');
     console.error(errorMessage);
-    const delay = Math.min(60000 * Math.pow(2, Math.min(retries, 4)), 5 * 60 * 1000);
-    console.log(`⏳ Retrying Discord login in ${Math.round(delay / 1000)}s (attempt ${retries + 1})`);
-    setTimeout(() => attemptLogin(retries + 1), delay);
+    loginState.inProgress = false;
+    scheduleLoginRetry(retries + 1, 'missing token');
     return;
   }
 
   try {
-    await client.login(CONFIG.BOT_TOKEN);
+    const rest = await checkDiscordRestReachability();
+    console.log(`🌐 Discord gateway reachable (${rest.latencyMs}ms)`);
+  } catch (error) {
+    loginState.lastError = `Discord REST unreachable: ${error.message}`;
+    console.error('\n❌ FAILED TO REACH DISCORD REST API! (will retry)\n');
+    console.error('Error:', error.message);
+    loginState.inProgress = false;
+    scheduleLoginRetry(retries + 1, 'discord rest unreachable');
+    return;
+  }
+
+  try {
+    await Promise.race([
+      client.login(CONFIG.BOT_TOKEN),
+      createLoginTimeoutPromise()
+    ]);
     loginState.lastError = null;
     console.log('\n✅ Discord login successful');
   } catch (error) {
@@ -4825,10 +4934,15 @@ async function attemptLogin(retries = 0) {
       console.error('   3. Make sure bot has proper permissions');
       console.error('   4. Check if bot is banned from the server\n');
     }
-    const delay = Math.min(60000 * Math.pow(2, Math.min(retries, 4)), 5 * 60 * 1000); // backoff up to 5min
-    console.log(`⏳ Retrying Discord login in ${Math.round(delay/1000)}s (attempt ${retries + 1})`);
-    setTimeout(() => attemptLogin(retries + 1), delay);
+    try {
+      client.destroy();
+    } catch (_) {}
+    loginState.inProgress = false;
+    scheduleLoginRetry(retries + 1, 'discord login failed');
+    return;
   }
+
+  loginState.inProgress = false;
 }
 
 attemptLogin();
@@ -4851,7 +4965,10 @@ app.get('/health', (req, res) => {
       loginAttempts: loginState.attempts,
       lastLoginAttemptAt: loginState.lastAttemptAt,
       readyAt: loginState.readyAt,
-      lastLoginError: loginState.lastError
+      lastLoginError: loginState.lastError,
+      loginInProgress: loginState.inProgress,
+      lastRestCheckAt: loginState.lastRestCheckAt,
+      gatewayUrl: loginState.lastGatewayUrl
     },
     stats: {
       totalGames: Object.keys(database.games).length,
