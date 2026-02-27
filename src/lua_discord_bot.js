@@ -97,6 +97,7 @@ const CONFIG = {
   MORRENUS_API_KEY: (process.env.MORRENUS_API_KEY || '').trim(),
   MORRENUS_API_KEYS: process.env.MORRENUS_API_KEYS || '',
   MORRENUS_REQUEST_TIMEOUT_MS: parsePositiveInt(process.env.MORRENUS_REQUEST_TIMEOUT_MS, 120000),
+  DISCORD_REST_PRECHECK_ENABLED: parseBoolean(process.env.DISCORD_REST_PRECHECK_ENABLED, false),
   DISCORD_REST_CHECK_TIMEOUT_MS: parsePositiveInt(process.env.DISCORD_REST_CHECK_TIMEOUT_MS, 10000),
   DISCORD_LOGIN_TIMEOUT_MS: parsePositiveInt(process.env.DISCORD_LOGIN_TIMEOUT_MS, 45000),
   DISCORD_LOGIN_RETRY_MAX_DELAY_MS: parsePositiveInt(process.env.DISCORD_LOGIN_RETRY_MAX_DELAY_MS, 300000),
@@ -4694,6 +4695,7 @@ client.once('clientReady', async () => {
   console.log(`🔄 Auto-delete: ${CONFIG.ENABLE_AUTO_DELETE ? 'ENABLED (5 min)' : 'DISABLED'}`);
   console.log(`🧱 Daily download limit: ${CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT ? `${CONFIG.MAX_DAILY_DOWNLOADS_PER_USER}/user/day (${CONFIG.DAILY_LIMIT_TIMEZONE} reset)` : 'DISABLED'}`);
   console.log(`🗃️ Quota storage: ${isUpstashQuotaEnabled() ? 'Upstash Redis' : 'Local JSON database'}`);
+  console.log(`🌐 Discord REST precheck: ${CONFIG.DISCORD_REST_PRECHECK_ENABLED ? 'ENABLED' : 'DISABLED'}`);
   console.log(`🌍 Public base URL: ${CONFIG.PUBLIC_BASE_URL || 'NOT SET (direct large-file links disabled)'}`);
   console.log(`🔗 Direct download TTL: ${CONFIG.DIRECT_DOWNLOAD_TTL_MINUTES} minutes`);
   console.log(`📁 Folders:`);
@@ -4837,13 +4839,15 @@ function getLoginRetryDelayMs(retries) {
   );
 }
 
-function scheduleLoginRetry(nextRetries, reason) {
+function scheduleLoginRetry(nextRetries, reason, delayOverrideMs = null) {
   if (loginRetryTimer) {
     clearTimeout(loginRetryTimer);
     loginRetryTimer = null;
   }
 
-  const delay = getLoginRetryDelayMs(nextRetries);
+  const delay = Number.isFinite(delayOverrideMs) && delayOverrideMs > 0
+    ? Math.min(delayOverrideMs, CONFIG.DISCORD_LOGIN_RETRY_MAX_DELAY_MS)
+    : getLoginRetryDelayMs(nextRetries);
   console.log(
     `⏳ Retrying Discord login in ${Math.round(delay / 1000)}s (attempt ${nextRetries + 1})` +
     (reason ? ` - ${reason}` : '')
@@ -4875,6 +4879,19 @@ async function checkDiscordRestReachability() {
     };
   }
 
+  if (response.status === 429) {
+    const retryHeaderSeconds = Number.parseFloat(response.headers?.['retry-after']);
+    const retryBodySeconds = Number.parseFloat(response.data?.retry_after);
+    const retrySeconds = Number.isFinite(retryHeaderSeconds)
+      ? retryHeaderSeconds
+      : (Number.isFinite(retryBodySeconds) ? retryBodySeconds : 60);
+
+    const rateLimitError = new Error(`Discord REST rate limited (429). retry_after=${retrySeconds}s`);
+    rateLimitError.code = 'DISCORD_RATE_LIMIT';
+    rateLimitError.retryAfterMs = Math.max(Math.ceil(retrySeconds * 1000), 1000);
+    throw rateLimitError;
+  }
+
   throw new Error(`Discord REST check failed with status ${response.status}`);
 }
 
@@ -4904,16 +4921,27 @@ async function attemptLogin(retries = 0) {
     return;
   }
 
-  try {
-    const rest = await checkDiscordRestReachability();
-    console.log(`🌐 Discord gateway reachable (${rest.latencyMs}ms)`);
-  } catch (error) {
-    loginState.lastError = `Discord REST unreachable: ${error.message}`;
-    console.error('\n❌ FAILED TO REACH DISCORD REST API! (will retry)\n');
-    console.error('Error:', error.message);
-    loginState.inProgress = false;
-    scheduleLoginRetry(retries + 1, 'discord rest unreachable');
-    return;
+  if (CONFIG.DISCORD_REST_PRECHECK_ENABLED) {
+    try {
+      const rest = await checkDiscordRestReachability();
+      console.log(`🌐 Discord gateway reachable (${rest.latencyMs}ms)`);
+    } catch (error) {
+      if (error?.code === 'DISCORD_RATE_LIMIT') {
+        loginState.lastError = error.message;
+        console.error('\n⚠️ Discord REST rate limited before login. Waiting and retrying.\n');
+        console.error('Error:', error.message);
+        loginState.inProgress = false;
+        scheduleLoginRetry(retries + 1, 'discord rest rate limit', error.retryAfterMs);
+        return;
+      }
+
+      loginState.lastError = `Discord REST unreachable: ${error.message}`;
+      console.error('\n❌ FAILED TO REACH DISCORD REST API! (will retry)\n');
+      console.error('Error:', error.message);
+      loginState.inProgress = false;
+      scheduleLoginRetry(retries + 1, 'discord rest unreachable');
+      return;
+    }
   }
 
   try {
