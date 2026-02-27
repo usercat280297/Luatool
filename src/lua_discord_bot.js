@@ -107,6 +107,9 @@ const CONFIG = {
   // AUTO-DELETE: Messages auto-delete after 5 minutes
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
   ENABLE_AUTO_DELETE: true,
+  // Logging rotation
+  LOG_MAX_SIZE_MB: parsePositiveInt(process.env.LOG_MAX_SIZE_MB, 10), // rotate when a log file exceeds this size (MB)
+  LOG_MAX_FILES: parsePositiveInt(process.env.LOG_MAX_FILES, 7), // number of rotated files to keep
 };
 
 // ============================================
@@ -772,7 +775,42 @@ function log(type, message, data = {}) {
   console.log(`[${timestamp}] [${type}] ${message}`);
 
   try {
-    const logFile = path.join(CONFIG.LOGS_PATH, `${new Date().toISOString().split('T')[0]}.log`);
+    // Ensure logs folder exists
+    try { fs.mkdirSync(CONFIG.LOGS_PATH, { recursive: true }); } catch (e) {}
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    const logFile = path.join(CONFIG.LOGS_PATH, `${dateStr}.log`);
+
+    // Rotate if file exceeds configured max size
+    const maxBytes = Math.max(0, Number(CONFIG.LOG_MAX_SIZE_MB || 0)) * 1024 * 1024;
+    const maxFiles = Math.max(1, Number(CONFIG.LOG_MAX_FILES || 1));
+
+    try {
+      if (maxBytes > 0 && fs.existsSync(logFile)) {
+        const st = fs.statSync(logFile);
+        if (st.size >= maxBytes) {
+          // Rotate: shift older files upward and move current to .1
+          for (let i = maxFiles - 1; i >= 1; i--) {
+            const src = path.join(CONFIG.LOGS_PATH, `${dateStr}.log.${i}`);
+            const dst = path.join(CONFIG.LOGS_PATH, `${dateStr}.log.${i + 1}`);
+            if (fs.existsSync(src)) {
+              try { fs.renameSync(src, dst); } catch (e) {}
+            }
+          }
+
+          // Move current log to .1
+          const rotated = path.join(CONFIG.LOGS_PATH, `${dateStr}.log.1`);
+          try { fs.renameSync(logFile, rotated); } catch (e) {}
+
+          // Remove any excess rotated files beyond maxFiles
+          try {
+            const excess = path.join(CONFIG.LOGS_PATH, `${dateStr}.log.${maxFiles + 1}`);
+            if (fs.existsSync(excess)) fs.unlinkSync(excess);
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
     fs.appendFileSync(logFile, JSON.stringify({ timestamp, type, message, ...data }) + '\n');
   } catch (error) {}
 }
