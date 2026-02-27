@@ -112,6 +112,42 @@ const CONFIG = {
   LOG_MAX_FILES: parsePositiveInt(process.env.LOG_MAX_FILES, 7), // number of rotated files to keep
 };
 
+// Ensure existing large log is rotated at startup
+function rotateLogIfNeeded() {
+  try {
+    const dateStr = new Date().toISOString().split('T')[0];
+    const logFile = path.join(CONFIG.LOGS_PATH, `${dateStr}.log`);
+    const maxBytes = Math.max(0, Number(CONFIG.LOG_MAX_SIZE_MB || 0)) * 1024 * 1024;
+    const maxFiles = Math.max(1, Number(CONFIG.LOG_MAX_FILES || 1));
+
+    if (maxBytes > 0 && fs.existsSync(logFile)) {
+      try {
+        const st = fs.statSync(logFile);
+        if (st.size >= maxBytes) {
+          // perform same rotation logic as runtime
+          for (let i = maxFiles - 1; i >= 1; i--) {
+            const src = path.join(CONFIG.LOGS_PATH, `${dateStr}.log.${i}`);
+            const dst = path.join(CONFIG.LOGS_PATH, `${dateStr}.log.${i + 1}`);
+            if (fs.existsSync(src)) {
+              try { fs.renameSync(src, dst); } catch (e) {}
+            }
+          }
+          const rotated = path.join(CONFIG.LOGS_PATH, `${dateStr}.log.1`);
+          try { fs.renameSync(logFile, rotated); } catch (e) {}
+          try {
+            const excess = path.join(CONFIG.LOGS_PATH, `${dateStr}.log.${maxFiles + 1}`);
+            if (fs.existsSync(excess)) fs.unlinkSync(excess);
+          } catch (e) {}
+          console.log(`[LOG ROTATE] Rotated existing large log ${logFile}`);
+        }
+      } catch (e) {}
+    }
+  } catch (e) {}
+}
+
+// Run rotation check immediately so existing big files are handled
+try { rotateLogIfNeeded(); } catch (e) {}
+
 // ============================================
 // AGGRESSIVE DEDUPLICATION SYSTEM
 // ============================================
