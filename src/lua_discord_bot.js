@@ -7,6 +7,7 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns');
 const os = require('os');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
@@ -99,8 +100,9 @@ const CONFIG = {
   MORRENUS_REQUEST_TIMEOUT_MS: parsePositiveInt(process.env.MORRENUS_REQUEST_TIMEOUT_MS, 120000),
   DISCORD_REST_PRECHECK_ENABLED: parseBoolean(process.env.DISCORD_REST_PRECHECK_ENABLED, false),
   DISCORD_REST_CHECK_TIMEOUT_MS: parsePositiveInt(process.env.DISCORD_REST_CHECK_TIMEOUT_MS, 10000),
-  DISCORD_LOGIN_TIMEOUT_MS: parsePositiveInt(process.env.DISCORD_LOGIN_TIMEOUT_MS, 45000),
+  DISCORD_LOGIN_TIMEOUT_MS: parsePositiveInt(process.env.DISCORD_LOGIN_TIMEOUT_MS, 120000),
   DISCORD_LOGIN_RETRY_MAX_DELAY_MS: parsePositiveInt(process.env.DISCORD_LOGIN_RETRY_MAX_DELAY_MS, 300000),
+  DISCORD_FORCE_IPV4: parseBoolean(process.env.DISCORD_FORCE_IPV4, true),
 
   // AUTO-DELETE: Messages auto-delete after 5 minutes
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
@@ -154,6 +156,15 @@ const MESSAGE_HANDLERS = new Set(); // Track processed messages to prevent dupli
 const PROCESS_TIMEOUT = 1000; // 1 second timeout for message processing
 
 console.log(`🚀 BOT INSTANCE: ${BOT_INSTANCE_ID} (v${BOT_VERSION})`);
+
+if (CONFIG.DISCORD_FORCE_IPV4) {
+  try {
+    dns.setDefaultResultOrder('ipv4first');
+    console.log('🌐 DNS default result order set to ipv4first for Discord connectivity');
+  } catch (error) {
+    console.warn('⚠️ Failed to set DNS result order:', error.message);
+  }
+}
 
 
 // ============================================
