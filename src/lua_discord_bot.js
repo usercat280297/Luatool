@@ -42,8 +42,13 @@ const DATA_ROOT = process.env.BOT_DATA_DIR
 // ============================================
 // CONFIGURATION
 // ============================================
+const RESOLVED_DISCORD_TOKEN = String(process.env.BOT_TOKEN || process.env.DISCORD_TOKEN || '').trim();
+const DISCORD_TOKEN_SOURCE = process.env.BOT_TOKEN
+  ? 'BOT_TOKEN'
+  : (process.env.DISCORD_TOKEN ? 'DISCORD_TOKEN' : 'NONE');
+
 const CONFIG = {
-  BOT_TOKEN: process.env.BOT_TOKEN,
+  BOT_TOKEN: RESOLVED_DISCORD_TOKEN,
   STEAM_API_KEY: process.env.STEAM_API_KEY,
   STEAMGRIDDB_API_KEY: process.env.STEAMGRIDDB_API_KEY,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
@@ -315,6 +320,14 @@ if (enableMessageContentIntent) {
 }
 
 const client = new Client({ intents: requestedIntents });
+const loginState = {
+  tokenConfigured: Boolean(CONFIG.BOT_TOKEN),
+  tokenSource: DISCORD_TOKEN_SOURCE,
+  attempts: 0,
+  lastAttemptAt: null,
+  lastError: null,
+  readyAt: null
+};
 
 function ensureDatabaseSchema() {
   if (!database || typeof database !== 'object') {
@@ -4653,12 +4666,16 @@ client.on('interactionCreate', async (interaction) => {
 // ============================================
 
 client.once('clientReady', async () => {
+  loginState.readyAt = new Date().toISOString();
+  loginState.lastError = null;
+
   console.log('\n' + '='.repeat(70));
   console.log('🚀 DISCORD LUA BOT - ENHANCED VERSION 2.0');
   console.log('   Multi-source data + Auto-delete + Online-Fix Integration');
   console.log('='.repeat(70));
   console.log(`✅ Logged in as: ${client.user.tag}`);
   console.log(`🎮 Bot ID: ${client.user.id}`);
+  console.log(`🔐 Discord token source: ${loginState.tokenSource}`);
   console.log(`📊 Legacy command prefix: ${enableMessageContentIntent ? CONFIG.COMMAND_PREFIX : `${CONFIG.COMMAND_PREFIX} (disabled in slash-only mode)`}`);
   console.log(`Slash command: /${GEN_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
   console.log(`Slash command: /${GET_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
@@ -4779,10 +4796,26 @@ console.log('🔐 Logging in to Discord...\n');
 
 // Start Discord login with retries, but DO NOT exit process on failure.
 async function attemptLogin(retries = 0) {
+  loginState.attempts = retries + 1;
+  loginState.lastAttemptAt = new Date().toISOString();
+
+  if (!CONFIG.BOT_TOKEN) {
+    const errorMessage = 'Missing Discord token. Set BOT_TOKEN (preferred) or DISCORD_TOKEN in environment variables.';
+    loginState.lastError = errorMessage;
+    console.error('\n❌ FAILED TO LOGIN TO DISCORD! (missing token)\n');
+    console.error(errorMessage);
+    const delay = Math.min(60000 * Math.pow(2, Math.min(retries, 4)), 5 * 60 * 1000);
+    console.log(`⏳ Retrying Discord login in ${Math.round(delay / 1000)}s (attempt ${retries + 1})`);
+    setTimeout(() => attemptLogin(retries + 1), delay);
+    return;
+  }
+
   try {
     await client.login(CONFIG.BOT_TOKEN);
+    loginState.lastError = null;
     console.log('\n✅ Discord login successful');
   } catch (error) {
+    loginState.lastError = error.message;
     console.error('\n❌ FAILED TO LOGIN TO DISCORD! (will retry)\n');
     console.error('Error:', error.message);
     if (retries === 0) {
@@ -4812,7 +4845,13 @@ app.get('/health', (req, res) => {
     bot: {
       username: client.user?.tag || 'Not logged in',
       id: client.user?.id || 'N/A',
-      status: client.user ? 'online' : 'offline'
+      status: client.user ? 'online' : 'offline',
+      tokenConfigured: loginState.tokenConfigured,
+      tokenSource: loginState.tokenSource,
+      loginAttempts: loginState.attempts,
+      lastLoginAttemptAt: loginState.lastAttemptAt,
+      readyAt: loginState.readyAt,
+      lastLoginError: loginState.lastError
     },
     stats: {
       totalGames: Object.keys(database.games).length,
