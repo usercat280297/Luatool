@@ -5255,5 +5255,222 @@ app.head('/health', (req, res) => {
   res.status(200).end();
 });
 
+// ============================================
+// DIAGNOSTIC ENDPOINT – Deep network checks
+// ============================================
+app.get('/diagnostic', async (req, res) => {
+  const results = {
+    timestamp: new Date().toISOString(),
+    runtime: {
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      uptime: formatUptime(process.uptime()),
+      env: process.env.RENDER ? 'Render' : (process.env.RAILWAY_ENVIRONMENT ? 'Railway' : 'unknown'),
+      region: process.env.RENDER_REGION || process.env.RAILWAY_REGION || 'N/A',
+    },
+    config: {
+      DISCORD_REST_PRECHECK_ENABLED: CONFIG.DISCORD_REST_PRECHECK_ENABLED,
+      DISCORD_FORCE_IPV4: CONFIG.DISCORD_FORCE_IPV4,
+      DISCORD_LOGIN_TIMEOUT_MS: CONFIG.DISCORD_LOGIN_TIMEOUT_MS,
+      tokenConfigured: Boolean(CONFIG.BOT_TOKEN),
+      tokenSource: DISCORD_TOKEN_SOURCE,
+    },
+    loginState: { ...loginState },
+    tests: {},
+  };
+
+  // 1. Outbound IP check
+  try {
+    const ipRes = await axios.get('https://api.ipify.org?format=json', { timeout: 8000 });
+    results.tests.outboundIP = { status: 'ok', ip: ipRes.data?.ip };
+  } catch (err) {
+    results.tests.outboundIP = { status: 'error', error: err.message };
+  }
+
+  // 2. DNS resolution for discord.com & gateway.discord.gg
+  const dnsResolve = promisify(dns.resolve4);
+  for (const host of ['discord.com', 'gateway.discord.gg']) {
+    try {
+      const addresses = await dnsResolve(host);
+      results.tests[`dns_${host.replace(/\./g, '_')}`] = { status: 'ok', addresses };
+    } catch (err) {
+      results.tests[`dns_${host.replace(/\./g, '_')}`] = { status: 'error', error: err.message };
+    }
+  }
+
+  // 3. Discord REST /gateway (unauthenticated – just connectivity)
+  try {
+    const t0 = Date.now();
+    const restRes = await axios.get('https://discord.com/api/v10/gateway', {
+      timeout: 10000,
+      headers: { 'User-Agent': 'LuatoolBot/2.0' },
+      validateStatus: () => true,
+    });
+    const latency = Date.now() - t0;
+    results.tests.discordRestGateway = {
+      status: restRes.status < 300 ? 'ok' : 'blocked',
+      httpStatus: restRes.status,
+      latencyMs: latency,
+      body: restRes.status === 429
+        ? { retryAfter: restRes.data?.retry_after, message: restRes.data?.message }
+        : restRes.data,
+    };
+  } catch (err) {
+    results.tests.discordRestGateway = { status: 'error', error: err.message };
+  }
+
+  // 4. Discord REST /gateway/bot (authenticated – checks token & rate limit)
+  if (CONFIG.BOT_TOKEN) {
+    try {
+      const t0 = Date.now();
+      const botRes = await axios.get('https://discord.com/api/v10/gateway/bot', {
+        timeout: 10000,
+        headers: {
+          Authorization: `Bot ${CONFIG.BOT_TOKEN}`,
+          'User-Agent': 'LuatoolBot/2.0',
+        },
+        validateStatus: () => true,
+      });
+      const latency = Date.now() - t0;
+      results.tests.discordRestGatewayBot = {
+        status: botRes.status < 300 ? 'ok' : (botRes.status === 429 ? 'rate_limited' : 'error'),
+        httpStatus: botRes.status,
+        latencyMs: latency,
+        body: botRes.status === 429
+          ? { retryAfter: botRes.data?.retry_after, global: botRes.data?.global }
+          : (botRes.status < 300
+            ? { url: botRes.data?.url, shards: botRes.data?.shards, sessionStartLimit: botRes.data?.session_start_limit }
+            : { message: botRes.data?.message, code: botRes.data?.code }),
+      };
+    } catch (err) {
+      results.tests.discordRestGatewayBot = { status: 'error', error: err.message };
+    }
+  }
+
+  // 5. Raw TCP connection test to Discord Gateway (port 443)
+  try {
+    const net = require('net');
+    const tcpResult = await new Promise((resolve) => {
+      const t0 = Date.now();
+      const socket = new net.Socket();
+      socket.setTimeout(8000);
+      socket.connect(443, 'gateway.discord.gg', () => {
+        const latency = Date.now() - t0;
+        socket.destroy();
+        resolve({ status: 'ok', latencyMs: latency });
+      });
+      socket.on('error', (err) => {
+        socket.destroy();
+        resolve({ status: 'error', error: err.message });
+      });
+      socket.on('timeout', () => {
+        socket.destroy();
+        resolve({ status: 'timeout', error: 'TCP handshake timed out (8s)' });
+      });
+    });
+    results.tests.tcpGateway = tcpResult;
+  } catch (err) {
+    results.tests.tcpGateway = { status: 'error', error: err.message };
+  }
+
+  // 6. WebSocket upgrade test (TLS + WS handshake to Discord Gateway)
+  try {
+    const https = require('https');
+    const wsResult = await new Promise((resolve) => {
+      const t0 = Date.now();
+      const reqWs = https.request({
+        hostname: 'gateway.discord.gg',
+        port: 443,
+        path: '/?v=10&encoding=json',
+        method: 'GET',
+        headers: {
+          'Connection': 'Upgrade',
+          'Upgrade': 'websocket',
+          'Sec-WebSocket-Version': '13',
+          'Sec-WebSocket-Key': crypto.randomBytes(16).toString('base64'),
+          'User-Agent': 'LuatoolBot/2.0',
+        },
+        timeout: 10000,
+      }, (response) => {
+        const latency = Date.now() - t0;
+        response.destroy();
+        reqWs.destroy();
+        if (response.statusCode === 101) {
+          resolve({ status: 'ok', latencyMs: latency, wsUpgrade: true });
+        } else {
+          resolve({
+            status: 'blocked',
+            httpStatus: response.statusCode,
+            latencyMs: latency,
+            wsUpgrade: false,
+          });
+        }
+      });
+      reqWs.on('upgrade', (response) => {
+        const latency = Date.now() - t0;
+        response.destroy();
+        reqWs.destroy();
+        resolve({ status: 'ok', latencyMs: latency, wsUpgrade: true });
+      });
+      reqWs.on('error', (err) => {
+        reqWs.destroy();
+        resolve({ status: 'error', error: err.message });
+      });
+      reqWs.on('timeout', () => {
+        reqWs.destroy();
+        resolve({ status: 'timeout', error: 'WebSocket handshake timed out (10s)' });
+      });
+      reqWs.end();
+    });
+    results.tests.websocketGateway = wsResult;
+  } catch (err) {
+    results.tests.websocketGateway = { status: 'error', error: err.message };
+  }
+
+  // Summary: determine root cause
+  const blockers = [];
+  if (results.tests.outboundIP?.status !== 'ok') {
+    blockers.push('Cannot determine outbound IP – general network issue.');
+  }
+  for (const host of ['dns_discord_com', 'dns_gateway_discord_gg']) {
+    if (results.tests[host]?.status !== 'ok') {
+      blockers.push(`DNS resolution failed for ${host.replace('dns_', '').replace(/_/g, '.')}.`);
+    }
+  }
+  if (results.tests.discordRestGateway?.httpStatus === 429) {
+    const ra = results.tests.discordRestGateway.body?.retryAfter;
+    blockers.push(`Discord REST rate limited (429). Retry after ${ra}s. This means Render's shared IP is throttled by Discord.`);
+  } else if (results.tests.discordRestGateway?.status !== 'ok') {
+    blockers.push(`Discord REST /gateway unreachable: ${results.tests.discordRestGateway?.error || results.tests.discordRestGateway?.httpStatus}`);
+  }
+  if (results.tests.discordRestGatewayBot?.httpStatus === 429) {
+    const ra = results.tests.discordRestGatewayBot.body?.retryAfter;
+    blockers.push(`Authenticated /gateway/bot rate limited (429). Retry after ${ra}s.`);
+  } else if (results.tests.discordRestGatewayBot?.httpStatus === 401) {
+    blockers.push('Bot token is INVALID (401 Unauthorized). Regenerate on Discord Developer Portal.');
+  }
+  if (results.tests.tcpGateway?.status !== 'ok') {
+    blockers.push(`TCP connection to gateway.discord.gg:443 failed: ${results.tests.tcpGateway?.error || results.tests.tcpGateway?.status}`);
+  }
+  if (results.tests.websocketGateway?.status !== 'ok') {
+    blockers.push(`WebSocket upgrade to Discord Gateway failed: ${results.tests.websocketGateway?.error || results.tests.websocketGateway?.status}`);
+  }
+
+  results.diagnosis = {
+    blockerCount: blockers.length,
+    blockers,
+    recommendation: blockers.length === 0
+      ? 'All network tests passed. Try restarting the service.'
+      : blockers.some(b => b.includes('rate limited') || b.includes('429'))
+        ? 'Render shared IP is rate-limited by Discord. Create a new Render service in a different region or use a dedicated IP.'
+        : blockers.some(b => b.includes('INVALID') || b.includes('401'))
+          ? 'Bot token is invalid. Regenerate at https://discord.com/developers/applications'
+          : 'Network connectivity issue. Check Render logs and outbound firewall rules.',
+  };
+
+  res.status(200).json(results);
+});
+
 startServer(START_PORT);
 
