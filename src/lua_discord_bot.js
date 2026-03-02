@@ -5056,20 +5056,14 @@ async function attemptLogin(retries = 0) {
       console.log(`🌐 Discord gateway reachable (${rest.latencyMs}ms)`);
     } catch (error) {
       if (error?.code === 'DISCORD_RATE_LIMIT') {
-        loginState.lastError = error.message;
-        console.error('\n⚠️ Discord REST rate limited before login. Waiting and retrying.\n');
+        loginState.lastError = `Discord REST precheck rate limited: ${error.message}`;
+        console.error('\n⚠️ Discord REST precheck rate limited. Continuing with direct Discord login attempt.\n');
         console.error('Error:', error.message);
-        loginState.inProgress = false;
-        scheduleLoginRetry(retries + 1, 'discord rest rate limit', error.retryAfterMs);
-        return;
+      } else {
+        loginState.lastError = `Discord REST precheck failed: ${error.message}`;
+        console.error('\n⚠️ Discord REST precheck failed. Continuing with direct Discord login attempt.\n');
+        console.error('Error:', error.message);
       }
-
-      loginState.lastError = `Discord REST unreachable: ${error.message}`;
-      console.error('\n❌ FAILED TO REACH DISCORD REST API! (will retry)\n');
-      console.error('Error:', error.message);
-      loginState.inProgress = false;
-      scheduleLoginRetry(retries + 1, 'discord rest unreachable');
-      return;
     }
   }
 
