@@ -107,6 +107,9 @@ const CONFIG = {
   // AUTO-DELETE: Messages auto-delete after 5 minutes
   AUTO_DELETE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
   ENABLE_AUTO_DELETE: true,
+  ENABLE_DETAILED_LOGGING: parseBoolean(process.env.ENABLE_DETAILED_LOGGING, true),
+  DEBUG_MESSAGE_LOGGING: parseBoolean(process.env.DEBUG_MESSAGE_LOGGING, false),
+  LOG_TO_FILE: parseBoolean(process.env.LOG_TO_FILE, true),
   // Logging rotation
   LOG_MAX_SIZE_MB: parsePositiveInt(process.env.LOG_MAX_SIZE_MB, 10), // rotate when a log file exceeds this size (MB)
   LOG_MAX_FILES: parsePositiveInt(process.env.LOG_MAX_FILES, 7), // number of rotated files to keep
@@ -147,6 +150,36 @@ function rotateLogIfNeeded() {
 
 // Run rotation check immediately so existing big files are handled
 try { rotateLogIfNeeded(); } catch (e) {}
+
+function isBrokenPipeError(error) {
+  if (!error) return false;
+  const message = String(error.message || '');
+  return error.code === 'EPIPE' || message.includes('EPIPE') || message.toLowerCase().includes('broken pipe');
+}
+
+let suppressConsoleOutput = false;
+
+function safeConsole(method, ...args) {
+  if (suppressConsoleOutput) return;
+  try {
+    const fn = typeof console[method] === 'function' ? console[method] : console.log;
+    fn(...args);
+  } catch (error) {
+    if (isBrokenPipeError(error)) {
+      suppressConsoleOutput = true;
+    }
+  }
+}
+
+for (const stream of [process.stdout, process.stderr]) {
+  if (stream && typeof stream.on === 'function') {
+    stream.on('error', (error) => {
+      if (isBrokenPipeError(error)) {
+        suppressConsoleOutput = true;
+      }
+    });
+  }
+}
 
 // ============================================
 // AGGRESSIVE DEDUPLICATION SYSTEM
@@ -807,8 +840,15 @@ function saveGameInfoCache() {
 }
 
 function log(type, message, data = {}) {
+  const normalizedType = String(type || 'INFO').toUpperCase();
+  if (!CONFIG.ENABLE_DETAILED_LOGGING && ['INFO', 'SUCCESS', 'DEBUG'].includes(normalizedType)) {
+    return;
+  }
+
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] [${type}] ${message}`);
+  safeConsole('log', `[${timestamp}] [${normalizedType}] ${message}`);
+
+  if (!CONFIG.LOG_TO_FILE) return;
 
   try {
     // Ensure logs folder exists
@@ -847,7 +887,7 @@ function log(type, message, data = {}) {
       }
     } catch (e) {}
 
-    fs.appendFileSync(logFile, JSON.stringify({ timestamp, type, message, ...data }) + '\n');
+    fs.appendFileSync(logFile, JSON.stringify({ timestamp, type: normalizedType, message, ...data }) + '\n');
   } catch (error) {}
 }
 
@@ -3936,9 +3976,11 @@ async function registerSlashCommands() {
 // ============================================
 
 client.on('messageCreate', async (message) => {
-  try {
-    console.log(`[DEBUG] messageCreate: author=${message.author?.tag || message.author?.id} id=${message.author?.id} channel=${message.channelId} content="${String(message.content).replace(/\n/g, ' ')}"`);
-  } catch (e) { /* ignore logging errors */ }
+  if (CONFIG.DEBUG_MESSAGE_LOGGING) {
+    try {
+      safeConsole('log', `[DEBUG] messageCreate: author=${message.author?.tag || message.author?.id} id=${message.author?.id} channel=${message.channelId} content="${String(message.content).replace(/\n/g, ' ')}"`);
+    } catch (e) { /* ignore logging errors */ }
+  }
 
   if (message.author.bot) return;
   if (!message.content.startsWith(CONFIG.COMMAND_PREFIX)) return;
@@ -4864,18 +4906,20 @@ client.on('shardReconnecting', (shardId) => {
 });
 
 process.on('unhandledRejection', error => {
-  console.error('❌ Unhandled promise rejection:', error);
+  if (isBrokenPipeError(error)) return;
+  safeConsole('error', 'Unhandled promise rejection:', error);
   log('ERROR', 'Unhandled rejection', {
-    error: error.message,
-    stack: error.stack
+    error: error?.message || String(error),
+    stack: error?.stack
   });
 });
 
 process.on('uncaughtException', error => {
-  console.error('❌ Uncaught exception:', error);
+  if (isBrokenPipeError(error)) return;
+  safeConsole('error', 'Uncaught exception:', error);
   log('ERROR', 'Uncaught exception', {
-    error: error.message,
-    stack: error.stack
+    error: error?.message || String(error),
+    stack: error?.stack
   });
 });
 
@@ -5215,15 +5259,6 @@ function startServer(port) {
 // Explicit HEAD handler so uptime monitors receive a fast 200 even when using HEAD
 app.head('/health', (req, res) => {
   res.status(200).end();
-});
-
-// Guard against crashes bringing the process down silently
-process.on('unhandledRejection', (reason) => {
-  console.error('❌ Unhandled Rejection:', reason);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
 });
 
 startServer(START_PORT);
