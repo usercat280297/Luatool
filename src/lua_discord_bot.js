@@ -708,6 +708,91 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ============================================
+// MORRENUS API KEY MANAGEMENT SYSTEM
+// ============================================
+const MORRENUS_DAILY_LIMIT = parsePositiveInt(process.env.MORRENUS_DAILY_LIMIT, 25);
+const MORRENUS_QUOTA_WARNING_THRESHOLD = parsePositiveInt(process.env.MORRENUS_QUOTA_WARNING_THRESHOLD, 5);
+const MORRENUS_RATE_LIMIT_WAIT_MAX_MS = parsePositiveInt(process.env.MORRENUS_RATE_LIMIT_WAIT_MAX_MS, 3600000); // 1 hour max wait
+
+// Per-key tracking state
+const morrenusKeyState = new Map(); // key -> { used, dateKey, exhausted, lastError, lastStatusCode, rateLimitResetAt }
+
+function getMorrenusKeyDateKey() {
+  return new Date().toISOString().split('T')[0]; // YYYY-MM-DD UTC
+}
+
+function getMorrenusKeyStats(apiKey) {
+  const dateKey = getMorrenusKeyDateKey();
+  let state = morrenusKeyState.get(apiKey);
+  if (!state || state.dateKey !== dateKey) {
+    state = {
+      used: 0,
+      dateKey,
+      exhausted: false,
+      lastError: null,
+      lastStatusCode: null,
+      rateLimitResetAt: null,
+    };
+    morrenusKeyState.set(apiKey, state);
+  }
+  return state;
+}
+
+function recordMorrenusKeyUsage(apiKey, statusCode, error = null) {
+  const state = getMorrenusKeyStats(apiKey);
+  state.used += 1;
+  state.lastStatusCode = statusCode;
+  state.lastError = error;
+
+  if (statusCode === 429) {
+    state.exhausted = true;
+    state.rateLimitResetAt = Date.now() + 3600000; // assume 1h reset unless told otherwise
+    log('WARN', `Morrenus key exhausted (429)`, {
+      keyPrefix: apiKey.substring(0, 12) + '...',
+      usedToday: state.used,
+      limit: MORRENUS_DAILY_LIMIT,
+    });
+  } else if (statusCode === 401 || statusCode === 403) {
+    state.exhausted = true;
+    state.lastError = error || `Auth error (${statusCode})`;
+    log('WARN', `Morrenus key auth failed (${statusCode})`, {
+      keyPrefix: apiKey.substring(0, 12) + '...',
+    });
+  }
+
+  // Warning when approaching limit
+  const remaining = Math.max(MORRENUS_DAILY_LIMIT - state.used, 0);
+  if (remaining > 0 && remaining <= MORRENUS_QUOTA_WARNING_THRESHOLD && statusCode >= 200 && statusCode < 300) {
+    log('WARN', `Morrenus key quota low`, {
+      keyPrefix: apiKey.substring(0, 12) + '...',
+      remaining,
+      limit: MORRENUS_DAILY_LIMIT,
+    });
+  }
+}
+
+function isMorrenusKeyAvailable(apiKey) {
+  const state = getMorrenusKeyStats(apiKey);
+
+  // Reset if rate limit period has passed
+  if (state.exhausted && state.rateLimitResetAt && Date.now() >= state.rateLimitResetAt) {
+    state.exhausted = false;
+    state.rateLimitResetAt = null;
+    log('INFO', 'Morrenus key rate limit period expired, re-enabling', {
+      keyPrefix: apiKey.substring(0, 12) + '...',
+    });
+  }
+
+  // Don't use exhausted keys
+  if (state.exhausted) return false;
+
+  // Don't use keys that are at or over daily limit (optimistic tracking)
+  if (state.used >= MORRENUS_DAILY_LIMIT) return false;
+
+  return true;
+}
+
 function getMorrenusApiKeyPool() {
   const unique = new Set();
   const pushIfValid = (candidate) => {
@@ -721,6 +806,82 @@ function getMorrenusApiKeyPool() {
   }
 
   return Array.from(unique);
+}
+
+/**
+ * Get the best available key from the pool, preferring keys with most remaining quota.
+ * Returns null if all keys are exhausted.
+ */
+function getMorrenusNextAvailableKey() {
+  const pool = getMorrenusApiKeyPool();
+  const available = pool.filter(k => isMorrenusKeyAvailable(k));
+
+  if (available.length === 0) return null;
+
+  // Sort by least used first (spread load)
+  available.sort((a, b) => {
+    const stateA = getMorrenusKeyStats(a);
+    const stateB = getMorrenusKeyStats(b);
+    return stateA.used - stateB.used;
+  });
+
+  return available[0];
+}
+
+/**
+ * Get the soonest time any exhausted key becomes available again.
+ * Returns null if no keys are rate-limited (they might just be expired/auth-failed).
+ */
+function getMorrenusNextResetTime() {
+  const pool = getMorrenusApiKeyPool();
+  let soonest = null;
+
+  for (const key of pool) {
+    const state = getMorrenusKeyStats(key);
+    if (state.rateLimitResetAt && (!soonest || state.rateLimitResetAt < soonest)) {
+      soonest = state.rateLimitResetAt;
+    }
+  }
+
+  return soonest;
+}
+
+/**
+ * Get a summary of all Morrenus key states (for health/diagnostic endpoints).
+ */
+function getMorrenusKeyPoolStatus() {
+  const pool = getMorrenusApiKeyPool();
+  const dateKey = getMorrenusKeyDateKey();
+  const keys = pool.map((key, idx) => {
+    const state = getMorrenusKeyStats(key);
+    return {
+      index: idx + 1,
+      keyPrefix: key.substring(0, 12) + '...' + key.substring(key.length - 6),
+      dateKey: state.dateKey,
+      usedToday: state.used,
+      remaining: Math.max(MORRENUS_DAILY_LIMIT - state.used, 0),
+      dailyLimit: MORRENUS_DAILY_LIMIT,
+      exhausted: state.exhausted,
+      lastStatusCode: state.lastStatusCode,
+      lastError: state.lastError,
+      rateLimitResetAt: state.rateLimitResetAt ? new Date(state.rateLimitResetAt).toISOString() : null,
+      available: isMorrenusKeyAvailable(key),
+    };
+  });
+
+  const totalRemaining = keys.reduce((sum, k) => sum + k.remaining, 0);
+  const availableKeys = keys.filter(k => k.available).length;
+  const nextReset = getMorrenusNextResetTime();
+
+  return {
+    totalKeys: pool.length,
+    availableKeys,
+    totalRemaining,
+    totalDailyLimit: MORRENUS_DAILY_LIMIT * pool.length,
+    nextResetAt: nextReset ? new Date(nextReset).toISOString() : null,
+    warningThreshold: MORRENUS_QUOTA_WARNING_THRESHOLD,
+    keys,
+  };
 }
 
 function isMorrenusAuthOrRateStatus(statusCode) {
@@ -2323,8 +2484,30 @@ async function requestMorrenusEndpoint(endpoint, { apiKey, responseType = 'array
         'Accept': responseType === 'text' ? 'text/plain,*/*' : '*/*',
       }
     });
+
+    // Track usage for this key
+    if (apiKey) {
+      recordMorrenusKeyUsage(apiKey, response.status,
+        response.status >= 400 ? (response.data?.detail || response.data?.message || `HTTP ${response.status}`) : null);
+
+      // Parse rate limit info from response headers if available
+      if (response.status === 429) {
+        const state = getMorrenusKeyStats(apiKey);
+        const retryAfterHeader = Number.parseFloat(response.headers?.['retry-after']);
+        const retryAfterBody = Number.parseFloat(
+          typeof response.data === 'object' ? response.data?.retry_after : undefined
+        );
+        const retryAfterSec = Number.isFinite(retryAfterHeader) ? retryAfterHeader
+          : (Number.isFinite(retryAfterBody) ? retryAfterBody : 3600);
+        state.rateLimitResetAt = Date.now() + Math.min(retryAfterSec * 1000, MORRENUS_RATE_LIMIT_WAIT_MAX_MS);
+      }
+    }
+
     return response;
   } catch (error) {
+    if (apiKey) {
+      recordMorrenusKeyUsage(apiKey, 0, error.message);
+    }
     return {
       status: 0,
       error,
@@ -2355,11 +2538,40 @@ async function fetchAndStoreManifestFromMorrenus(appId) {
     };
   }
 
+  // Check if any key is available before starting
+  const availableKey = getMorrenusNextAvailableKey();
+  if (!availableKey) {
+    const nextReset = getMorrenusNextResetTime();
+    const status = getMorrenusKeyPoolStatus();
+    const waitInfo = nextReset
+      ? `Next key reset: ${new Date(nextReset).toISOString()} (${Math.ceil((nextReset - Date.now()) / 60000)} min)`
+      : 'All keys expired/auth-failed. Update keys in .env.';
+    return {
+      ok: false,
+      code: 'ALL_KEYS_EXHAUSTED',
+      message: `All ${status.totalKeys} Morrenus key(s) exhausted. ${waitInfo}`,
+      keyStatus: status,
+    };
+  }
+
   const attempts = [];
   let fallbackNotFound = false;
 
+  // Smart rotation: try available keys only, skip exhausted ones
   for (let index = 0; index < keyPool.length; index++) {
     const apiKey = keyPool[index];
+
+    // Skip keys that are known to be exhausted
+    if (!isMorrenusKeyAvailable(apiKey)) {
+      attempts.push({
+        keyIndex: index + 1,
+        endpoint: 'manifest',
+        status: 0,
+        error: 'Key skipped (exhausted/rate-limited)',
+        skipped: true,
+      });
+      continue;
+    }
 
     const manifestResponse = await requestMorrenusEndpoint(`/api/v1/manifest/${appId}`, {
       apiKey,
@@ -2389,7 +2601,8 @@ async function fetchAndStoreManifestFromMorrenus(appId) {
           keyIndex: index + 1,
           keyCount: keyPool.length,
           primaryFilePath: zipPath,
-          savedFiles: [zipPath]
+          savedFiles: [zipPath],
+          keyStatus: getMorrenusKeyPoolStatus(),
         };
       }
 
@@ -2404,17 +2617,23 @@ async function fetchAndStoreManifestFromMorrenus(appId) {
         keyIndex: index + 1,
         keyCount: keyPool.length,
         primaryFilePath: zipPath,
-        savedFiles: [zipPath, luaPath]
+        savedFiles: [zipPath, luaPath],
+        keyStatus: getMorrenusKeyPoolStatus(),
       };
     }
 
     if (manifestResponse.status !== 404) {
       if (isMorrenusAuthOrRateStatus(manifestResponse.status)) {
-        continue;
+        continue; // Key exhausted, try next key
       }
       if (manifestResponse.status >= 500 || manifestResponse.status === 0) {
         continue;
       }
+    }
+
+    // Skip lua fallback if this key just got exhausted
+    if (!isMorrenusKeyAvailable(apiKey)) {
+      continue;
     }
 
     const luaResponse = await requestMorrenusEndpoint(`/api/v1/lua/${appId}`, {
@@ -2444,7 +2663,8 @@ async function fetchAndStoreManifestFromMorrenus(appId) {
         keyIndex: index + 1,
         keyCount: keyPool.length,
         primaryFilePath: zipPath,
-        savedFiles: [zipPath, luaPath]
+        savedFiles: [zipPath, luaPath],
+        keyStatus: getMorrenusKeyPoolStatus(),
       };
     }
 
@@ -2454,28 +2674,35 @@ async function fetchAndStoreManifestFromMorrenus(appId) {
     }
   }
 
-  const statuses = attempts.map(item => item.status);
+  const statuses = attempts.filter(a => !a.skipped).map(item => item.status);
   const allAuthOrRate = statuses.length > 0 && statuses.every(status => isMorrenusAuthOrRateStatus(status));
   const hasRateLimit = statuses.includes(429);
   const hasAuthError = statuses.includes(401) || statuses.includes(403);
   const all404 = statuses.length > 0 && statuses.every(status => status === 404);
   const lastStatus = statuses.length ? statuses[statuses.length - 1] : 0;
+  const keyStatus = getMorrenusKeyPoolStatus();
 
   if (all404 || (fallbackNotFound && !hasAuthError && !hasRateLimit)) {
     return {
       ok: false,
       code: 'NOT_FOUND',
       message: 'No manifest/lua available on upstream for this AppID.',
-      attempts
+      attempts,
+      keyStatus,
     };
   }
 
   if (allAuthOrRate && hasRateLimit) {
+    const nextReset = getMorrenusNextResetTime();
+    const waitInfo = nextReset
+      ? ` Next reset: ~${Math.ceil((nextReset - Date.now()) / 60000)} min.`
+      : '';
     return {
       ok: false,
       code: 'RATE_LIMIT',
-      message: 'All configured Morrenus keys hit rate limit (429). Please rotate/revoke and retry.',
-      attempts
+      message: `All Morrenus keys hit rate limit (429).${waitInfo} Go to https://manifest.morrenus.xyz/api-keys/user to generate a new key.`,
+      attempts,
+      keyStatus,
     };
   }
 
@@ -2483,8 +2710,9 @@ async function fetchAndStoreManifestFromMorrenus(appId) {
     return {
       ok: false,
       code: 'AUTH_ERROR',
-      message: 'Morrenus API key unauthorized/forbidden. Please reset key in dashboard and update .env.',
-      attempts
+      message: 'Morrenus API key unauthorized/expired. Go to https://manifest.morrenus.xyz/api-keys/user to generate a new key and update .env.',
+      attempts,
+      keyStatus,
     };
   }
 
@@ -2492,7 +2720,8 @@ async function fetchAndStoreManifestFromMorrenus(appId) {
     ok: false,
     code: 'UPSTREAM_ERROR',
     message: `Morrenus request failed (last status: ${lastStatus || 'network error'}).`,
-    attempts
+    attempts,
+    keyStatus,
   };
 }
 
@@ -2994,13 +3223,13 @@ function buildSlashValidationErrorEmbed(rawInput, resolution, commandName = 'gen
 function buildProcessingEmbed(displayName, appId) {
   return new EmbedBuilder()
     .setColor(0x00B8D9)
-    .setTitle('â³ Processing...')
+    .setTitle('Processing...')
     .setDescription(
       `**${displayName}** (Game ID: \`${appId}\`)\n\n` +
       'Generating files, please wait...\n' +
       'This may take a few seconds depending on game size.'
     )
-    .setFooter({ text: 'Solus Gen â€¢ Preparing accurate game data & manifests' });
+    .setFooter({ text: 'Solus Gen | Preparing accurate game data and manifests' });
 }
 
 function buildGetProcessingEmbed(displayName, appId) {
@@ -3012,7 +3241,7 @@ function buildGetProcessingEmbed(displayName, appId) {
       'Checking upstream manifest/lua source and storing to local library.\n' +
       'Please wait while we process your request.'
     )
-    .setFooter({ text: 'Solus Get â€¢ Upstream fetch queue in progress' });
+    .setFooter({ text: 'Solus Get | Upstream fetch queue in progress' });
 }
 
 async function handleGenSlashCommand(interaction) {
@@ -4527,6 +4756,7 @@ app.get('/health', (req, res) => {
       totalDownloads: database.stats.totalDownloads,
       totalSearches: database.stats.totalSearches,
     },
+    morrenus: getMorrenusKeyPoolStatus(),
     config: {
       autoDelete: CONFIG.ENABLE_AUTO_DELETE,
       autoDeleteTimeout: CONFIG.AUTO_DELETE_TIMEOUT / 1000 + 's',
@@ -4534,6 +4764,20 @@ app.get('/health', (req, res) => {
     },
     timestamp: new Date().toISOString(),
     year: new Date().getFullYear(),
+  });
+});
+
+// ============================================
+// MORRENUS KEY STATUS ENDPOINT
+// ============================================
+app.get('/morrenus-status', (req, res) => {
+  const status = getMorrenusKeyPoolStatus();
+  res.status(200).json({
+    ...status,
+    timestamp: new Date().toISOString(),
+    tip: status.availableKeys === 0
+      ? 'All keys exhausted. Go to https://manifest.morrenus.xyz/api-keys/user to generate a new key, then add it to MORRENUS_API_KEYS in environment.'
+      : `${status.totalRemaining} requests remaining across ${status.availableKeys} active key(s).`,
   });
 });
 
@@ -4636,7 +4880,8 @@ function startServer(port) {
   const server = app.listen(port, () => {
     console.log(`âœ… Health check server running on port ${port}`);
     console.log(`ðŸŒ Access at: http://localhost:${port}`);
-    console.log(`ðŸ“Š Health endpoint: http://localhost:${port}/health\n`);
+    console.log(`ðŸ“Š Health endpoint: http://localhost:${port}/health);
+    console.log(🔑 Morrenus status: http://localhost:${port}/morrenus-status\n`);
   });
 
   server.on('error', (error) => {
