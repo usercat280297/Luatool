@@ -486,12 +486,13 @@ function formatDailyQuotaRemaining(quota) {
 }
 
 function buildVietnameseUsageGuideText() {
+  const ARROW_GLOW_URL = 'https://cdn3.emoji.gg/emojis/3716_ArrowRightGlow.gif';
   return [
     '## ***CÁCH SỬ DỤNG BOT***',
-    ':2353arrowrightglow: ***Nhập lệnh: `/gen appid` và điền tên game hoặc appid để lấy file lua game***',
-    ':2353arrowrightglow: ***Nếu chưa có file lua game, nhập lệnh: `/get appid` và điền tên game/appid. Bot sẽ fetch từ nguồn nội bộ, lưu vào kho, sau đó dùng lại `/gen appid` như cũ***',
-    ':2353arrowrightglow: ***Nếu chỉ muốn xem thông tin game, nhập lệnh: `/steam appid` và điền tên game/appid***',
-    ':2353arrowrightglow: ***Dùng `/help` để xem lại hướng dẫn bất kỳ lúc nào***',
+    `${ARROW_GLOW_URL} ***Nhập lệnh: \`/gen appid\` và điền tên game hoặc appid để lấy file lua game***`,
+    `${ARROW_GLOW_URL} ***Nếu chưa có file lua game, nhập lệnh: \`/get appid\` và điền tên game/appid. Bot sẽ fetch từ nguồn nội bộ, lưu vào kho, sau đó dùng lại \`/gen appid\` như cũ***`,
+    `${ARROW_GLOW_URL} ***Nếu chỉ muốn xem thông tin game, nhập lệnh: \`/steam appid\` và điền tên game/appid***`,
+    `${ARROW_GLOW_URL} ***Dùng \`/help\` để xem lại hướng dẫn bất kỳ lúc nào***`,
   ].join('\n');
 }
 
@@ -2726,7 +2727,7 @@ async function handleGameCommand(message, appId) {
       content: hasManifestFiles
         ? null
         : `${ICONS.warning} **No Lua/Package available yet** for \`${appId}\`.\n` +
-          `Use \`/get appid:${appId}\` (or \`${CONFIG.COMMAND_PREFIX}get ${appId}\`) to request upstream fetch.`,
+          `Use \`/get appid:${appId}\` to request upstream fetch.`,
       embeds: [embed],
       components: rows,
     };
@@ -3202,7 +3203,7 @@ async function handleSearchCommand(message, query) {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle(`${ICONS.game} Search Results: "**${query}**"`)
-      .setDescription(`Found ${results.length} game(s). Use \`!${CONFIG.COMMAND_PREFIX}<appid>\` to view details.`);
+      .setDescription(`Found ${results.length} game(s). Use \`/gen appid:<appid>\` to view details.`);
 
     // Show results in pages if too many
     const maxDisplay = 10; // Giáº£m xuá»‘ng 10 Ä‘á»ƒ hiá»ƒn thá»‹ áº£nh Ä‘áº¹p hÆ¡n
@@ -3830,7 +3831,7 @@ async function handleHelpSlashCommand(interaction) {
 async function handleGetLegacyCommand(message, rawInput) {
   const input = String(rawInput || '').trim();
   if (!input) {
-    const usageMsg = await message.reply(`${ICONS.info} Usage: \`${CONFIG.COMMAND_PREFIX}get <appid-or-name>\``);
+    const usageMsg = await message.reply(`${ICONS.info} Usage: \`/get appid:<appid-or-name>\``);
     scheduleMessageDeletion(usageMsg);
     return;
   }
@@ -3881,7 +3882,7 @@ async function handleGetLegacyCommand(message, rawInput) {
     `Source: \`${fetchResult.sourceEndpoint}\` (key ${fetchResult.keyIndex}/${fetchResult.keyCount})`,
     `Saved: ${fetchResult.savedFiles.map(item => `\`${path.basename(item)}\``).join(', ') || 'none'}`,
     githubUrl ? `GitHub: ${githubUrl}` : 'GitHub upload: failed or skipped',
-    `Now use \`/gen appid:${appId}\` or \`${CONFIG.COMMAND_PREFIX}${appId}\`.`
+    `Now use \`/gen appid:${appId}\` to get the file.`
   ];
 
   await loadingMsg.edit(successLines.join('\n'));
@@ -4127,7 +4128,7 @@ client.on('messageCreate', async (message) => {
 
     // Unknown command
     const unknownMsg = await message.reply(
-      `${ICONS.cross} Unknown command! Use \`${CONFIG.COMMAND_PREFIX}help\` for help.`
+      `${ICONS.cross} Unknown command! Use \`/help\` for help.`
     );
     scheduleMessageDeletion(unknownMsg);
 
@@ -4613,7 +4614,7 @@ client.on('interactionCreate', async (interaction) => {
             },
             {
               name: 'Request fetch',
-              value: `\`/get appid:${appId}\` or \`${CONFIG.COMMAND_PREFIX}get ${appId}\``,
+              value: `\`/get appid:${appId}\``,
               inline: false
             }
           );
