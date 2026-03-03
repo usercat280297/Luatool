@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 /**
  * Morrenus API Key Manager - Playwright Automation
- * 
+ *
  * Quản lý API key tự động cho Morrenus Games Manifest API.
  * Sử dụng Playwright (Chromium) để bypass Cloudflare và thao tác trên web dashboard.
- * 
+ *
  * Commands:
  *   login     - Mở browser có giao diện, đăng nhập Discord OAuth, lưu session
  *   generate  - Headless: tạo key mới (revoke cũ nếu có)
  *   revoke    - Headless: revoke key hiện tại
  *   status    - Headless: kiểm tra trạng thái key hiện tại
  *   extract   - Headless: lấy API key hiện tại
- * 
+ *
  * Usage:
  *   node scripts/morrenus_key_manager.js login
  *   node scripts/morrenus_key_manager.js generate
  *   node scripts/morrenus_key_manager.js status
- * 
+ *
  * RAM Optimization:
  *   - Chỉ dùng Chromium (không Firefox/WebKit)
  *   - Launch headless, single process, disable GPU
@@ -134,12 +134,12 @@ async function saveSession(context) {
 async function isLoggedIn(page) {
   try {
     await page.goto(API_KEYS_URL, { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
-    
+
     // Đợi Cloudflare challenge nếu có (tối đa 10s)
     for (let i = 0; i < 5; i++) {
       const bodyText = await page.textContent('body').catch(() => '');
       const currentUrl = page.url();
-      if (bodyText.includes('Checking your browser') || 
+      if (bodyText.includes('Checking your browser') ||
           bodyText.includes('Just a moment') ||
           currentUrl.includes('challenge')) {
         log(`   ⏳ Cloudflare challenge detected, waiting... (attempt ${i + 1})`);
@@ -571,7 +571,7 @@ async function cmdExtract() {
       log('⚠️ Could not extract key. It may be hidden or require clicking to reveal.');
       // Screenshot for debug
       await page.screenshot({ path: path.join(SESSION_DIR, 'debug_extract.png') });
-      
+
       // Dump full HTML
       const html = await page.content();
       fs.writeFileSync(path.join(SESSION_DIR, 'page_dump.html'), html);
@@ -620,9 +620,58 @@ function updateEnvKey(newKey) {
     const keyFile = path.join(__dirname, '..', '.morrenus_active_key');
     fs.writeFileSync(keyFile, newKey);
     log(`✅ Active key written to .morrenus_active_key`);
+
+    // 🌐 Auto-sync key lên Render (nếu có URL và ADMIN_TOKEN)
+    syncKeyToRender(newKey).catch(() => {});
   }
 
   return updated;
+}
+
+/**
+ * Sync key mới lên Render bot qua HTTP endpoint /update-morrenus-key
+ * Cần RENDER_URL và ADMIN_TOKEN trong .env
+ */
+async function syncKeyToRender(newKey) {
+  try {
+    // Đọc env config
+    const envContent = fs.existsSync(ENV_PATH) ? fs.readFileSync(ENV_PATH, 'utf8') : '';
+    
+    // Lấy Render URL (PUBLIC_BASE_URL hoặc RENDER_URL)
+    const renderUrlMatch = envContent.match(/(?:RENDER_URL|PUBLIC_BASE_URL)=(.+)/);
+    const renderUrl = renderUrlMatch ? renderUrlMatch[1].trim() : null;
+    
+    // Lấy ADMIN_TOKEN
+    const adminTokenMatch = envContent.match(/ADMIN_TOKEN=(.+)/);
+    const adminToken = adminTokenMatch ? adminTokenMatch[1].trim() : null;
+
+    if (!renderUrl || !adminToken || renderUrl.includes('localhost')) {
+      log('ℹ️ Render sync skipped (no remote URL or ADMIN_TOKEN)');
+      return;
+    }
+
+    const url = `${renderUrl}/update-morrenus-key`;
+    log(`🌐 Syncing key to Render: ${url}`);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': adminToken,
+      },
+      body: JSON.stringify({ key: newKey }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      log(`✅ Key synced to Render! Pool size: ${data.poolSize || '?'}`);
+    } else {
+      log(`⚠️ Render sync failed (${response.status}): ${data.error || 'unknown'}`);
+    }
+  } catch (e) {
+    log(`⚠️ Render sync error: ${e.message}`);
+  }
 }
 
 // ========== MAIN ==========

@@ -753,15 +753,21 @@ function recordMorrenusKeyUsage(apiKey, statusCode, error = null) {
       usedToday: state.used,
       limit: MORRENUS_DAILY_LIMIT,
     });
+    // 🤖 Trigger auto-regen khi bị rate limit
+    if (MORRENUS_AUTO_REGEN_ON_LIMIT) {
+      morrenusSmartAutoRegen('rate_limit_429').catch(() => {});
+    }
   } else if (statusCode === 401 || statusCode === 403) {
     state.exhausted = true;
     state.lastError = error || `Auth error (${statusCode})`;
     log('WARN', `Morrenus key auth failed (${statusCode})`, {
       keyPrefix: apiKey.substring(0, 12) + '...',
     });
+    // 🤖 Trigger auto-regen khi key bị auth fail (có thể expired)
+    morrenusSmartAutoRegen('auth_failed').catch(() => {});
   }
 
-  // Warning when approaching limit
+  // Warning when approaching limit → trigger preemptive regen
   const remaining = Math.max(MORRENUS_DAILY_LIMIT - state.used, 0);
   if (remaining > 0 && remaining <= MORRENUS_QUOTA_WARNING_THRESHOLD && statusCode >= 200 && statusCode < 300) {
     log('WARN', `Morrenus key quota low`, {
@@ -769,6 +775,11 @@ function recordMorrenusKeyUsage(apiKey, statusCode, error = null) {
       remaining,
       limit: MORRENUS_DAILY_LIMIT,
     });
+    // 🤖 Preemptive: regenerate trước khi hết hoàn toàn
+    if (MORRENUS_AUTO_REGEN_ON_LIMIT && remaining <= MORRENUS_AUTO_REGEN_LIMIT_THRESHOLD) {
+      console.log(`[Morrenus] 🔄 Preemptive regen: only ${remaining} uses left.`);
+      morrenusSmartAutoRegen('preemptive_limit').catch(() => {});
+    }
   }
 }
 
@@ -893,6 +904,148 @@ let morrenusAutoGenerateInProgress = false;
 let morrenusLastAutoGenerateAttempt = 0;
 const MORRENUS_AUTO_GENERATE_COOLDOWN_MS = 300000; // 5 min cooldown giữa các lần generate
 
+// === AUTO-REGEN CONFIG ===
+const MORRENUS_AUTO_REGEN_ON_LIMIT = process.env.MORRENUS_AUTO_REGEN_ON_LIMIT !== 'false'; // default true
+const MORRENUS_AUTO_REGEN_ON_EXPIRY = process.env.MORRENUS_AUTO_REGEN_ON_EXPIRY !== 'false'; // default true
+const MORRENUS_AUTO_REGEN_EXPIRY_HOURS = parsePositiveInt(process.env.MORRENUS_AUTO_REGEN_EXPIRY_HOURS, 24); // regenerate khi còn <24h
+const MORRENUS_AUTO_REGEN_LIMIT_THRESHOLD = parsePositiveInt(process.env.MORRENUS_AUTO_REGEN_LIMIT_THRESHOLD, 2); // regenerate khi còn <=2 lượt
+const MORRENUS_AUTO_REGEN_CHECK_INTERVAL_MS = parsePositiveInt(process.env.MORRENUS_AUTO_REGEN_CHECK_INTERVAL_MS, 600000); // check mỗi 10 phút
+let morrenusKeyExpiry = null; // Date object - thời gian hết hạn key hiện tại
+let morrenusLastRegenCheck = 0;
+
+/**
+ * Kiểm tra key status từ Morrenus (headless) và cập nhật thông tin expiry
+ * Trả về { todayUsage, dailyLimit, timeLeftHours, hasActiveKey, expires }
+ */
+async function morrenusCheckKeyStatusViaPlaywright() {
+  const browserDataDir = path.join(MORRENUS_SESSION_DIR, 'browser-data');
+  const sessionFile = path.join(MORRENUS_SESSION_DIR, 'state.json');
+  if (!fs.existsSync(sessionFile) && !fs.existsSync(browserDataDir)) return null;
+
+  const scriptPath = path.join(__dirname, '..', 'scripts', 'morrenus_key_manager.js');
+  if (!fs.existsSync(scriptPath)) return null;
+
+  try {
+    const { execSync } = require('child_process');
+    const output = execSync(`node "${scriptPath}" status`, {
+      timeout: 60000,
+      encoding: 'utf8',
+      cwd: path.join(__dirname, '..'),
+    });
+
+    // Parse STATUS_JSON=...
+    const jsonMatch = output.match(/STATUS_JSON=({.*})/);
+    if (jsonMatch) {
+      const status = JSON.parse(jsonMatch[1]);
+      
+      // Parse timeLeft: "6d 22h" → hours
+      let timeLeftHours = null;
+      if (status.timeLeft) {
+        const dMatch = status.timeLeft.match(/(\d+)d/);
+        const hMatch = status.timeLeft.match(/(\d+)h/);
+        timeLeftHours = (dMatch ? parseInt(dMatch[1]) * 24 : 0) + (hMatch ? parseInt(hMatch[1]) : 0);
+      }
+
+      // Parse expires date
+      if (status.expires) {
+        try {
+          morrenusKeyExpiry = new Date(status.expires);
+        } catch (_) {}
+      }
+
+      return {
+        todayUsage: status.todayUsage,
+        dailyLimit: status.dailyLimit,
+        remaining: status.dailyLimit && status.todayUsage != null ? status.dailyLimit - status.todayUsage : null,
+        timeLeftHours,
+        hasActiveKey: status.hasActiveKey,
+        expires: status.expires,
+      };
+    }
+
+    if (output.includes('SESSION_EXPIRED')) {
+      console.log('[Morrenus] ❌ Playwright session expired for status check.');
+    }
+    return null;
+  } catch (e) {
+    console.warn(`[Morrenus] ⚠️ Status check failed: ${e.message}`);
+    return null;
+  }
+}
+
+/**
+ * Smart auto-regen: kiểm tra điều kiện và tự động generate key mới
+ * Triggers:
+ *   1. Daily limit gần hết (remaining <= threshold)
+ *   2. Key sắp hết hạn (< EXPIRY_HOURS)
+ *   3. Tất cả key exhausted (như cũ)
+ */
+async function morrenusSmartAutoRegen(trigger = 'unknown') {
+  if (!MORRENUS_AUTO_REGEN_ON_LIMIT && !MORRENUS_AUTO_REGEN_ON_EXPIRY && trigger !== 'exhausted') {
+    return null;
+  }
+
+  console.log(`[Morrenus] 🔍 Smart auto-regen triggered by: ${trigger}`);
+  const newKey = await morrenusAutoGenerateKey();
+  if (newKey) {
+    console.log(`[Morrenus] ✅ Smart auto-regen success (trigger: ${trigger}): ${newKey.substring(0, 20)}...`);
+  } else {
+    console.log(`[Morrenus] ⚠️ Smart auto-regen failed (trigger: ${trigger})`);
+  }
+  return newKey;
+}
+
+/**
+ * Periodic check: chạy mỗi 10 phút, kiểm tra và auto-regen nếu cần
+ */
+async function morrenusPeriodicRegenCheck() {
+  // Cooldown
+  if (Date.now() - morrenusLastRegenCheck < MORRENUS_AUTO_REGEN_CHECK_INTERVAL_MS) return;
+  morrenusLastRegenCheck = Date.now();
+
+  // Kiểm tra có Playwright session không
+  const browserDataDir = path.join(MORRENUS_SESSION_DIR, 'browser-data');
+  const sessionFile = path.join(MORRENUS_SESSION_DIR, 'state.json');
+  if (!fs.existsSync(sessionFile) && !fs.existsSync(browserDataDir)) return;
+
+  console.log('[Morrenus] 🔍 Periodic regen check...');
+
+  try {
+    const status = await morrenusCheckKeyStatusViaPlaywright();
+    if (!status) {
+      console.log('[Morrenus] ⚠️ Could not check status, skipping periodic regen.');
+      return;
+    }
+
+    console.log(`[Morrenus] 📊 Key status: active=${status.hasActiveKey}, usage=${status.todayUsage}/${status.dailyLimit}, remaining=${status.remaining}, timeLeft=${status.timeLeftHours}h, expires=${status.expires}`);
+
+    // Không có active key → generate ngay
+    if (!status.hasActiveKey) {
+      console.log('[Morrenus] ⚠️ No active key! Generating...');
+      await morrenusSmartAutoRegen('no_active_key');
+      return;
+    }
+
+    // Check 1: Daily limit gần hết
+    if (MORRENUS_AUTO_REGEN_ON_LIMIT && status.remaining != null && status.remaining <= MORRENUS_AUTO_REGEN_LIMIT_THRESHOLD) {
+      console.log(`[Morrenus] ⚠️ Daily limit nearly reached: ${status.remaining} remaining (threshold: ${MORRENUS_AUTO_REGEN_LIMIT_THRESHOLD}). Auto-regenerating...`);
+      await morrenusSmartAutoRegen('daily_limit_reached');
+      return;
+    }
+
+    // Check 2: Key sắp hết hạn
+    if (MORRENUS_AUTO_REGEN_ON_EXPIRY && status.timeLeftHours != null && status.timeLeftHours <= MORRENUS_AUTO_REGEN_EXPIRY_HOURS) {
+      console.log(`[Morrenus] ⚠️ Key expiring soon: ${status.timeLeftHours}h left (threshold: ${MORRENUS_AUTO_REGEN_EXPIRY_HOURS}h). Auto-regenerating...`);
+      await morrenusSmartAutoRegen('expiry_soon');
+      return;
+    }
+
+    console.log('[Morrenus] ✅ Key healthy, no regen needed.');
+  } catch (e) {
+    console.warn(`[Morrenus] ⚠️ Periodic regen check error: ${e.message}`);
+  }
+}
+
 /**
  * Hot-reload Morrenus key từ file .morrenus_active_key
  * Cho phép cập nhật key mà không cần restart bot
@@ -1005,6 +1158,20 @@ async function morrenusAutoGenerateKey() {
 setInterval(() => {
   morrenusHotReloadKey();
 }, 30000);
+
+// Periodic auto-regen check: mỗi 10 phút kiểm tra expiry/limit
+setInterval(() => {
+  morrenusPeriodicRegenCheck().catch(e => {
+    console.warn(`[Morrenus] ⚠️ Periodic regen check error: ${e.message}`);
+  });
+}, MORRENUS_AUTO_REGEN_CHECK_INTERVAL_MS);
+
+// Chạy check đầu tiên sau 60s (cho bot khởi động xong)
+setTimeout(() => {
+  morrenusPeriodicRegenCheck().catch(e => {
+    console.warn(`[Morrenus] ⚠️ Initial regen check error: ${e.message}`);
+  });
+}, 60000);
 
 function isMorrenusAuthOrRateStatus(statusCode) {
   return statusCode === 401 || statusCode === 403 || statusCode === 429;
@@ -4910,9 +5077,22 @@ app.get('/morrenus-status', (req, res) => {
   const status = getMorrenusKeyPoolStatus();
   res.status(200).json({
     ...status,
+    autoRegen: {
+      enabled: MORRENUS_AUTO_REGEN_ON_LIMIT || MORRENUS_AUTO_REGEN_ON_EXPIRY,
+      onLimit: MORRENUS_AUTO_REGEN_ON_LIMIT,
+      onExpiry: MORRENUS_AUTO_REGEN_ON_EXPIRY,
+      expiryThresholdHours: MORRENUS_AUTO_REGEN_EXPIRY_HOURS,
+      limitThreshold: MORRENUS_AUTO_REGEN_LIMIT_THRESHOLD,
+      checkIntervalMs: MORRENUS_AUTO_REGEN_CHECK_INTERVAL_MS,
+      lastCheckAt: morrenusLastRegenCheck ? new Date(morrenusLastRegenCheck).toISOString() : null,
+      generateInProgress: morrenusAutoGenerateInProgress,
+      lastGenerateAttempt: morrenusLastAutoGenerateAttempt ? new Date(morrenusLastAutoGenerateAttempt).toISOString() : null,
+      hasPlaywrightSession: fs.existsSync(path.join(MORRENUS_SESSION_DIR, 'browser-data')) || fs.existsSync(path.join(MORRENUS_SESSION_DIR, 'state.json')),
+      keyExpiry: morrenusKeyExpiry ? morrenusKeyExpiry.toISOString() : null,
+    },
     timestamp: new Date().toISOString(),
     tip: status.availableKeys === 0
-      ? 'All keys exhausted. Go to https://manifest.morrenus.xyz/api-keys/user to generate a new key, then add it to MORRENUS_API_KEYS in environment.'
+      ? 'All keys exhausted. Auto-regen will trigger if Playwright session is available.'
       : `${status.totalRemaining} requests remaining across ${status.availableKeys} active key(s).`,
   });
 });
@@ -5080,8 +5260,8 @@ function startServer(port) {
   const server = app.listen(port, () => {
     console.log(`âœ… Health check server running on port ${port}`);
     console.log(`ðŸŒ Access at: http://localhost:${port}`);
-    console.log(`ðŸ“Š Health endpoint: http://localhost:${port}/health);
-    console.log(🔑 Morrenus status: http://localhost:${port}/morrenus-status\n`);
+    console.log(`ðŸ“Š Health endpoint: http://localhost:${port}/health`);
+    console.log(`🔑 Morrenus status: http://localhost:${port}/morrenus-status\n`);
   });
 
   server.on('error', (error) => {
