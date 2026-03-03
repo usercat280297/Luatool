@@ -233,7 +233,15 @@ const GET_SLASH_COMMAND = {
   ]
 };
 
-const SLASH_COMMAND_DEFINITIONS = [GEN_SLASH_COMMAND, GET_SLASH_COMMAND];
+const HELP_SLASH_COMMAND = {
+  name: 'help',
+  description: 'Huong dan su dung bot (Tieng Viet)',
+  dm_permission: false,
+  defaultMemberPermissions: null,
+  options: []
+};
+
+const SLASH_COMMAND_DEFINITIONS = [GEN_SLASH_COMMAND, GET_SLASH_COMMAND, HELP_SLASH_COMMAND];
 
 const AUTOCOMPLETE_LIMIT = 25;
 const AUTOCOMPLETE_CACHE_TTL = 60 * 1000;
@@ -470,6 +478,28 @@ function formatDailyQuotaRemaining(quota) {
   return `You have ${quota.remaining}/${quota.limit} downloads remaining today.`;
 }
 
+function buildVietnameseUsageGuideText() {
+  return [
+    '## ***CÁCH SỬ DỤNG BOT***',
+    ':2353arrowrightglow: ***Nhập lệnh: `/gen appid` và điền tên game hoặc appid để lấy file lua game***',
+    ':2353arrowrightglow: ***Nếu chưa có file lua game, nhập lệnh: `/get appid` và điền tên game/appid. Bot sẽ fetch từ nguồn nội bộ, lưu vào kho, sau đó dùng lại `/gen appid` như cũ***',
+    ':2353arrowrightglow: ***Nếu chỉ muốn xem thông tin game, nhập lệnh: `/steam appid` và điền tên game/appid***',
+    ':2353arrowrightglow: ***Dùng `/help` để xem lại hướng dẫn bất kỳ lúc nào***',
+  ].join('\n');
+}
+
+function scheduleMessageDeletionWithDelay(message, delayMs = CONFIG.AUTO_DELETE_TIMEOUT) {
+  if (!CONFIG.ENABLE_AUTO_DELETE || !message) return;
+
+  setTimeout(async () => {
+    try {
+      if (message.deletable) {
+        await message.delete();
+      }
+    } catch (_) {}
+  }, Math.max(Number(delayMs) || CONFIG.AUTO_DELETE_TIMEOUT, 1000));
+}
+
 async function registerSuccessfulDownload({ appId, gameName, fileType, fileName, fileSize, user }) {
   ensureDatabaseSchema();
 
@@ -506,14 +536,30 @@ async function registerSuccessfulDownload({ appId, gameName, fileType, fileName,
 }
 
 async function sendDailyQuotaRemaining(interaction, quota) {
-  const quotaMessage = formatDailyQuotaRemaining(quota);
-  if (!quotaMessage) return;
-
   try {
-    await interaction.followUp({
-      content: quotaMessage,
-      ephemeral: true
-    });
+    const channel = interaction.channel;
+    if (!channel || !channel.send) return;
+
+    const quotaText = quota?.enabled
+      ? `📥 <@${interaction.user.id}> tải thành công. Bạn còn **${quota.remaining}/${quota.limit}** lượt tải hôm nay.`
+      : `📥 <@${interaction.user.id}> tải thành công.`;
+
+    const quotaMsg = await channel.send({ content: quotaText });
+    scheduleMessageDeletionWithDelay(quotaMsg, 5 * 60 * 1000);
+
+    setTimeout(async () => {
+      try {
+        const guideMsg = await channel.send({
+          content: buildVietnameseUsageGuideText()
+        });
+        scheduleMessageDeletionWithDelay(guideMsg, 5 * 60 * 1000);
+      } catch (error) {
+        log('WARN', 'Failed to send delayed usage guide', {
+          user: interaction.user?.tag,
+          error: error.message
+        });
+      }
+    }, 10000);
   } catch (error) {
     log('WARN', 'Failed to send daily quota follow-up', {
       user: interaction.user?.tag,
@@ -3221,43 +3267,28 @@ async function handleSearchCommand(message, query) {
 async function handleHelpCommand(message) {
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle(`${ICONS.game} Discord Lua Bot - Enhanced v2.0`)
-    .setDescription('Bot with new features: Auto-delete, Online-Fix, Expanded DRM database')
+    .setTitle(`${ICONS.game} Hướng dẫn sử dụng bot`)
+    .setDescription(buildVietnameseUsageGuideText())
     .addFields(
       {
-        name: `${ICONS.sparkles} Commands`,
+        name: `${ICONS.sparkles} Lệnh chính`,
         value: [
-          '`/gen appid:<id-or-name>` - Default slash command',
-          '`/get appid:<id-or-name>` - Fetch upstream and store in library',
-          `\`${CONFIG.COMMAND_PREFIX}<appid>\` - View full game info`,
-          `\`${CONFIG.COMMAND_PREFIX}get <id-or-name>\` - Same as /get`,
-          `\`${CONFIG.COMMAND_PREFIX}search <name>\` - Search games`,
-          `\`${CONFIG.COMMAND_PREFIX}refresh <appid>\` - Refresh game info`,
-          `\`${CONFIG.COMMAND_PREFIX}list\` - List available games`,
-          `\`${CONFIG.COMMAND_PREFIX}help\` - Show this help`,
+          '`/gen appid:<id-hoặc-tên-game>` - Lấy file lua/package đã có trong kho',
+          '`/get appid:<id-hoặc-tên-game>` - Fetch từ upstream và lưu vào kho',
+          '`/help` - Xem hướng dẫn sử dụng',
+          '`/steam appid:<id-hoặc-tên-game>` - Xem thông tin game (nếu server đã bật lệnh này)',
         ].join('\n')
       },
       {
-        name: `${ICONS.fire} New Features v2.0`,
+        name: `${ICONS.fire} Gợi ý`,
         value: [
-          `${ICONS.check} Auto-delete messages after 5 minutes`,
-          `${ICONS.check} Online-Fix integration`,
-          `${ICONS.check} Expanded Denuvo database (60+ games)`,
-          `${ICONS.check} Improved embed design`,
-          `${ICONS.check} Better file detection`,
-        ].join('\n')
-      },
-      {
-        name: `${ICONS.info} Examples`,
-        value: [
-          '`!1623730` - Palworld',
-          '`!2245450` - Black Myth: Wukong',
-          '`!get 400` - Request upstream fetch for AppID 400',
-          '`!search tekken` - Search Tekken games',
+          `${ICONS.check} Bấm nút download trong kết quả /gen để nhận file`,
+          `${ICONS.check} Bot sẽ báo số lượt tải còn lại sau mỗi lần tải`,
+          `${ICONS.check} Sau 10 giây bot gửi lại hướng dẫn nhanh để người mới dễ dùng`,
         ].join('\n')
       }
     )
-    .setFooter({ text: `Enhanced Bot v2.0 Â© ${new Date().getFullYear()} â€¢ Messages auto-delete in 5min` })
+    .setFooter({ text: `Bot hỗ trợ tiếng Việt • Tin nhắn tự xoá sau 5 phút` })
     .setTimestamp();
 
   if (isAdmin(message.author.id)) {
@@ -3700,6 +3731,40 @@ async function handleGetSlashCommand(interaction) {
   });
 }
 
+async function handleHelpSlashCommand(interaction) {
+  await interaction.deferReply();
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle('Hướng dẫn sử dụng bot')
+    .setDescription(buildVietnameseUsageGuideText())
+    .addFields(
+      {
+        name: 'Lệnh chính',
+        value: [
+          '`/gen appid:<id-hoặc-tên-game>` - Lấy file lua/package',
+          '`/get appid:<id-hoặc-tên-game>` - Fetch và lưu vào kho',
+          '`/help` - Xem hướng dẫn này',
+        ].join('\n')
+      },
+      {
+        name: 'Mẹo nhanh',
+        value: [
+          'Nếu `/gen` chưa có file, dùng `/get` trước rồi `/gen` lại.',
+          'Sau mỗi lượt tải, bot sẽ báo số lượt còn lại trong ngày.',
+        ].join('\n')
+      }
+    )
+    .setFooter({ text: 'Tin nhắn tự xoá sau 5 phút' })
+    .setTimestamp();
+
+  return scheduleInteractionDeletion(interaction, {
+    content: null,
+    embeds: [embed],
+    components: []
+  });
+}
+
 async function handleGetLegacyCommand(message, rawInput) {
   const input = String(rawInput || '').trim();
   if (!input) {
@@ -4033,6 +4098,11 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.commandName === GET_SLASH_COMMAND.name) {
       await handleGetSlashCommand(interaction);
+      return;
+    }
+
+    if (interaction.commandName === HELP_SLASH_COMMAND.name) {
+      await handleHelpSlashCommand(interaction);
       return;
     }
   } catch (error) {
