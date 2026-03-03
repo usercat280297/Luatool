@@ -10,7 +10,12 @@
     "download-lua": "node scripts/bulk_lua_downloader.js",
     "bot": "node src/lua_discord_bot.js",
     "collect-lua": "node scripts/lua_collector.js",
-    "update-steamdb": "node scripts/steamdb_updater.js update-all"
+    "update-steamdb": "node scripts/steamdb_updater.js update-all",
+    "build:engines": "node scripts/engines/build_engines.js",
+    "build:rust:checksum": "node scripts/engines/build_checksum_rust.js",
+    "smoke:engine": "node scripts/engines/smoke_test.js",
+    "smoke:steamdb": "node scripts/engines/smoke_test.js --target=steamdb",
+    "smoke:checksum": "node scripts/engines/smoke_checksum.js"
   },
   "keywords": [
     "discord",

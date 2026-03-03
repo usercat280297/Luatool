@@ -188,9 +188,9 @@ async function createBeautifulGameEmbed(appId, gameInfo, files, links = {}) {
   // ──────────────────────────────────────────
   // ROW 1: Price + Platform Support
   // ──────────────────────────────────────────
-  const priceDisplay = gameInfo.isFree 
-    ? '🆓 **Free to Play**' 
-    : `**${gameInfo.price}**`;
+  const priceDisplay = gameInfo.isFree
+    ? '🆓 `Free to Play`'
+    : `\`${gameInfo.price}\``;
   
   const platformDisplay = formatPlatforms(gameInfo.platforms);
   
