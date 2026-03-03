@@ -169,25 +169,25 @@ const VERIFIED_DRM = {
 // ============================================
 const ICONS = {
   // General
-  game: 'ðŸŽ®', link: 'ðŸ”—', check: 'âœ…', cross: 'âŒ',
-  warning: 'âš ï¸', info: 'â„¹ï¸', sparkles: 'âœ¨', fire: 'ðŸ”¥',
+  game: '🎮', link: '🔗', check: '✅', cross: '❌',
+  warning: '⚠️', info: 'ℹ️', sparkles: '✨', fire: '🔥',
 
   // Game Info
-  price: 'ðŸ’°', size: 'ðŸ’¾', date: 'ðŸ“…', dlc: 'ðŸŽ¯',
-  language: 'ðŸŒ', review: 'â­',
+  price: '💰', size: '💾', date: '📅', dlc: '🎯',
+  language: '🌍', review: '⭐',
 
   // DRM Types
-  denuvo: 'ðŸš«', antiCheat: 'ðŸ›¡ï¸', drm: 'ðŸ”’',
-  drmFree: 'ðŸ†“', online: 'ðŸŒ',
+  denuvo: '🚫', antiCheat: '🛡️', drm: '🔒',
+  drmFree: '🆓', online: '🌐',
 
   // Publisher/Developer
-  developer: 'ðŸ‘¨â€ðŸ’»', publisher: 'ðŸ¢',
+  developer: '👨‍💻', publisher: '🏢',
 
   // Downloads
-  download: 'â¬‡ï¸', lua: 'ðŸ“œ', fix: 'ðŸ”§', onlineFix: 'ðŸŒ',
+  download: '⬇️', lua: '📜', fix: '🔧', onlineFix: '🌐',
 
   // Platforms
-  windows: 'ðŸªŸ', mac: 'ðŸŽ', linux: 'ðŸ§',
+  windows: '🪟', mac: '🍎', linux: '🐧',
 };
 
 // ============================================
@@ -200,6 +200,7 @@ let gameNamesIndex = {}; // Game names index
 let gameNamesCache = {}; // Large local game name cache
 let searchableGameList = []; // Unified game list for autocomplete + slash resolution
 const temporaryDownloads = new Map(); // token -> { filePath, fileName, expiresAt }
+let lastGitHubUploadError = null;
 
 const GEN_SLASH_COMMAND = {
   name: 'gen',
@@ -213,6 +214,12 @@ const GEN_SLASH_COMMAND = {
       description: 'The Steam App ID or game name',
       required: true,
       autocomplete: true
+    },
+    {
+      type: ApplicationCommandOptionType.Boolean,
+      name: 'check_manifest',
+      description: 'Check so luong file .manifest trong package (co the cham hon)',
+      required: false
     }
   ]
 };
@@ -983,7 +990,7 @@ async function morrenusCheckKeyStatusViaPlaywright() {
     const jsonMatch = output.match(/STATUS_JSON=({.*})/);
     if (jsonMatch) {
       const status = JSON.parse(jsonMatch[1]);
-      
+
       // Parse timeLeft: "6d 22h" → hours
       let timeLeftHours = null;
       if (status.timeLeft) {
@@ -1894,11 +1901,12 @@ async function resolveAppIdInput(input) {
   };
 }
 
-function createInteractionMessageProxy(interaction) {
+function createInteractionMessageProxy(interaction, extra = {}) {
   return {
     author: interaction.user,
     channelId: interaction.channelId,
     isInteractionProxy: true,
+    ...extra,
     canEmbed: interaction.appPermissions
       ? interaction.appPermissions.has(PermissionFlagsBits.EmbedLinks)
       : null,
@@ -2546,6 +2554,7 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
 async function handleGameCommand(message, appId) {
   try {
     const isInteractionFlow = Boolean(message.isInteractionProxy);
+    const shouldCheckManifest = Boolean(message.genOptions?.checkManifest);
     const loadingMsg = await message.reply(`ðŸ” **Searching for AppID: ${appId}...**`);
     scheduleMessageDeletion(loadingMsg);
 
@@ -2721,6 +2730,53 @@ async function handleGameCommand(message, appId) {
       embeds: [embed],
       components: rows,
     };
+
+    if (shouldCheckManifest && hasManifestFiles) {
+      try {
+        const manifestFile = files.lua.find(item => {
+          const meta = getManifestFileMeta(item?.name || '');
+          return meta?.kind === 'archive';
+        }) || files.lua[0];
+
+        if (manifestFile) {
+          const meta = getManifestFileMeta(manifestFile.name || '');
+          if (meta?.kind === 'archive') {
+            const inspection = await inspectArchiveManifestCount(manifestFile.path);
+            if (inspection) {
+              embed.addFields({
+                name: 'ðŸ“¦ Manifest Check',
+                value: `Package: \`${manifestFile.name}\`\n` +
+                  `Manifest files: **${inspection.manifestCount}**\n` +
+                  `Method: \`${inspection.method}\`${inspection.uncertain ? ' (approx)' : ''}`,
+                inline: false
+              });
+            } else {
+              embed.addFields({
+                name: 'ðŸ“¦ Manifest Check',
+                value: `Package: \`${manifestFile.name}\`\nUnable to inspect package in current environment.`,
+                inline: false
+              });
+            }
+          } else {
+            embed.addFields({
+              name: 'ðŸ“¦ Manifest Check',
+              value: `Selected file is not an archive package: \`${manifestFile.name}\``,
+              inline: false
+            });
+          }
+        }
+      } catch (inspectionError) {
+        log('WARN', 'Manifest check failed in /gen flow', {
+          appId,
+          error: inspectionError.message,
+        });
+        embed.addFields({
+          name: 'ðŸ“¦ Manifest Check',
+          value: 'Could not inspect manifest package right now.',
+          inline: false
+        });
+      }
+    }
 
     if (message.canEmbed === false) {
       responsePayload.content = `${ICONS.warning} Missing permission: **Embed Links**.`;
@@ -3580,6 +3636,7 @@ function buildGetProcessingEmbed(displayName, appId) {
 
 async function handleGenSlashCommand(interaction) {
   const rawInput = interaction.options.getString('appid', true).trim();
+  const checkManifest = interaction.options.getBoolean('check_manifest') ?? false;
 
   // Acknowledge early to avoid 3s interaction timeout on slow/network paths.
   await interaction.deferReply();
@@ -3601,7 +3658,8 @@ async function handleGenSlashCommand(interaction) {
     user: interaction.user.tag,
     input: rawInput,
     appId: resolution.appId,
-    reason: resolution.reason
+    reason: resolution.reason,
+    checkManifest
   });
 
   const resolvedName = resolution.resolvedName || getGameNameById(resolution.appId) || `App ${resolution.appId}`;
@@ -3613,7 +3671,11 @@ async function handleGenSlashCommand(interaction) {
 
   await sleep(CONFIG.GEN_PROCESSING_DELAY_MS);
 
-  const proxyMessage = createInteractionMessageProxy(interaction);
+  const proxyMessage = createInteractionMessageProxy(interaction, {
+    genOptions: {
+      checkManifest
+    }
+  });
   await handleGameCommand(proxyMessage, resolution.appId);
 }
 
@@ -3712,7 +3774,7 @@ async function handleGetSlashCommand(interaction) {
         name: 'GitHub storage',
         value: githubUrl
           ? `Uploaded to \`lua_files/\` successfully.\n[Open raw file](${githubUrl})`
-          : 'Local save successful, but GitHub upload failed (check GITHUB_TOKEN/repo permissions).',
+          : `Local save successful, but GitHub upload failed.\nReason: ${lastGitHubUploadError || 'Unknown'}`,
         inline: false
       },
       {
@@ -4140,10 +4202,12 @@ client.on('interactionCreate', async (interaction) => {
 // ============================================
 
 async function uploadToGitHub(filePath, fileName, targetFolder = 'online-fix') {
+  lastGitHubUploadError = null;
   // ============================================
   // VALIDATE GITHUB CREDENTIALS
   // ============================================
   if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO_OWNER || !CONFIG.GITHUB_REPO_NAME) {
+    lastGitHubUploadError = 'Missing GitHub credentials in runtime environment';
     log('ERROR', 'GitHub credentials not configured!', {
       hasToken: !!CONFIG.GITHUB_TOKEN,
       hasOwner: !!CONFIG.GITHUB_REPO_OWNER,
@@ -4154,6 +4218,7 @@ async function uploadToGitHub(filePath, fileName, targetFolder = 'online-fix') {
 
   // Validate file exists
   if (!fs.existsSync(filePath)) {
+    lastGitHubUploadError = `Local file not found: ${filePath}`;
     log('ERROR', 'File not found for upload', { filePath, fileName });
     return null;
   }
@@ -4201,6 +4266,7 @@ async function uploadToGitHub(filePath, fileName, targetFolder = 'online-fix') {
         if (error.response?.status === 404) {
           // File not found means create new file, which is valid.
         } else if (error.response?.status === 401) {
+          lastGitHubUploadError = 'GitHub authentication failed (401): token invalid/expired or no repo access';
           log('ERROR', 'GitHub authentication failed! Token may be invalid or expired', {
             error: error.message,
             hint: 'Check your GITHUB_TOKEN in .env file'
@@ -4276,6 +4342,10 @@ async function uploadToGitHub(filePath, fileName, targetFolder = 'online-fix') {
     hint: 'Check GitHub token, repo exists, rate limits, and payload size'
   });
 
+  lastGitHubUploadError = lastError?.response?.data?.message
+    || lastError?.message
+    || 'Unknown GitHub upload error';
+
   return null;
 }
 
@@ -4343,7 +4413,6 @@ client.on('interactionCreate', async (interaction) => {
         })
       );
 
-      // Beautiful formatted links with file sizes
       const linksField = linksWithSizes.map(item =>
         `**[ðŸ”— Download Link ${item.number}](${item.url})**${item.sizeText}`
       ).join('\n');
