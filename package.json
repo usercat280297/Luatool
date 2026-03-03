@@ -36,6 +36,8 @@
     "dotenv": "^17.2.3",
     "express": "^4.22.1",
     "node-fetch": "^3.3.2",
+    "playwright": "^1.58.2",
+    "playwright-core": "^1.58.2",
     "puppeteer": "^24.34.0"
   },
   "engines": {

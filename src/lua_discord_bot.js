@@ -884,6 +884,128 @@ function getMorrenusKeyPoolStatus() {
   };
 }
 
+// ============================================
+// MORRENUS HOT-RELOAD & AUTO-GENERATE KEY
+// ============================================
+const MORRENUS_KEY_FILE = path.join(__dirname, '..', '.morrenus_active_key');
+const MORRENUS_SESSION_DIR = path.join(__dirname, '..', '.playwright-session');
+let morrenusAutoGenerateInProgress = false;
+let morrenusLastAutoGenerateAttempt = 0;
+const MORRENUS_AUTO_GENERATE_COOLDOWN_MS = 300000; // 5 min cooldown giữa các lần generate
+
+/**
+ * Hot-reload Morrenus key từ file .morrenus_active_key
+ * Cho phép cập nhật key mà không cần restart bot
+ */
+function morrenusHotReloadKey() {
+  try {
+    if (!fs.existsSync(MORRENUS_KEY_FILE)) return false;
+    const newKey = fs.readFileSync(MORRENUS_KEY_FILE, 'utf8').trim();
+    if (!newKey || !newKey.startsWith('smm_')) return false;
+
+    const pool = getMorrenusApiKeyPool();
+    if (pool.includes(newKey)) return false; // Đã có rồi
+
+    // Thêm key mới vào CONFIG
+    const oldKey = CONFIG.MORRENUS_API_KEY;
+    CONFIG.MORRENUS_API_KEY = newKey;
+
+    // Thêm vào MORRENUS_API_KEYS nếu chưa có
+    const existingKeys = String(CONFIG.MORRENUS_API_KEYS || '').split(',').map(k => k.trim()).filter(Boolean);
+    if (!existingKeys.includes(newKey)) {
+      existingKeys.push(newKey);
+      CONFIG.MORRENUS_API_KEYS = existingKeys.join(',');
+    }
+
+    // Reset state cho key mới
+    morrenusKeyState.delete(newKey);
+
+    console.log(`[Morrenus] 🔄 Hot-reloaded new key: ${newKey.substring(0, 15)}... (replacing ${oldKey ? oldKey.substring(0, 15) + '...' : 'none'})`);
+    return true;
+  } catch (e) {
+    console.warn(`[Morrenus] ⚠️ Hot-reload error: ${e.message}`);
+    return false;
+  }
+}
+
+/**
+ * Auto-generate key mới bằng Playwright khi tất cả key đều exhausted.
+ * Chỉ chạy trên local (có Playwright session). Trên Render sẽ skip.
+ * RAM: ~150MB peak, giải phóng ngay sau khi xong.
+ */
+async function morrenusAutoGenerateKey() {
+  // Cooldown check
+  if (morrenusAutoGenerateInProgress) {
+    console.log('[Morrenus] ⏳ Auto-generate already in progress, skipping.');
+    return null;
+  }
+  if (Date.now() - morrenusLastAutoGenerateAttempt < MORRENUS_AUTO_GENERATE_COOLDOWN_MS) {
+    const wait = Math.ceil((MORRENUS_AUTO_GENERATE_COOLDOWN_MS - (Date.now() - morrenusLastAutoGenerateAttempt)) / 1000);
+    console.log(`[Morrenus] ⏳ Auto-generate cooldown: ${wait}s remaining.`);
+    return null;
+  }
+
+  // Check Playwright session exists
+  const sessionFile = path.join(MORRENUS_SESSION_DIR, 'state.json');
+  const browserDataDir = path.join(MORRENUS_SESSION_DIR, 'browser-data');
+  if (!fs.existsSync(sessionFile) && !fs.existsSync(browserDataDir)) {
+    console.log('[Morrenus] ⚠️ No Playwright session found. Run: node scripts/morrenus_key_manager.js login');
+    return null;
+  }
+
+  morrenusAutoGenerateInProgress = true;
+  morrenusLastAutoGenerateAttempt = Date.now();
+
+  console.log('[Morrenus] 🤖 Auto-generating new API key via Playwright...');
+
+  try {
+    // Spawn child process thay vì import Playwright trực tiếp (tiết kiệm RAM cho bot chính)
+    const { execSync } = require('child_process');
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'morrenus_key_manager.js');
+
+    if (!fs.existsSync(scriptPath)) {
+      console.log('[Morrenus] ⚠️ morrenus_key_manager.js not found.');
+      return null;
+    }
+
+    const output = execSync(`node "${scriptPath}" generate`, {
+      timeout: 120000, // 2 min max
+      encoding: 'utf8',
+      cwd: path.join(__dirname, '..'),
+    });
+
+    console.log('[Morrenus] Playwright output:', output.substring(0, 500));
+
+    // Parse output for NEW_KEY=...
+    const keyMatch = output.match(/NEW_KEY=(smm_[a-f0-9]+)/);
+    if (keyMatch) {
+      const newKey = keyMatch[1];
+      console.log(`[Morrenus] ✅ New key generated: ${newKey.substring(0, 20)}...`);
+
+      // Hot-reload the new key immediately
+      morrenusHotReloadKey();
+      return newKey;
+    }
+
+    // Check for session expired
+    if (output.includes('SESSION_EXPIRED') || output.includes('Session expired')) {
+      console.log('[Morrenus] ❌ Playwright session expired. Run: node scripts/morrenus_key_manager.js login');
+    }
+
+    return null;
+  } catch (e) {
+    console.error(`[Morrenus] ❌ Auto-generate failed: ${e.message}`);
+    return null;
+  } finally {
+    morrenusAutoGenerateInProgress = false;
+  }
+}
+
+// Hot-reload check interval: mỗi 30 giây kiểm tra file .morrenus_active_key
+setInterval(() => {
+  morrenusHotReloadKey();
+}, 30000);
+
 function isMorrenusAuthOrRateStatus(statusCode) {
   return statusCode === 401 || statusCode === 403 || statusCode === 429;
 }
@@ -2541,11 +2663,25 @@ async function fetchAndStoreManifestFromMorrenus(appId) {
   // Check if any key is available before starting
   const availableKey = getMorrenusNextAvailableKey();
   if (!availableKey) {
+    // 🤖 Thử auto-generate key mới bằng Playwright
+    const autoKey = await morrenusAutoGenerateKey();
+    if (autoKey) {
+      // Retry với key mới
+      console.log(`[Morrenus] 🔄 Retrying with auto-generated key for appId=${appId}`);
+      return fetchAndStoreManifestFromMorrenus(appId);
+    }
+
+    // Thử hot-reload từ file (có thể user vừa paste key mới)
+    if (morrenusHotReloadKey()) {
+      console.log(`[Morrenus] 🔄 Hot-reloaded key, retrying for appId=${appId}`);
+      return fetchAndStoreManifestFromMorrenus(appId);
+    }
+
     const nextReset = getMorrenusNextResetTime();
     const status = getMorrenusKeyPoolStatus();
     const waitInfo = nextReset
       ? `Next key reset: ${new Date(nextReset).toISOString()} (${Math.ceil((nextReset - Date.now()) / 60000)} min)`
-      : 'All keys expired/auth-failed. Update keys in .env.';
+      : 'All keys expired/auth-failed. Update keys in .env or run: node scripts/morrenus_key_manager.js generate';
     return {
       ok: false,
       code: 'ALL_KEYS_EXHAUSTED',
@@ -4779,6 +4915,70 @@ app.get('/morrenus-status', (req, res) => {
       ? 'All keys exhausted. Go to https://manifest.morrenus.xyz/api-keys/user to generate a new key, then add it to MORRENUS_API_KEYS in environment.'
       : `${status.totalRemaining} requests remaining across ${status.availableKeys} active key(s).`,
   });
+});
+
+// ============================================
+// MORRENUS KEY HOT-UPDATE ENDPOINT
+// ============================================
+// POST /update-morrenus-key - Cập nhật key mới mà không cần restart bot
+// Body: { "key": "smm_..." } hoặc { "key": "smm_...", "admin_token": "..." }
+app.post('/update-morrenus-key', express.json(), (req, res) => {
+  // Auth check
+  const token = req.headers['x-admin-token'] || req.body?.admin_token;
+  if (token !== CONFIG.ADMIN_TOKEN) {
+    return res.status(403).json({ error: 'Invalid admin token. Send X-Admin-Token header or admin_token in body.' });
+  }
+
+  const newKey = String(req.body?.key || '').trim();
+  if (!newKey || !newKey.startsWith('smm_')) {
+    return res.status(400).json({ error: 'Invalid key. Must start with smm_' });
+  }
+
+  const pool = getMorrenusApiKeyPool();
+  if (pool.includes(newKey)) {
+    return res.status(200).json({ message: 'Key already in pool.', totalKeys: pool.length });
+  }
+
+  // Add to pool
+  CONFIG.MORRENUS_API_KEY = newKey;
+  const existing = String(CONFIG.MORRENUS_API_KEYS || '').split(',').map(k => k.trim()).filter(Boolean);
+  existing.push(newKey);
+  CONFIG.MORRENUS_API_KEYS = existing.join(',');
+  morrenusKeyState.delete(newKey); // Reset state
+
+  // Save to hot-reload file
+  try {
+    fs.writeFileSync(path.join(__dirname, '..', '.morrenus_active_key'), newKey);
+  } catch (_) {}
+
+  const newStatus = getMorrenusKeyPoolStatus();
+  console.log(`[Morrenus] 🔑 Key hot-updated via API: ${newKey.substring(0, 15)}...`);
+  res.status(200).json({
+    message: 'Key added successfully!',
+    totalKeys: newStatus.totalKeys,
+    availableKeys: newStatus.availableKeys,
+    totalRemaining: newStatus.totalRemaining,
+  });
+});
+
+// POST /trigger-morrenus-generate - Trigger auto-generate key mới (cần Playwright session)
+app.post('/trigger-morrenus-generate', async (req, res) => {
+  const token = req.headers['x-admin-token'] || req.body?.admin_token;
+  if (token !== CONFIG.ADMIN_TOKEN) {
+    return res.status(403).json({ error: 'Invalid admin token.' });
+  }
+
+  if (morrenusAutoGenerateInProgress) {
+    return res.status(429).json({ error: 'Auto-generate already in progress.' });
+  }
+
+  res.status(202).json({ message: 'Auto-generate triggered. Check /morrenus-status for result.' });
+
+  // Run in background
+  const newKey = await morrenusAutoGenerateKey();
+  if (newKey) {
+    console.log(`[Morrenus] ✅ Auto-generated key via API trigger: ${newKey.substring(0, 15)}...`);
+  }
 });
 
 app.get('/download/:token', (req, res) => {
