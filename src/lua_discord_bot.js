@@ -102,7 +102,7 @@ const DENUVO_GAMES = require('../data/denuvo_data');
 const DENUVO_IDS = DENUVO_GAMES.map(game => game.id);
 
 const VERIFIED_DRM = {
-  // âš ï¸ DENUVO GAMES - EXPANDED LIST (Automatically populated)
+  // ⚠️ DENUVO GAMES - EXPANDED LIST (Automatically populated)
   denuvo: [
     ...DENUVO_IDS,
   ],
@@ -128,7 +128,7 @@ const VERIFIED_DRM = {
     728880,  // Overwatch 2
   ],
 
-  // âœ… VERIFIED DRM-FREE GAMES
+  // ✅ VERIFIED DRM-FREE GAMES
   drmFree: [
     1623730, // Palworld
     413150,  // Stardew Valley
@@ -140,7 +140,7 @@ const VERIFIED_DRM = {
     1245620, // Elden Ring (Steam DRM only)
   ],
 
-  // ðŸŒ NEEDS ONLINE-FIX
+  // 🌐 NEEDS ONLINE-FIX
   needsOnlineFix: [
     3949040, // RV There Yet?
     2246460, // Monster Hunter Wilds
@@ -606,9 +606,9 @@ function loadDatabase() {
   if (fs.existsSync(CONFIG.DATABASE_PATH)) {
     try {
       loaded = safeReadJson(CONFIG.DATABASE_PATH);
-      console.log('âœ… Loaded database');
+      console.log('✅ Loaded database');
     } catch (error) {
-      console.error('âŒ Error loading primary database:', error.message);
+      console.error('❌ Error loading primary database:', error.message);
     }
   }
 
@@ -616,9 +616,9 @@ function loadDatabase() {
     try {
       loaded = safeReadJson(CONFIG.DATABASE_BACKUP_PATH);
       loadedFromBackup = true;
-      console.log('âœ… Recovered database from backup');
+      console.log('✅ Recovered database from backup');
     } catch (error) {
-      console.error('âŒ Error loading backup database:', error.message);
+      console.error('❌ Error loading backup database:', error.message);
     }
   }
 
@@ -626,7 +626,7 @@ function loadDatabase() {
     database = loaded;
   } else {
     database = {};
-    console.warn('âš ï¸ Using a new empty database in memory.');
+    console.warn('⚠️ Using a new empty database in memory.');
   }
 
   ensureDatabaseSchema();
@@ -642,16 +642,16 @@ function saveDatabase() {
     writeJsonAtomic(CONFIG.DATABASE_PATH, database);
     writeJsonAtomic(CONFIG.DATABASE_BACKUP_PATH, database);
   } catch (error) {
-    console.error('âŒ Error saving database:', error);
+    console.error('❌ Error saving database:', error);
   }
 }
 function loadGameInfoCache() {
   if (fs.existsSync(CONFIG.GAME_INFO_CACHE_PATH)) {
     try {
       gameInfoCache = JSON.parse(fs.readFileSync(CONFIG.GAME_INFO_CACHE_PATH, 'utf8'));
-      console.log(`âœ… Loaded ${Object.keys(gameInfoCache).length} cached games`);
+      console.log(`✅ Loaded ${Object.keys(gameInfoCache).length} cached games`);
     } catch (error) {
-      console.error('âŒ Error loading cache:', error);
+      console.error('❌ Error loading cache:', error);
     }
   }
 
@@ -662,9 +662,9 @@ function loadGameInfoCache() {
   if (fs.existsSync(gameIndexPath)) {
     try {
       gameNamesIndex = JSON.parse(fs.readFileSync(gameIndexPath, 'utf8'));
-      console.log(`âœ… Loaded ${Object.keys(gameNamesIndex).length} game names from index`);
+      console.log(`✅ Loaded ${Object.keys(gameNamesIndex).length} game names from index`);
     } catch (error) {
-      console.error('âŒ Error loading game names index:', error);
+      console.error('❌ Error loading game names index:', error);
     }
   }
 
@@ -672,9 +672,9 @@ function loadGameInfoCache() {
   if (fs.existsSync(gameNamesCachePath)) {
     try {
       gameNamesCache = JSON.parse(fs.readFileSync(gameNamesCachePath, 'utf8'));
-      console.log(`âœ… Loaded ${Object.keys(gameNamesCache).length} game names from cache`);
+      console.log(`✅ Loaded ${Object.keys(gameNamesCache).length} game names from cache`);
     } catch (error) {
-      console.error('âŒ Error loading game names cache:', error);
+      console.error('❌ Error loading game names cache:', error);
     }
   }
 
@@ -742,7 +742,7 @@ function saveGameInfoCache() {
   try {
     fs.writeFileSync(CONFIG.GAME_INFO_CACHE_PATH, JSON.stringify(gameInfoCache, null, 2));
   } catch (error) {
-    console.error('âŒ Error saving cache:', error);
+    console.error('❌ Error saving cache:', error);
   }
 }
 
@@ -2434,71 +2434,71 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
   }
 
   // Links in description
-  description += `[ðŸ”— Steam Store](https://store.steampowered.com/app/${appId}) | [ðŸ“Š SteamDB](https://steamdb.info/app/${appId})`;
+  description += `[🔗 Steam Store](https://store.steampowered.com/app/${appId}) | [📊 SteamDB](https://steamdb.info/app/${appId})`;
   embed.setDescription(description);
 
-  // â•â•â• GAME INFO - Compact Layout â•â•â•
+  // ═══ GAME INFO - Compact Layout ═══
   // Row 1: Price | Size
-  const priceDisplay = gameInfo.isFree ? 'ðŸ†“ Free' : gameInfo.price;
+  const priceDisplay = gameInfo.isFree ? '🆓 Free' : gameInfo.price;
   const sizeDisplay = gameInfo.sizeFormatted || 'N/A';
 
   const updateDate = gameInfo.lastUpdate || gameInfo.releaseDate || 'N/A';
 
   embed.addFields(
-    { name: 'ðŸ’° GiÃ¡', value: priceDisplay, inline: true },
-    { name: 'ðŸ’¾ Dung lÆ°á»£ng', value: sizeDisplay, inline: true },
-    { name: 'ðŸ”„ Cáº­p nháº­t', value: updateDate, inline: true }
+    { name: '💰 Giá', value: priceDisplay, inline: true },
+    { name: '💾 Dung lượng', value: sizeDisplay, inline: true },
+    { name: '🔄 Cập nhật', value: updateDate, inline: true }
   );
 
   // Row 2: DLC | Language | Rating
   embed.addFields(
-    { name: 'ðŸŽ¯ DLC', value: `${gameInfo.dlcCount}`, inline: true },
-    { name: 'ðŸŒ NgÃ´n ngá»¯', value: `${gameInfo.languageCount}`, inline: true },
-    { name: 'â­ ÄÃ¡nh giÃ¡', value: `${formatNumber(gameInfo.recommendations)}`, inline: true }
+    { name: '🎯 DLC', value: `${gameInfo.dlcCount}`, inline: true },
+    { name: '🌍 Ngôn ngữ', value: `${gameInfo.languageCount}`, inline: true },
+    { name: '⭐ Đánh giá', value: `${formatNumber(gameInfo.recommendations)}`, inline: true }
   );
 
   // Row 3: Developer | Publisher | DRM
   const devName = (gameInfo.developers[0] || 'Unknown').substring(0, 25);
   const pubName = gameInfo.publisher.name.substring(0, 25);
-  const drmBadge = gameInfo.drm.isDRMFree ? 'âœ… KhÃ´ng DRM' : `${gameInfo.drm.icon} ${gameInfo.drm.type}`;
+  const drmBadge = gameInfo.drm.isDRMFree ? '✅ Không DRM' : `${gameInfo.drm.icon} ${gameInfo.drm.type}`;
 
   embed.addFields(
-    { name: 'ðŸ‘¨â€ðŸ’» Dev', value: devName, inline: true },
-    { name: 'ðŸ¢ Pub', value: pubName, inline: true },
-    { name: 'ðŸ” DRM', value: drmBadge, inline: true }
+    { name: '👨‍💻 Dev', value: devName, inline: true },
+    { name: '🏢 Pub', value: pubName, inline: true },
+    { name: '🔐 DRM', value: drmBadge, inline: true }
   );
 
-  // â•â•â• DRM WARNING SECTION â•â•â•
+  // ═══ DRM WARNING SECTION ═══
   if (gameInfo.drm.severity === 'critical') {
     embed.addFields({
-      name: 'âš ï¸ DENUVO - CÃ“ THá»‚ KHÃ“ CHÆ I',
+      name: '⚠️ DENUVO - CÓ THỂ KHÓ CHƠI',
       value:
-        'âŒ Game nÃ y cÃ³ **DENUVO** - báº£o vá»‡ ráº¥t máº¡nh\n' +
-        'â³ CÃ³ thá»ƒ chÆ°a bá»‹ crack hoáº·c crack chÆ°a á»•n Ä‘á»‹nh\n' +
-        'âš ï¸ Chá»‰ táº£i náº¿u báº¡n cháº¯c cháº¯n Ä‘Ã£ cÃ³ crack!',
+        '❌ Game này có **DENUVO** - bảo vệ rất mạnh\n' +
+        '⏳ Có thể chưa bị crack hoặc crack chưa ổn định\n' +
+        '⚠️ Chỉ tải nếu bạn chắc chắn đã có crack!',
       inline: false
     });
   } else if (gameInfo.drm.severity === 'warning') {
     const acName = gameInfo.drm.hasEAC ? 'EasyAntiCheat' :
                    gameInfo.drm.hasBattlEye ? 'BattlEye' : 'Anti-Cheat';
     embed.addFields({
-      name: `ðŸ›¡ï¸ ${acName} - Cáº¦N FIX Äáº¶C BIá»†T`,
+      name: `🛡️ ${acName} - CẦN FIX ĐẶC BIỆT`,
       value:
-        `Game dÃ¹ng **${acName}** - cáº§n bypass riÃªng\n` +
-        `Táº£i **Crack/Fix** Ä‘á»ƒ cÃ³ thá»ƒ chÆ¡i online/co-op`,
+        `Game dùng **${acName}** - cần bypass riêng\n` +
+        `Tải **Crack/Fix** để có thể chơi online/co-op`,
       inline: false
     });
   } else if (gameInfo.drm.isDRMFree) {
     embed.addFields({
-      name: 'âœ… DRM-FREE - CHÆ I ÄÆ¯á»¢C NGAY',
+      name: '✅ DRM-FREE - CHƠI ĐƯỢC NGAY',
       value:
-        'ðŸŽ‰ Game **KHÃ”NG CÃ“ Báº¢O Vá»† DRM**\n' +
-        'âœ¨ Táº£i game, giáº£i nÃ©n, chÆ¡i luÃ´n!',
+        '🎉 Game **KHÔNG CÓ BẢO VỆ DRM**\n' +
+        '✨ Tải game, giải nén, chơi luôn!',
       inline: false
     });
   }
 
-  // â•â•â• FILE STATUS â•â•â•
+  // ═══ FILE STATUS ═══
   const hasMultiplayerFeatures = gameInfo.hasMultiplayer ||
                                   gameInfo.drm.needsOnlineFix ||
                                   gameInfo.categories?.some(c =>
@@ -2506,17 +2506,17 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
                                     c.toLowerCase().includes('co-op'));
 
   let fileInfo = [];
-  if (files.lua.length > 0) fileInfo.push('âœ… **Lua** - ' + files.lua[0].sizeFormatted);
-  if (files.fix.length > 0) fileInfo.push('âœ… **Crack/Fix** - ' + files.fix[0].sizeFormatted);
+  if (files.lua.length > 0) fileInfo.push('✅ **Lua** - ' + files.lua[0].sizeFormatted);
+  if (files.fix.length > 0) fileInfo.push('✅ **Crack/Fix** - ' + files.fix[0].sizeFormatted);
   if (files.onlineFix.length > 0) {
-    fileInfo.push('âœ… **Online-Fix** - ' + files.onlineFix[0].sizeFormatted);
+    fileInfo.push('✅ **Online-Fix** - ' + files.onlineFix[0].sizeFormatted);
   } else if (hasMultiplayerFeatures) {
-    fileInfo.push('âš ï¸ **Online-Fix** - ChÆ°a cÃ³');
+    fileInfo.push('⚠️ **Online-Fix** - Chưa có');
   }
 
   if (fileInfo.length > 0) {
     embed.addFields({
-      name: 'ðŸ“¦ FILE CÃ“ Sáº´N',
+      name: '📦 FILE CÓ SẴN',
       value: fileInfo.join('\n'),
       inline: false
     });
@@ -2525,8 +2525,8 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
   // EA Game Notice - inline
   if (gameInfo.isEAGame) {
     embed.addFields({
-      name: 'âš™ï¸ EA GAME',
-      value: 'Cáº§n Origin/EA App',
+      name: '⚙️ EA GAME',
+      value: 'Cần Origin/EA App',
       inline: true
     });
   }
@@ -2534,14 +2534,14 @@ async function createGameEmbedLegacy(appId, gameInfo, files) {
   // Early Access Notice - inline
   if (gameInfo.isEarlyAccess) {
     embed.addFields({
-      name: 'ðŸš§ EARLY ACCESS',
-      value: 'Game chÆ°a hoÃ n thÃ nh',
+      name: '🚧 EARLY ACCESS',
+      value: 'Game chưa hoàn thành',
       inline: true
     });
   }
 
   embed.setFooter({
-    text: `App ID: ${appId} | Cáº­p nháº­t: ${new Date().toLocaleDateString('vi-VN')}`,
+    text: `App ID: ${appId} | Cập nhật: ${new Date().toLocaleDateString('vi-VN')}`,
     iconURL: 'https://steampowered-a.akamaihd.net/steamcommunity/public/images/clans/39049585/5371505ff1c79c7db43dccf05fe86b1933203ce3.png'
   });
 
@@ -2556,17 +2556,17 @@ async function handleGameCommand(message, appId) {
   try {
     const isInteractionFlow = Boolean(message.isInteractionProxy);
     const shouldCheckManifest = Boolean(message.genOptions?.checkManifest);
-    const loadingMsg = await message.reply(`ðŸ” **Searching for AppID: ${appId}...**`);
+    const loadingMsg = await message.reply(`🔍 **Searching for AppID: ${appId}...**`);
     scheduleMessageDeletion(loadingMsg);
 
     // STEP 1: Get info from SteamDB first
     if (!isInteractionFlow) {
-      await loadingMsg.edit(`ðŸ“Š **Scanning SteamDB...**`);
+      await loadingMsg.edit(`📊 **Scanning SteamDB...**`);
     }
     const steamDBInfo = await scrapeSteamDB(appId);
 
     if (!isInteractionFlow && steamDBInfo?.name) {
-      await loadingMsg.edit(`âœ… **Found: ${steamDBInfo.name}**\nâ³ Fetching details...`);
+      await loadingMsg.edit(`✅ **Found: ${steamDBInfo.name}**\n⏳ Fetching details...`);
     }
 
     // STEP 2: Get info from Steam API
@@ -2583,11 +2583,11 @@ async function handleGameCommand(message, appId) {
             `${ICONS.warning} Cannot fetch full info from Steam for AppID: \`${appId}\`\n` +
             `${ICONS.link} Link: https://store.steampowered.com/app/${appId}\n` +
             `${ICONS.link} SteamDB: https://steamdb.info/app/${appId}/\n` +
-            `âž¡ï¸ Continuing with minimal data to show available downloads`
+            `➡️ Continuing with minimal data to show available downloads`
           );
         }
       } else if (!isInteractionFlow) {
-        await loadingMsg.edit(`âœ… **Found: ${gameName}**\nâ³ Preparing details...`);
+        await loadingMsg.edit(`✅ **Found: ${gameName}**\n⏳ Preparing details...`);
       }
 
       gameInfo = {
@@ -2640,6 +2640,7 @@ async function handleGameCommand(message, appId) {
     // Create download buttons (Single Row for cleaner layout)
     const rows = [];
     const row = new ActionRowBuilder();
+    const commandUserId = message.author?.id || '';
     const primaryManifest = files.lua[0];
     const primaryManifestMeta = primaryManifest ? getManifestFileMeta(primaryManifest.name) : null;
 
@@ -2654,14 +2655,14 @@ async function handleGameCommand(message, appId) {
     if (files.lua.length > 0) {
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(`dl_lua_${appId}_0`)
+          .setCustomId(`dl_lua_${appId}_0_${commandUserId}`)
           .setLabel(
             primaryManifestMeta?.kind === 'archive'
               ? `Get Package (${primaryManifest.sizeFormatted})`
               : `Get Lua (${primaryManifest.sizeFormatted})`
           )
           .setStyle(ButtonStyle.Primary)
-          .setEmoji(primaryManifestMeta?.emoji || 'ðŸ“¦')
+          .setEmoji(primaryManifestMeta?.emoji || '📦')
       );
     }
 
@@ -2669,10 +2670,10 @@ async function handleGameCommand(message, appId) {
     if (onlineFixLink) {
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(`dl_online_${appId}`)
+          .setCustomId(`dl_online_${appId}_0_${commandUserId}`)
           .setLabel('Online-Fix')
           .setStyle(ButtonStyle.Secondary)
-          .setEmoji('ðŸŒ')
+          .setEmoji('🌐')
       );
     }
 
@@ -2694,15 +2695,15 @@ async function handleGameCommand(message, appId) {
         // Create only ONE button for all crack links
         row.addComponents(
           new ButtonBuilder()
-            .setCustomId(`dl_crack_${appId}_0`)
+            .setCustomId(`dl_crack_${appId}_0_${commandUserId}`)
             .setLabel(`Bypass${crackLinks.length > 1 ? ` (${crackLinks.length})` : ''}`)
             .setStyle(ButtonStyle.Danger)
-            .setEmoji('ðŸ› ï¸')
+            .setEmoji('🛠️')
         );
 
         log('INFO', `Created crack button for ${appId}`, {
           linksCount: crackLinks.length,
-          buttonId: `dl_crack_${appId}_0`
+          buttonId: `dl_crack_${appId}_0_${commandUserId}`
         });
       }
     }
@@ -2715,7 +2716,7 @@ async function handleGameCommand(message, appId) {
           .setCustomId(`dl_fix_${appId}_0`)
           .setLabel(`Download Crack (${files.fix[0].sizeFormatted})`)
           .setStyle(ButtonStyle.Success)
-          .setEmoji('ðŸ”§')
+          .setEmoji('🔧')
       );
     }
     */
@@ -2745,7 +2746,7 @@ async function handleGameCommand(message, appId) {
             const inspection = await inspectArchiveManifestCount(manifestFile.path);
             if (inspection) {
               embed.addFields({
-                name: 'ðŸ“¦ Manifest Check',
+                name: '📦 Manifest Check',
                 value: `Package: \`${manifestFile.name}\`\n` +
                   `Manifest files: **${inspection.manifestCount}**\n` +
                   `Method: \`${inspection.method}\`${inspection.uncertain ? ' (approx)' : ''}`,
@@ -2753,14 +2754,14 @@ async function handleGameCommand(message, appId) {
               });
             } else {
               embed.addFields({
-                name: 'ðŸ“¦ Manifest Check',
+                name: '📦 Manifest Check',
                 value: `Package: \`${manifestFile.name}\`\nUnable to inspect package in current environment.`,
                 inline: false
               });
             }
           } else {
             embed.addFields({
-              name: 'ðŸ“¦ Manifest Check',
+              name: '📦 Manifest Check',
               value: `Selected file is not an archive package: \`${manifestFile.name}\``,
               inline: false
             });
@@ -2772,7 +2773,7 @@ async function handleGameCommand(message, appId) {
           error: inspectionError.message,
         });
         embed.addFields({
-          name: 'ðŸ“¦ Manifest Check',
+          name: '📦 Manifest Check',
           value: 'Could not inspect manifest package right now.',
           inline: false
         });
@@ -2847,7 +2848,7 @@ async function handleFetchLuaCommand(message) {
     const result = await fetchLuaFromOpenCloud(appId, gameName);
 
     if (result.success) {
-      await loadingMsg.edit(`${ICONS.check} **Success!** Downloaded Lua for \`${appId}\`.\nðŸ“‚ Saved to: \`lua_files/${appId}.lua\``);
+      await loadingMsg.edit(`${ICONS.check} **Success!** Downloaded Lua for \`${appId}\`.\n📂 Saved to: \`lua_files/${appId}.lua\``);
     } else {
       await loadingMsg.edit(`${ICONS.cross} **Failed:** ${result.error}`);
     }
@@ -3194,7 +3195,7 @@ async function handleSearchCommand(message, query) {
       const embedNotFound = new EmbedBuilder()
         .setColor(0xE74C3C) // Red color
         .setTitle(`${ICONS.cross} Game Not Found`)
-        .setDescription(`Could not find game "**${query}**" in the system.\n\n**Suggestions:**\nâ€¢ Check the spelling of the game name\nâ€¢ Use fewer keywords (e.g. "tekken" instead of "tekken 8 deluxe edition")\nâ€¢ Try searching by AppID if you know it`)
+        .setDescription(`Could not find game "**${query}**" in the system.\n\n**Suggestions:**\n• Check the spelling of the game name\n• Use fewer keywords (e.g. "tekken" instead of "tekken 8 deluxe edition")\n• Try searching by AppID if you know it`)
         .setFooter({ text: 'Auto-deletes in 5min' });
 
       return loadingMsg.edit({ content: null, embeds: [embedNotFound] });
@@ -3206,26 +3207,26 @@ async function handleSearchCommand(message, query) {
       .setDescription(`Found ${results.length} game(s). Use \`/gen appid:<appid>\` to view details.`);
 
     // Show results in pages if too many
-    const maxDisplay = 10; // Giáº£m xuá»‘ng 10 Ä‘á»ƒ hiá»ƒn thá»‹ áº£nh Ä‘áº¹p hÆ¡n
+    const maxDisplay = 10; // Giảm xuống 10 để hiển thị ảnh đẹp hơn
     const displayResults = results.slice(0, maxDisplay);
 
     const denuvoSet = new Set(DENUVO_GAMES.map(g => String(g.id)));
 
-    // Náº¿u chá»‰ cÃ³ 1 káº¿t quáº£, hiá»ƒn thá»‹ dáº¡ng Large Embed
+    // Nếu chỉ có 1 kết quả, hiển thị dạng Large Embed
     if (displayResults.length === 1) {
       const game = displayResults[0];
       const isDenuvo = denuvoSet.has(String(game.appId));
-      const drmTag = isDenuvo ? ' â€¢ âš ï¸ **Denuvo Anti-Tamper**' : '';
+      const drmTag = isDenuvo ? ' • ⚠️ **Denuvo Anti-Tamper**' : '';
 
       const hasLua = findFiles(String(game.appId)).lua.length > 0;
       const hasOnlineFix = ONLINE_FIX_LINKS[game.appId] || fs.existsSync(path.join(CONFIG.ONLINE_FIX_PATH, `${game.appId}-online-fix.zip`));
       const hasCrack = CRACK_LINKS[game.appId];
 
       let statusIcons = [];
-      if (hasLua) statusIcons.push('ðŸ“œ Lua');
-      if (hasOnlineFix) statusIcons.push('ðŸŒ Online-Fix');
-      if (hasCrack) statusIcons.push('ðŸ”¥ Crack');
-      const statusText = statusIcons.length > 0 ? `\n   ${statusIcons.join(' â€¢ ')}` : '';
+      if (hasLua) statusIcons.push('📜 Lua');
+      if (hasOnlineFix) statusIcons.push('🌐 Online-Fix');
+      if (hasCrack) statusIcons.push('🔥 Crack');
+      const statusText = statusIcons.length > 0 ? `\n   ${statusIcons.join(' • ')}` : '';
 
       // Try SteamGridDB first, fallback to Steam Header
       let imageUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`;
@@ -3237,13 +3238,13 @@ async function handleSearchCommand(message, query) {
       embed.setThumbnail(imageUrl);
       embed.addFields({
         name: `1. ${game.name}${isDenuvo ? ' [DRM]' : ''}`,
-        value: `AppID: \`${game.appId}\` â€¢ Command: \`!${game.appId}\`${drmTag}${statusText}`,
+        value: `AppID: \`${game.appId}\` • Command: \`!${game.appId}\`${drmTag}${statusText}`,
         inline: false
       });
     } else {
-      // Hiá»ƒn thá»‹ danh sÃ¡ch nhiá»u game
-      // Discord khÃ´ng há»— trá»£ áº£nh cho tá»«ng field, nÃªn ta chá»‰ cÃ³ thá»ƒ hiá»ƒn thá»‹ text
-      // Tuy nhiÃªn, ta cÃ³ thá»ƒ set áº£nh Thumbnail lÃ  game Ä‘áº§u tiÃªn Ä‘á»ƒ Ä‘áº¹p hÆ¡n
+      // Hiển thị danh sách nhiều game
+      // Discord không hỗ trợ ảnh cho từng field, nên ta chỉ có thể hiển thị text
+      // Tuy nhiên, ta có thể set ảnh Thumbnail là game đầu tiên để đẹp hơn
 
       // Try SteamGridDB for first game
       let firstGameImage = `https://cdn.cloudflare.steamstatic.com/steam/apps/${displayResults[0].appId}/header.jpg`;
@@ -3256,22 +3257,22 @@ async function handleSearchCommand(message, query) {
 
       displayResults.forEach((game, index) => {
         const isDenuvo = denuvoSet.has(String(game.appId));
-        const drmTag = isDenuvo ? ' â€¢ âš ï¸ **Denuvo Anti-Tamper**' : '';
+        const drmTag = isDenuvo ? ' • ⚠️ **Denuvo Anti-Tamper**' : '';
 
         const hasLua = findFiles(String(game.appId)).lua.length > 0;
         const hasOnlineFix = ONLINE_FIX_LINKS[game.appId] || fs.existsSync(path.join(CONFIG.ONLINE_FIX_PATH, `${game.appId}-online-fix.zip`));
         const hasCrack = CRACK_LINKS[game.appId];
 
         let statusIcons = [];
-        if (hasLua) statusIcons.push('ðŸ“œ');
-        if (hasOnlineFix) statusIcons.push('ðŸŒ');
-        if (hasCrack) statusIcons.push('ðŸ”¥');
+        if (hasLua) statusIcons.push('📜');
+        if (hasOnlineFix) statusIcons.push('🌐');
+        if (hasCrack) statusIcons.push('🔥');
 
         const statusText = statusIcons.length > 0 ? ` [${statusIcons.join(' ')}]` : '';
 
         embed.addFields({
           name: `${index + 1}. ${game.name}`,
-          value: `ðŸ†” \`${game.appId}\`${statusText}${isDenuvo ? ' âš ï¸ Denuvo' : ''} â€¢ \`!${game.appId}\``,
+          value: `🆔 \`${game.appId}\`${statusText}${isDenuvo ? ' ⚠️ Denuvo' : ''} • \`!${game.appId}\``,
           inline: false
         });
       });
@@ -3279,7 +3280,7 @@ async function handleSearchCommand(message, query) {
 
     if (results.length > maxDisplay) {
       embed.addFields({
-        name: 'ðŸ“‹ More Results',
+        name: '📋 More Results',
         value: `... and ${results.length - maxDisplay} more games. Refine your search for better results.`,
         inline: false
       });
@@ -3291,7 +3292,7 @@ async function handleSearchCommand(message, query) {
       if (!isDenuvo) return;
       const panel = new EmbedBuilder()
         .setColor(0xE74C3C)
-        .setTitle('ðŸ” DRM/Restrictions detected')
+        .setTitle('🔐 DRM/Restrictions detected')
         .setDescription(
           `**${game.name}**\n` +
           'Denuvo Anti-Tamper detected\n' +
@@ -3302,7 +3303,7 @@ async function handleSearchCommand(message, query) {
       warningEmbeds.push(panel);
     });
 
-    embed.setFooter({ text: 'Click AppID to view full info â€¢ Auto-deletes in 5min' });
+    embed.setFooter({ text: 'Click AppID to view full info • Auto-deletes in 5min' });
 
     await loadingMsg.edit({ embeds: [embed, ...warningEmbeds] });
 
@@ -3382,7 +3383,7 @@ async function handleListCommand(message) {
       value: allGames.slice(0, 20).map(id => `\`${id}\``).join(', ') +
              (allGames.length > 20 ? `\n... and ${allGames.length - 20} more games` : '')
     })
-    .setFooter({ text: 'Use !<appid> to view details â€¢ Auto-deletes in 5min' });
+    .setFooter({ text: 'Use !<appid> to view details • Auto-deletes in 5min' });
 
   const listMsg = await message.reply({ embeds: [embed] });
   scheduleMessageDeletion(listMsg);
@@ -3400,14 +3401,14 @@ async function handleStatsCommand(message) {
 
   const embed = new EmbedBuilder()
     .setColor(0xFFAA00)
-    .setTitle(`ðŸ“Š BOT STATISTICS`)
+    .setTitle(`📊 BOT STATISTICS`)
     .addFields(
-      { name: 'ðŸŽ® Unique Games', value: `${uniqueGames}`, inline: true },
-      { name: 'ðŸ“ Total Files', value: `${totalFiles}`, inline: true },
-      { name: 'ðŸ’¾ Cached Info', value: `${cachedGames}`, inline: true },
-      { name: 'â¬‡ï¸ Downloads', value: `${database.stats.totalDownloads}`, inline: true },
-      { name: 'ðŸ” Searches', value: `${database.stats.totalSearches}`, inline: true },
-      { name: 'â±ï¸ Uptime', value: `${Math.floor(process.uptime() / 3600)}h`, inline: true }
+      { name: '🎮 Unique Games', value: `${uniqueGames}`, inline: true },
+      { name: '📁 Total Files', value: `${totalFiles}`, inline: true },
+      { name: '💾 Cached Info', value: `${cachedGames}`, inline: true },
+      { name: '⬇️ Downloads', value: `${database.stats.totalDownloads}`, inline: true },
+      { name: '🔍 Searches', value: `${database.stats.totalSearches}`, inline: true },
+      { name: '⏱️ Uptime', value: `${Math.floor(process.uptime() / 3600)}h`, inline: true }
     )
     .setFooter({
       text: `Updated: ${new Date().toLocaleString('en-US')}`,
@@ -3501,7 +3502,7 @@ async function handleBackupCommand(message) {
     return message.reply(`${ICONS.cross} Admin only!`);
   }
 
-  const loadingMsg = await message.reply(`${ICONS.info} **Starting backup to GitHub...** â³`);
+  const loadingMsg = await message.reply(`${ICONS.info} **Starting backup to GitHub...** ⏳`);
 
   try {
     const success = await backupToGitHub();
@@ -3785,7 +3786,7 @@ async function handleGetSlashCommand(interaction) {
       }
     )
     .setFooter({
-      text: `Key ${fetchResult.keyIndex}/${fetchResult.keyCount} â€¢ Delay ${Math.round(CONFIG.GET_PROCESSING_DELAY_MS / 1000)}s`
+      text: `Key ${fetchResult.keyIndex}/${fetchResult.keyCount} • Delay ${Math.round(CONFIG.GET_PROCESSING_DELAY_MS / 1000)}s`
     });
 
   return interaction.editReply({
@@ -4353,9 +4354,19 @@ async function uploadToGitHub(filePath, fileName, targetFolder = 'online-fix') {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
 
-  const [action, rawType, appId, fileIdx] = interaction.customId.split('_');
+  const parts = interaction.customId.split('_');
+  const [action, rawType, appId, fileIdx] = parts;
+  const allowedUserId = parts[4] || null;
   let type = rawType;
   if (action !== 'dl') return;
+
+  // Only the user who ran the command can download
+  if (allowedUserId && interaction.user.id !== allowedUserId) {
+    return interaction.reply({
+      content: '❌ Chỉ người dùng lệnh mới được tải file này.',
+      ephemeral: true
+    });
+  }
 
   try {
     const quotaBeforeDownload = await getDailyDownloadQuota(interaction.user.id);
@@ -4374,7 +4385,7 @@ client.on('interactionCreate', async (interaction) => {
       const crackLink = CRACK_LINKS[appId];
       if (!crackLink) {
         return interaction.reply({
-          content: 'âŒ **Link does not exist or has been deleted!**',
+          content: '❌ **Link does not exist or has been deleted!**',
           ephemeral: true
         });
       }
@@ -4384,11 +4395,11 @@ client.on('interactionCreate', async (interaction) => {
 
       if (gameInfo) {
         if (gameInfo.publisher?.isUbisoft || gameInfo.name.toLowerCase().includes('assassin') || gameInfo.name.toLowerCase().includes('ubisoft')) {
-          requirements = 'ðŸ› ï¸ **Requirement:** Install **Ubisoft Connect** and login with emulator account (if needed).';
+          requirements = '🛠️ **Requirement:** Install **Ubisoft Connect** and login with emulator account (if needed).';
         } else if (gameInfo.isEAGame || gameInfo.name.toLowerCase().includes('fifa') || gameInfo.name.toLowerCase().includes('ea sports')) {
-          requirements = 'ðŸ› ï¸ **Requirement:** Install **EA App** to run the game.';
+          requirements = '🛠️ **Requirement:** Install **EA App** to run the game.';
         } else if (gameInfo.publisher?.isRockstar || gameInfo.publisher?.name?.includes('Rockstar')) {
-          requirements = 'ðŸ› ï¸ **Requirement:** Install **Rockstar Games Launcher**.';
+          requirements = '🛠️ **Requirement:** Install **Rockstar Games Launcher**.';
         }
       }
 
@@ -4415,21 +4426,21 @@ client.on('interactionCreate', async (interaction) => {
       );
 
       const linksField = linksWithSizes.map(item =>
-        `**[ðŸ”— Download Link ${item.number}](${item.url})**${item.sizeText}`
+        `**[🔗 Download Link ${item.number}](${item.url})**${item.sizeText}`
       ).join('\n');
 
       const totalSize = linksWithSizes.reduce((sum, item) => sum + (item.size || 0), 0);
-      const totalSizeText = totalSize > 0 ? `\n\n**ðŸ“Š Total Size:** \`${formatFileSize(totalSize)}\`` : '';
+      const totalSizeText = totalSize > 0 ? `\n\n**📊 Total Size:** \`${formatFileSize(totalSize)}\`` : '';
 
       // Custom instructions for specific games
       let instructions = '```\n1. Download the crack file(s)\n2. Extract the archive\n3. Copy files to game directory\n4. Overwrite existing files\n5. Run the game\n```';
 
       // FC 26 Showcase Custom Guide
       if (appId === '3629260') {
-        requirements = 'ðŸ› ï¸ **Requirement:** EA App installed, clean game files.';
+        requirements = '🛠️ **Requirement:** EA App installed, clean game files.';
         instructions =
           '**1. Copy files**\n' +
-          'Copy all extracted files into the gameâ€™s folder.\n' +
+          'Copy all extracted files into the game’s folder.\n' +
           'When prompted, click **Replace the file in the destination** (this may appear multiple times).\n\n' +
 
           '**2. Replace the executable**\n' +
@@ -4439,7 +4450,7 @@ client.on('interactionCreate', async (interaction) => {
           '**3. Generate the Denuvo token**\n' +
           'Open `EA.Denuvo.Token.Dumper.exe`\n' +
           'Click **Start**\n' +
-          'âš ï¸ **Important:** Make sure "Add DenuvoToken to anadius.cfg even if it exists" is **unchecked**\n\n' +
+          '⚠️ **Important:** Make sure "Add DenuvoToken to anadius.cfg even if it exists" is **unchecked**\n\n' +
 
           '**4. Apply the Denuvo token**\n' +
           'Copy the generated Denuvo token\n' +
@@ -4451,33 +4462,33 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.editReply({
         embeds: [{
           color: 0xFF0000,
-          title: 'ðŸ”¥ CRACK DOWNLOAD',
+          title: '🔥 CRACK DOWNLOAD',
           description: `**Game:** ${gameInfo?.name || appId}\n\n${crackLinks.length > 1 ? `**${crackLinks.length} download links available:**` : '**Download link:**'}${totalSizeText}`,
           thumbnail: { url: crackGif },
           fields: [
             {
-              name: 'â¬‡ï¸ DOWNLOAD LINKS',
+              name: '⬇️ DOWNLOAD LINKS',
               value: linksField || 'No links available',
               inline: false
             },
             {
-              name: 'ðŸ› ï¸ Installation Requirements',
+              name: '🛠️ Installation Requirements',
               value: requirements,
               inline: false
             },
             {
-              name: appId === '3629260' ? 'ðŸ“‹ Installation Guide' : 'ðŸ“‹ Instructions',
+              name: appId === '3629260' ? '📋 Installation Guide' : '📋 Instructions',
               value: instructions,
               inline: false
             },
             {
-              name: 'âš ï¸ Security Notice',
+              name: '⚠️ Security Notice',
               value: '***Links are provided directly. Use at your own risk. Always scan files with antivirus.***',
               inline: false
             }
           ],
           footer: {
-            text: `App ID: ${appId} â€¢ Auto-deletes in 5 minutes`,
+            text: `App ID: ${appId} • Auto-deletes in 5 minutes`,
             iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
           },
           timestamp: new Date().toISOString()
@@ -4492,7 +4503,6 @@ client.on('interactionCreate', async (interaction) => {
         fileSize: totalSizeText || 'N/A',
         user: interaction.user
       });
-      await sendDailyQuotaRemaining(interaction, crackQuota);
       return;
     }
 
@@ -4501,7 +4511,7 @@ client.on('interactionCreate', async (interaction) => {
       const onlineLink = ONLINE_FIX_LINKS[appId];
       if (!onlineLink) {
         return interaction.reply({
-          content: 'âŒ **Link does not exist or has been deleted!**',
+          content: '❌ **Link does not exist or has been deleted!**',
           ephemeral: true
         });
       }
@@ -4520,33 +4530,33 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.editReply({
         embeds: [{
           color: 0x00FF00,
-          title: 'ðŸŒ ONLINE-FIX DOWNLOAD',
-          description: `**Game:** ${gameInfo?.name || appId}\n\n**Download link:**${sizeText ? `\n**ðŸ“Š File Size:**${sizeText}` : ''}`,
+          title: '🌐 ONLINE-FIX DOWNLOAD',
+          description: `**Game:** ${gameInfo?.name || appId}\n\n**Download link:**${sizeText ? `\n**📊 File Size:**${sizeText}` : ''}`,
           thumbnail: { url: onlineFixGif },
           fields: [
             {
-              name: 'â¬‡ï¸ DOWNLOAD LINK',
-              value: `**[ðŸ”— Click Here to Download](${onlineLink})**`,
+              name: '⬇️ DOWNLOAD LINK',
+              value: `**[🔗 Click Here to Download](${onlineLink})**`,
               inline: false
             },
             {
-              name: 'ðŸ“‹ Installation Instructions',
+              name: '📋 Installation Instructions',
               value: '```\n1. Download the Online-Fix file\n2. Extract the archive\n3. Copy all files to game directory\n4. Overwrite existing files\n5. Launch Steam (must be running)\n6. Run the game\n```',
               inline: false
             },
             {
-              name: 'âš™ï¸ Important Notes',
-              value: 'â€¢ **Steam must be running** to play\nâ€¢ You can play with friends online\nâ€¢ No Steam account required\nâ€¢ Works with cracked games',
+              name: '⚙️ Important Notes',
+              value: '• **Steam must be running** to play\n• You can play with friends online\n• No Steam account required\n• Works with cracked games',
               inline: false
             },
             {
-              name: 'âš ï¸ Security Notice',
+              name: '⚠️ Security Notice',
               value: '***Link is provided directly. Use at your own risk. Always scan files with antivirus.***',
               inline: false
             }
           ],
           footer: {
-            text: `App ID: ${appId} â€¢ Auto-deletes in 5 minutes`,
+            text: `App ID: ${appId} • Auto-deletes in 5 minutes`,
             iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
           },
           timestamp: new Date().toISOString()
@@ -4561,7 +4571,6 @@ client.on('interactionCreate', async (interaction) => {
         fileSize: sizeText || 'N/A',
         user: interaction.user
       });
-      await sendDailyQuotaRemaining(interaction, onlineQuota);
       return;
     }
 
@@ -4596,7 +4605,7 @@ client.on('interactionCreate', async (interaction) => {
       if (type === 'lua') {
         const notFoundEmbed = new EmbedBuilder()
           .setColor(0xF1C40F)
-          .setTitle(`âš ï¸ No Lua/Package Available: App ${appId}`)
+          .setTitle(`⚠️ No Lua/Package Available: App ${appId}`)
           .setDescription(
             'Game was found, but Lua/Package files are not available yet.\n' +
             'Use `/get` to request upstream fetch into the bot library.'
@@ -4628,8 +4637,8 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       await scheduleInteractionDeletion(interaction, {
-        content: `âŒ **File not found!**\n\n` +
-                 `â±ï¸ *This message will auto-delete in 5 minutes*`
+        content: `❌ **File not found!**\n\n` +
+                 `⏱️ *This message will auto-delete in 5 minutes*`
       });
       return;
     }
@@ -4649,9 +4658,9 @@ client.on('interactionCreate', async (interaction) => {
       archiveInspection = await inspectArchiveManifestCount(fileToSend.path);
       if (archiveInspection) {
         if (archiveInspection.manifestCount > 0) {
-          summaryLines.push(`ðŸ“‚ Archive contains **${archiveInspection.manifestCount}** \`.manifest\` file(s).`);
+          summaryLines.push(`📂 Archive contains **${archiveInspection.manifestCount}** \`.manifest\` file(s).`);
         } else {
-          summaryLines.push('âš ï¸ Archive scan found **0** `.manifest` file(s).');
+          summaryLines.push('⚠️ Archive scan found **0** `.manifest` file(s).');
         }
       }
     }
@@ -4683,8 +4692,8 @@ client.on('interactionCreate', async (interaction) => {
     // For Online-Fix files OR large files (>25MB), upload to GitHub
     if (type === 'online' || sizeMB > CONFIG.MAX_FILE_SIZE_MB) {
       await scheduleInteractionDeletion(interaction, {
-        content: `â³ **Processing** \`${fileToSend.name}\`...\n\n` +
-                 `âœ¨ Please wait...`
+        content: `⏳ **Processing** \`${fileToSend.name}\`...\n\n` +
+                 `✨ Please wait...`
       });
 
       let downloadUrl = null;
@@ -4701,21 +4710,21 @@ client.on('interactionCreate', async (interaction) => {
 
       if (!downloadUrl) {
         const fallbackHint = CONFIG.DISABLE_DIRECT_DOWNLOAD_FALLBACK
-          ? 'â€¢ Direct fallback is disabled by configuration\n'
-          : 'â€¢ Set PUBLIC_BASE_URL for direct fallback links\n';
+          ? '• Direct fallback is disabled by configuration\n'
+          : '• Set PUBLIC_BASE_URL for direct fallback links\n';
 
         await scheduleInteractionDeletion(interaction, {
-          content: `âŒ **Failed to process file for download!**\n\n` +
-                   `ðŸ”§ **Troubleshooting:**\n` +
-                   `â€¢ Check if GitHub token is configured\n` +
-                   `â€¢ Check if repository exists and bot has access\n` +
-                   `â€¢ Upload retries: ${CONFIG.GITHUB_UPLOAD_MAX_RETRIES}, timeout each: ${Math.round(CONFIG.GITHUB_UPLOAD_TIMEOUT_MS / 1000)}s\n` +
+          content: `❌ **Failed to process file for download!**\n\n` +
+                   `🔧 **Troubleshooting:**\n` +
+                   `• Check if GitHub token is configured\n` +
+                   `• Check if repository exists and bot has access\n` +
+                   `• Upload retries: ${CONFIG.GITHUB_UPLOAD_MAX_RETRIES}, timeout each: ${Math.round(CONFIG.GITHUB_UPLOAD_TIMEOUT_MS / 1000)}s\n` +
                    (likelyGitHubContentsLimitIssue
-                     ? `â€¢ File may be too large for GitHub Contents API (>${CONFIG.GITHUB_CONTENTS_SAFE_LIMIT_MB} MB after Base64 overhead)\n`
+                     ? `• File may be too large for GitHub Contents API (>${CONFIG.GITHUB_CONTENTS_SAFE_LIMIT_MB} MB after Base64 overhead)\n`
                      : '') +
                    fallbackHint +
-                   `â€¢ File size: ${fileToSend.sizeFormatted}\n\n` +
-                   `â±ï¸ *This message will auto-delete in 5 minutes*`
+                   `• File size: ${fileToSend.sizeFormatted}\n\n` +
+                   `⏱️ *This message will auto-delete in 5 minutes*`
         });
         return;
       }
@@ -4736,33 +4745,33 @@ client.on('interactionCreate', async (interaction) => {
         content: type === 'lua' ? summaryContent : null,
         embeds: [{
           color: 0x00ff00,
-          title: `âœ… ${fileTypeName.toUpperCase()} DOWNLOAD READY!`,
+          title: `✅ ${fileTypeName.toUpperCase()} DOWNLOAD READY!`,
           description: `**Game:** ${gameInfo?.name || appId}\n\n` +
             (deliveryMethod === 'github'
-              ? '**âœ… File uploaded to GitHub successfully!**'
-              : '**âœ… Direct download link generated from server!**'),
+              ? '**✅ File uploaded to GitHub successfully!**'
+              : '**✅ Direct download link generated from server!**'),
           thumbnail: fileTypeGif ? { url: fileTypeGif } : undefined,
           fields: [
             {
-              name: 'ðŸ“ File Information',
+              name: '📁 File Information',
               value: `**Name:** \`${fileToSend.name}\`\n**Size:** \`${fileToSend.sizeFormatted}\`${fileChecksum ? `\n**SHA-256:** \`${fileChecksum}\`` : ''}`,
               inline: false
             },
             {
-              name: 'ðŸ”— Download Link',
-              value: `**[â¬‡ï¸ CLICK HERE TO DOWNLOAD](${downloadUrl})**`,
+              name: '🔗 Download Link',
+              value: `**[⬇️ CLICK HERE TO DOWNLOAD](${downloadUrl})**`,
               inline: false
             },
             {
-              name: 'ðŸ’¡ Download Tips',
+              name: '💡 Download Tips',
               value: deliveryMethod === 'github'
-                ? 'â€¢ Link is stable on GitHub\nâ€¢ No Discord file size limit\nâ€¢ Good for repeated downloads'
-                : `â€¢ Link expires in ${CONFIG.DIRECT_DOWNLOAD_TTL_MINUTES} minutes\nâ€¢ Works for very large files\nâ€¢ Re-generate if expired`,
+                ? '• Link is stable on GitHub\n• No Discord file size limit\n• Good for repeated downloads'
+                : `• Link expires in ${CONFIG.DIRECT_DOWNLOAD_TTL_MINUTES} minutes\n• Works for very large files\n• Re-generate if expired`,
               inline: false
             }
           ],
           footer: {
-            text: `App ID: ${appId} â€¢ Auto-deletes in 5 minutes â€¢ ${deliveryMethod === 'github' ? 'GitHub Link' : 'Direct Link'}`,
+            text: `App ID: ${appId} • Auto-deletes in 5 minutes • ${deliveryMethod === 'github' ? 'GitHub Link' : 'Direct Link'}`,
             iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
           },
           timestamp: new Date().toISOString()
@@ -4777,7 +4786,6 @@ client.on('interactionCreate', async (interaction) => {
         fileSize: fileToSend.sizeFormatted,
         user: interaction.user
       });
-      await sendDailyQuotaRemaining(interaction, largeFileQuota);
       return;
     }
 
@@ -4807,17 +4815,17 @@ client.on('interactionCreate', async (interaction) => {
         thumbnail: { url: manifestGif },
         fields: [
           {
-            name: 'ðŸ“ File Information',
+            name: '📁 File Information',
             value: `**Name:** \`${fileToSend.name}\`\n**Size:** \`${fileToSend.sizeFormatted}\`${fileChecksum ? `\n**SHA-256:** \`${fileChecksum}\`` : ''}`,
             inline: false
           },
           {
-            name: 'ðŸ“‹ Usage Instructions',
+            name: '📋 Usage Instructions',
             value: selectedManifestMeta?.instruction || '```\n1. Download the file\n2. Place it in your game directory\n3. Launch the game\n```',
             inline: false
           },
           {
-            name: 'ðŸ’¡ Tips',
+            name: '💡 Tips',
             value: selectedManifestMeta?.kind === 'archive'
               ? '- Extract archive fully before use\n- Keep original package as backup\n- Replace files in the correct game folder'
               : '- Lua files are small and load quickly\n- Make sure your Lua loader is compatible\n- Backup original files if needed',
@@ -4825,14 +4833,14 @@ client.on('interactionCreate', async (interaction) => {
           }
         ],
         footer: {
-          text: `App ID: ${appId} â€¢ Auto-deletes in 5 minutes`,
+          text: `App ID: ${appId} • Auto-deletes in 5 minutes`,
           iconURL: 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/clans/3703047/e5b0f06e3b8c705c1e58f5e0a7e8e2e8e5b0f06e.png'
         },
         timestamp: new Date().toISOString()
       }];
     } else {
       // Fallback for other file types
-      replyContent.content = `âœ… **Sending** \`${fileToSend.name}\` (\`${fileToSend.sizeFormatted}\`)\n\nðŸš€ Download started!`;
+      replyContent.content = `✅ **Sending** \`${fileToSend.name}\` (\`${fileToSend.sizeFormatted}\`)\n\n🚀 Download started!`;
     }
 
     await scheduleInteractionDeletion(interaction, replyContent);
@@ -4845,10 +4853,9 @@ client.on('interactionCreate', async (interaction) => {
       fileSize: fileToSend.sizeFormatted,
       user: interaction.user
     });
-    await sendDailyQuotaRemaining(interaction, directFileQuota);
 
   } catch (error) {
-    console.error('âŒ Button Handler Error:', error);
+    console.error('❌ Button Handler Error:', error);
     log('ERROR', 'Error sending file', {
       appId,
       type,
@@ -4859,12 +4866,12 @@ client.on('interactionCreate', async (interaction) => {
     try {
       if (!interaction.replied) {
         await scheduleInteractionDeletion(interaction, {
-          content: `âŒ **Error:** \`${error.message}\`\n\n` +
-                   `â±ï¸ *This message will auto-delete in 5 minutes*`
+          content: `❌ **Error:** \`${error.message}\`\n\n` +
+                   `⏱️ *This message will auto-delete in 5 minutes*`
         });
       }
     } catch (e) {
-      console.error('âŒ Failed to send error message:', e);
+      console.error('❌ Failed to send error message:', e);
     }
   }
 });
@@ -4878,26 +4885,26 @@ client.once('clientReady', async () => {
   loginState.lastError = null;
 
   console.log('\n' + '='.repeat(70));
-  console.log('ðŸš€ DISCORD LUA BOT - ENHANCED VERSION 2.0');
+  console.log('🚀 DISCORD LUA BOT - ENHANCED VERSION 2.0');
   console.log('   Multi-source data + Auto-delete + Online-Fix Integration');
   console.log('='.repeat(70));
-  console.log(`âœ… Logged in as: ${client.user.tag}`);
-  console.log(`ðŸŽ® Bot ID: ${client.user.id}`);
-  console.log(`ðŸ” Discord token source: ${loginState.tokenSource}`);
-  console.log(`ðŸ“Š Legacy command prefix: ${enableMessageContentIntent ? CONFIG.COMMAND_PREFIX : `${CONFIG.COMMAND_PREFIX} (disabled in slash-only mode)`}`);
+  console.log(`✅ Logged in as: ${client.user.tag}`);
+  console.log(`🎮 Bot ID: ${client.user.id}`);
+  console.log(`🔐 Discord token source: ${loginState.tokenSource}`);
+  console.log(`📊 Legacy command prefix: ${enableMessageContentIntent ? CONFIG.COMMAND_PREFIX : `${CONFIG.COMMAND_PREFIX} (disabled in slash-only mode)`}`);
   console.log(`Slash command: /${GEN_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
   console.log(`Slash command: /${GET_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
-  console.log(`ðŸ“ Message Content Intent: ${enableMessageContentIntent ? 'ENABLED' : 'DISABLED (slash-only mode)'}`);
+  console.log(`📝 Message Content Intent: ${enableMessageContentIntent ? 'ENABLED' : 'DISABLED (slash-only mode)'}`);
   const allGames = scanAllGames();
-  console.log(`ðŸŽ¯ Total available games: ${global.gameStats?.uniqueGames || allGames.length} (${global.gameStats?.totalFiles || 'N/A'} files)`);
-  console.log(`ðŸ’¾ Cached game info: ${Object.keys(gameInfoCache).length} games`);
-  console.log(`ðŸ”„ Auto-delete: ${CONFIG.ENABLE_AUTO_DELETE ? 'ENABLED (5 min)' : 'DISABLED'}`);
-  console.log(`ðŸ§± Daily download limit: ${CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT ? `${CONFIG.MAX_DAILY_DOWNLOADS_PER_USER}/user/day (${CONFIG.DAILY_LIMIT_TIMEZONE} reset)` : 'DISABLED'}`);
-  console.log(`ðŸ—ƒï¸ Quota storage: ${isUpstashQuotaEnabled() ? 'Upstash Redis' : 'Local JSON database'}`);
-  console.log(`ðŸŒ Discord REST precheck: ${CONFIG.DISCORD_REST_PRECHECK_ENABLED ? 'ENABLED' : 'DISABLED'}`);
-  console.log(`ðŸŒ Public base URL: ${CONFIG.PUBLIC_BASE_URL || 'NOT SET (direct large-file links disabled)'}`);
-  console.log(`ðŸ”— Direct download TTL: ${CONFIG.DIRECT_DOWNLOAD_TTL_MINUTES} minutes`);
-  console.log(`ðŸ“ Folders:`);
+  console.log(`🎯 Total available games: ${global.gameStats?.uniqueGames || allGames.length} (${global.gameStats?.totalFiles || 'N/A'} files)`);
+  console.log(`💾 Cached game info: ${Object.keys(gameInfoCache).length} games`);
+  console.log(`🔄 Auto-delete: ${CONFIG.ENABLE_AUTO_DELETE ? 'ENABLED (5 min)' : 'DISABLED'}`);
+  console.log(`🧱 Daily download limit: ${CONFIG.ENABLE_DAILY_DOWNLOAD_LIMIT ? `${CONFIG.MAX_DAILY_DOWNLOADS_PER_USER}/user/day (${CONFIG.DAILY_LIMIT_TIMEZONE} reset)` : 'DISABLED'}`);
+  console.log(`🗃️ Quota storage: ${isUpstashQuotaEnabled() ? 'Upstash Redis' : 'Local JSON database'}`);
+  console.log(`🌐 Discord REST precheck: ${CONFIG.DISCORD_REST_PRECHECK_ENABLED ? 'ENABLED' : 'DISABLED'}`);
+  console.log(`🌍 Public base URL: ${CONFIG.PUBLIC_BASE_URL || 'NOT SET (direct large-file links disabled)'}`);
+  console.log(`🔗 Direct download TTL: ${CONFIG.DIRECT_DOWNLOAD_TTL_MINUTES} minutes`);
+  console.log(`📁 Folders:`);
   console.log(`   - Lua files: ${CONFIG.LUA_FILES_PATH}`);
   console.log(`   - Fix files: ${CONFIG.FIX_FILES_PATH}`);
   console.log(`   - Online-Fix: ${CONFIG.ONLINE_FIX_PATH}`);
@@ -4937,7 +4944,7 @@ client.on('guildCreate', async (guild) => {
 // ============================================
 
 client.on('error', error => {
-  console.error('âŒ Discord client error:', error);
+  console.error('❌ Discord client error:', error);
   log('ERROR', 'Discord client error', {
     error: error.message,
     stack: error.stack
@@ -4945,7 +4952,7 @@ client.on('error', error => {
 });
 
 client.on('warn', warning => {
-  console.warn('âš ï¸ Discord client warning:', warning);
+  console.warn('⚠️ Discord client warning:', warning);
   log('WARN', 'Discord client warning', { warning });
 });
 
@@ -4996,21 +5003,21 @@ process.on('uncaughtException', error => {
 });
 
 process.on('SIGINT', () => {
-  console.log('\n\nðŸ›‘ Gracefully shutting down bot...');
-  console.log('ðŸ’¾ Saving database and cache...');
+  console.log('\n\n🛑 Gracefully shutting down bot...');
+  console.log('💾 Saving database and cache...');
 
   saveDatabase();
   saveGameInfoCache();
 
-  console.log('âœ… Data saved successfully!');
-  console.log('ðŸ‘‹ Goodbye!\n');
+  console.log('✅ Data saved successfully!');
+  console.log('👋 Goodbye!\n');
 
   client.destroy();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n\nðŸ›‘ Received SIGTERM, shutting down...');
+  console.log('\n\n🛑 Received SIGTERM, shutting down...');
   saveDatabase();
   saveGameInfoCache();
   client.destroy();
@@ -5021,17 +5028,17 @@ process.on('SIGTERM', () => {
 // START BOT
 // ============================================
 
-console.log('ðŸš€ Starting Discord Lua Bot - Enhanced v2.0...\n');
-console.log('ðŸ“‚ Initializing folders...');
+console.log('🚀 Starting Discord Lua Bot - Enhanced v2.0...\n');
+console.log('📂 Initializing folders...');
 initializeFolders();
 
-console.log('ðŸ’¾ Loading database...');
+console.log('💾 Loading database...');
 loadDatabase();
 
-console.log('ðŸ—„ï¸ Loading game info cache...');
+console.log('🗄️ Loading game info cache...');
 loadGameInfoCache();
 
-console.log('ðŸ” Logging in to Discord...\n');
+console.log('🔐 Logging in to Discord...\n');
 
 function getLoginRetryDelayMs(retries) {
   return Math.min(
@@ -5050,7 +5057,7 @@ function scheduleLoginRetry(nextRetries, reason, delayOverrideMs = null) {
     ? Math.min(delayOverrideMs, CONFIG.DISCORD_LOGIN_RETRY_MAX_DELAY_MS)
     : getLoginRetryDelayMs(nextRetries);
   console.log(
-    `â³ Retrying Discord login in ${Math.round(delay / 1000)}s (attempt ${nextRetries + 1})` +
+    `⏳ Retrying Discord login in ${Math.round(delay / 1000)}s (attempt ${nextRetries + 1})` +
     (reason ? ` - ${reason}` : '')
   );
 
@@ -5115,7 +5122,7 @@ async function attemptLogin(retries = 0) {
   if (!CONFIG.BOT_TOKEN) {
     const errorMessage = 'Missing Discord token. Set BOT_TOKEN (preferred) or DISCORD_TOKEN in environment variables.';
     loginState.lastError = errorMessage;
-    console.error('\nâŒ FAILED TO LOGIN TO DISCORD! (missing token)\n');
+    console.error('\n❌ FAILED TO LOGIN TO DISCORD! (missing token)\n');
     console.error(errorMessage);
     loginState.inProgress = false;
     scheduleLoginRetry(retries + 1, 'missing token');
@@ -5125,15 +5132,15 @@ async function attemptLogin(retries = 0) {
   if (CONFIG.DISCORD_REST_PRECHECK_ENABLED) {
     try {
       const rest = await checkDiscordRestReachability();
-      console.log(`ðŸŒ Discord gateway reachable (${rest.latencyMs}ms)`);
+      console.log(`🌐 Discord gateway reachable (${rest.latencyMs}ms)`);
     } catch (error) {
       if (error?.code === 'DISCORD_RATE_LIMIT') {
         loginState.lastError = `Discord REST precheck rate limited: ${error.message}`;
-        console.error('\nâš ï¸ Discord REST precheck rate limited. Continuing with direct Discord login attempt.\n');
+        console.error('\n⚠️ Discord REST precheck rate limited. Continuing with direct Discord login attempt.\n');
         console.error('Error:', error.message);
       } else {
         loginState.lastError = `Discord REST precheck failed: ${error.message}`;
-        console.error('\nâš ï¸ Discord REST precheck failed. Continuing with direct Discord login attempt.\n');
+        console.error('\n⚠️ Discord REST precheck failed. Continuing with direct Discord login attempt.\n');
         console.error('Error:', error.message);
       }
     }
@@ -5145,13 +5152,13 @@ async function attemptLogin(retries = 0) {
       createLoginTimeoutPromise()
     ]);
     loginState.lastError = null;
-    console.log('\nâœ… Discord login successful');
+    console.log('\n✅ Discord login successful');
   } catch (error) {
     loginState.lastError = error.message;
-    console.error('\nâŒ FAILED TO LOGIN TO DISCORD! (will retry)\n');
+    console.error('\n❌ FAILED TO LOGIN TO DISCORD! (will retry)\n');
     console.error('Error:', error.message);
     if (retries === 0) {
-      console.error('\nðŸ’¡ Troubleshooting tips:');
+      console.error('\n💡 Troubleshooting tips:');
       console.error('   1. Check if BOT_TOKEN exists in .env file');
       console.error('   2. Verify the token is correct');
       console.error('   3. Make sure bot has proper permissions');
@@ -5367,11 +5374,11 @@ app.get('/', (req, res) => {
     </head>
     <body>
       <div class="container">
-        <h1>ðŸŽ® Discord Lua Bot v2.0</h1>
+        <h1>🎮 Discord Lua Bot v2.0</h1>
         <p>Enhanced with Auto-Delete & Online-Fix</p>
-        <div class="status">âœ… Bot is running!</div>
+        <div class="status">✅ Bot is running!</div>
         <p style="margin-top: 30px; opacity: 0.7;">
-          Â© ${new Date().getFullYear()} â€¢ Uptime: ${formatUptime(process.uptime())}
+          © ${new Date().getFullYear()} • Uptime: ${formatUptime(process.uptime())}
         </p>
       </div>
     </body>
@@ -5398,17 +5405,17 @@ const START_PORT = process.env.PORT || 3000;
 
 function startServer(port) {
   const server = app.listen(port, () => {
-    console.log(`âœ… Health check server running on port ${port}`);
-    console.log(`ðŸŒ Access at: http://localhost:${port}`);
-    console.log(`ðŸ“Š Health endpoint: http://localhost:${port}/health`);
+    console.log(`✅ Health check server running on port ${port}`);
+    console.log(`🌐 Access at: http://localhost:${port}`);
+    console.log(`📊 Health endpoint: http://localhost:${port}/health`);
     console.log(`🔑 Morrenus status: http://localhost:${port}/morrenus-status\n`);
   });
 
   server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
-      console.error(`âŒ Required port ${port} already in use. On Render we must bind to PORT; exiting so the service can restart.`);
+      console.error(`❌ Required port ${port} already in use. On Render we must bind to PORT; exiting so the service can restart.`);
     } else {
-      console.error('âŒ Server error:', error);
+      console.error('❌ Server error:', error);
     }
     // Exit to let the platform restart the process on the correct PORT
     process.exit(1);
@@ -5421,7 +5428,7 @@ app.head('/health', (req, res) => {
 });
 
 // ============================================
-// DIAGNOSTIC ENDPOINT â€“ Deep network checks
+// DIAGNOSTIC ENDPOINT – Deep network checks
 // ============================================
 app.get('/diagnostic', async (req, res) => {
   const results = {
@@ -5464,7 +5471,7 @@ app.get('/diagnostic', async (req, res) => {
     }
   }
 
-  // 3. Discord REST /gateway (unauthenticated â€“ just connectivity)
+  // 3. Discord REST /gateway (unauthenticated – just connectivity)
   try {
     const t0 = Date.now();
     const restRes = await axios.get('https://discord.com/api/v10/gateway', {
@@ -5485,7 +5492,7 @@ app.get('/diagnostic', async (req, res) => {
     results.tests.discordRestGateway = { status: 'error', error: err.message };
   }
 
-  // 4. Discord REST /gateway/bot (authenticated â€“ checks token & rate limit)
+  // 4. Discord REST /gateway/bot (authenticated – checks token & rate limit)
   if (CONFIG.BOT_TOKEN) {
     try {
       const t0 = Date.now();
@@ -5596,7 +5603,7 @@ app.get('/diagnostic', async (req, res) => {
   // Summary: determine root cause
   const blockers = [];
   if (results.tests.outboundIP?.status !== 'ok') {
-    blockers.push('Cannot determine outbound IP â€“ general network issue.');
+    blockers.push('Cannot determine outbound IP – general network issue.');
   }
   for (const host of ['dns_discord_com', 'dns_gateway_discord_gg']) {
     if (results.tests[host]?.status !== 'ok') {
