@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
 
-const shouldInstall = Boolean(process.env.RENDER)
+const isRender = Boolean(process.env.RENDER)
   || Boolean(process.env.RENDER_SERVICE_ID)
-  || Boolean(process.env.RENDER_EXTERNAL_URL)
+  || Boolean(process.env.RENDER_EXTERNAL_URL);
+
+const shouldInstall = isRender
   || process.env.PLAYWRIGHT_INSTALL === '1'
   || process.env.CI === 'true';
 
@@ -17,10 +19,15 @@ if (!shouldInstall) {
   process.exit(0);
 }
 
-console.log('[Playwright] Installing Chromium (this may take a few minutes)...');
+const withDeps = process.env.PLAYWRIGHT_WITH_DEPS === '1' && !isRender;
+const installCommand = withDeps
+  ? 'npx playwright install --with-deps chromium'
+  : 'npx playwright install chromium';
+
+console.log(`[Playwright] Installing Chromium... (${installCommand})`);
 
 try {
-  execSync('npx playwright install --with-deps chromium', { stdio: 'inherit' });
+  execSync(installCommand, { stdio: 'inherit' });
   console.log('[Playwright] Chromium installed.');
 } catch (error) {
   console.error('[Playwright] Install failed:', error.message);
