@@ -15,7 +15,7 @@ const { promisify } = require('util');
 const express = require('express');
 const app = express();
 const execFileAsync = promisify(execFile);
-const { CONFIG, DISCORD_TOKEN_SOURCE, getGameTitleStatusIcon, parseBoolean, parsePositiveInt } = require('./core/config');
+const { CONFIG, DATA_ROOT, DISCORD_TOKEN_SOURCE, getGameTitleStatusIcon, parseBoolean, parsePositiveInt } = require('./core/config');
 const { createLogger } = require('./core/logger');
 const { fetchSteamStoreRaw } = require('./engines/steam_info_engine');
 const { computeFileChecksum } = require('./engines/checksum_engine');
@@ -952,8 +952,48 @@ function getMorrenusKeyPoolStatus() {
 // ============================================
 // MORRENUS HOT-RELOAD & AUTO-GENERATE KEY
 // ============================================
-const MORRENUS_KEY_FILE = path.join(__dirname, '..', '.morrenus_active_key');
-const MORRENUS_SESSION_DIR = path.join(__dirname, '..', '.playwright-session');
+const MORRENUS_KEY_FILE = process.env.MORRENUS_KEY_FILE
+  ? path.resolve(process.env.MORRENUS_KEY_FILE)
+  : path.join(DATA_ROOT, '.morrenus_active_key');
+const MORRENUS_SESSION_DIR = process.env.MORRENUS_SESSION_DIR
+  ? path.resolve(process.env.MORRENUS_SESSION_DIR)
+  : path.join(DATA_ROOT, '.playwright-session');
+
+// Ensure child processes share the same paths (Playwright key/session).
+process.env.MORRENUS_KEY_FILE = process.env.MORRENUS_KEY_FILE || MORRENUS_KEY_FILE;
+process.env.MORRENUS_SESSION_DIR = process.env.MORRENUS_SESSION_DIR || MORRENUS_SESSION_DIR;
+
+// Use persistent disk for Playwright browsers when available (Render).
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH && process.env.RENDER_DISK_MOUNT_PATH) {
+  process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(DATA_ROOT, 'playwright-browsers');
+}
+
+function ensureMorrenusSessionFromEnv() {
+  const b64 = process.env.MORRENUS_SESSION_STATE_B64;
+  if (!b64) return false;
+
+  const sessionFile = path.join(MORRENUS_SESSION_DIR, 'state.json');
+  if (fs.existsSync(sessionFile)) return true;
+
+  try {
+    const cleaned = String(b64).replace(/\s+/g, '');
+    const raw = Buffer.from(cleaned, 'base64').toString('utf8');
+    if (!raw.trim().startsWith('{')) {
+      console.warn('[Morrenus] ⚠️ MORRENUS_SESSION_STATE_B64 is not valid JSON.');
+      return false;
+    }
+    fs.mkdirSync(MORRENUS_SESSION_DIR, { recursive: true });
+    fs.writeFileSync(sessionFile, raw);
+    console.log(`[Morrenus] ✅ Seeded Playwright session to ${sessionFile}`);
+    return true;
+  } catch (e) {
+    console.warn(`[Morrenus] ⚠️ Failed to seed session from env: ${e.message}`);
+    return false;
+  }
+}
+
+// Seed session early so /morrenus-status and auto-regen can see it.
+ensureMorrenusSessionFromEnv();
 let morrenusAutoGenerateInProgress = false;
 let morrenusLastAutoGenerateAttempt = 0;
 const MORRENUS_AUTO_GENERATE_COOLDOWN_MS = 300000; // 5 min cooldown giữa các lần generate
@@ -985,6 +1025,11 @@ async function morrenusCheckKeyStatusViaPlaywright() {
       timeout: 60000,
       encoding: 'utf8',
       cwd: path.join(__dirname, '..'),
+      env: {
+        ...process.env,
+        MORRENUS_SESSION_DIR,
+        MORRENUS_KEY_FILE,
+      },
     });
 
     // Parse STATUS_JSON=...
@@ -1104,6 +1149,13 @@ async function morrenusPeriodicRegenCheck() {
  * Hot-reload Morrenus key từ file .morrenus_active_key
  * Cho phép cập nhật key mà không cần restart bot
  */
+function ensureDirForFile(filePath) {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
 function morrenusHotReloadKey() {
   try {
     if (!fs.existsSync(MORRENUS_KEY_FILE)) return false;
@@ -1153,6 +1205,7 @@ async function morrenusAutoGenerateKey() {
   }
 
   // Check Playwright session exists
+  ensureMorrenusSessionFromEnv();
   const sessionFile = path.join(MORRENUS_SESSION_DIR, 'state.json');
   const browserDataDir = path.join(MORRENUS_SESSION_DIR, 'browser-data');
   if (!fs.existsSync(sessionFile) && !fs.existsSync(browserDataDir)) {
@@ -1179,6 +1232,11 @@ async function morrenusAutoGenerateKey() {
       timeout: 120000, // 2 min max
       encoding: 'utf8',
       cwd: path.join(__dirname, '..'),
+      env: {
+        ...process.env,
+        MORRENUS_SESSION_DIR,
+        MORRENUS_KEY_FILE,
+      },
     });
 
     console.log('[Morrenus] Playwright output:', output.substring(0, 500));
@@ -1189,8 +1247,29 @@ async function morrenusAutoGenerateKey() {
       const newKey = keyMatch[1];
       console.log(`[Morrenus] ✅ New key generated: ${newKey.substring(0, 20)}...`);
 
-      // Hot-reload the new key immediately
-      morrenusHotReloadKey();
+      // Hot-reload the new key immediately (fallback: write key file + update pool)
+      let hotReloaded = morrenusHotReloadKey();
+      if (!hotReloaded) {
+        try {
+          ensureDirForFile(MORRENUS_KEY_FILE);
+          fs.writeFileSync(MORRENUS_KEY_FILE, newKey);
+          hotReloaded = morrenusHotReloadKey();
+        } catch (e) {
+          console.warn(`[Morrenus] ⚠️ Failed to write key file: ${e.message}`);
+        }
+      }
+
+      if (!hotReloaded) {
+        CONFIG.MORRENUS_API_KEY = newKey;
+        const existing = String(CONFIG.MORRENUS_API_KEYS || '').split(',').map(k => k.trim()).filter(Boolean);
+        if (!existing.includes(newKey)) {
+          existing.push(newKey);
+          CONFIG.MORRENUS_API_KEYS = existing.join(',');
+        }
+        morrenusKeyState.delete(newKey);
+        console.log('[Morrenus] 🔧 Applied new key directly to pool (fallback).');
+      }
+
       return newKey;
     }
 

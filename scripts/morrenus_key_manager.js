@@ -28,13 +28,29 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
+const DATA_ROOT = process.env.BOT_DATA_DIR
+  || process.env.RENDER_DISK_MOUNT_PATH
+  || path.join(__dirname, '..');
+
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH && process.env.RENDER_DISK_MOUNT_PATH) {
+  process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(DATA_ROOT, 'playwright-browsers');
+}
+
 // ========== CONFIG ==========
 const BASE_URL = 'https://manifest.morrenus.xyz';
 const API_KEYS_URL = `${BASE_URL}/api-keys/user`;
 const AUTH_URL = `${BASE_URL}/auth/discord`;
-const SESSION_DIR = path.join(__dirname, '..', '.playwright-session');
+const SESSION_DIR = process.env.MORRENUS_SESSION_DIR
+  ? path.resolve(process.env.MORRENUS_SESSION_DIR)
+  : path.join(DATA_ROOT, '.playwright-session');
+const KEY_FILE_PATH = process.env.MORRENUS_KEY_FILE
+  ? path.resolve(process.env.MORRENUS_KEY_FILE)
+  : path.join(DATA_ROOT, '.morrenus_active_key');
 const ENV_PATH = path.join(__dirname, '..', '.env');
 const TIMEOUT = 30000;
+
+process.env.MORRENUS_SESSION_DIR = process.env.MORRENUS_SESSION_DIR || SESSION_DIR;
+process.env.MORRENUS_KEY_FILE = process.env.MORRENUS_KEY_FILE || KEY_FILE_PATH;
 
 // RAM-optimized Chromium launch args
 const CHROMIUM_ARGS = [
@@ -77,7 +93,29 @@ function ensureSessionDir() {
   }
 }
 
+function ensureSessionSeedFromEnv() {
+  const b64 = process.env.MORRENUS_SESSION_STATE_B64;
+  if (!b64) return;
+  ensureSessionDir();
+
+  const statePath = path.join(SESSION_DIR, 'state.json');
+  if (fs.existsSync(statePath)) return;
+
+  try {
+    const raw = Buffer.from(b64, 'base64').toString('utf8');
+    if (!raw.trim().startsWith('{')) {
+      log('⚠️ MORRENUS_SESSION_STATE_B64 is not valid JSON.');
+      return;
+    }
+    fs.writeFileSync(statePath, raw);
+    log(`✅ Session state seeded to ${statePath}`);
+  } catch (e) {
+    log(`⚠️ Failed to seed session state: ${e.message}`);
+  }
+}
+
 function hasSession() {
+  ensureSessionSeedFromEnv();
   const statePath = path.join(SESSION_DIR, 'state.json');
   const browserDataDir = path.join(SESSION_DIR, 'browser-data');
   return fs.existsSync(statePath) || fs.existsSync(browserDataDir);
@@ -88,13 +126,14 @@ function hasSession() {
  * @param {boolean} headless - true cho automation, false cho login thủ công
  */
 async function launchBrowser(headless = true) {
+  ensureSessionSeedFromEnv();
   ensureSessionDir();
 
   // Dùng persistent context thay vì incognito → giữ Cloudflare cookies/challenges
   const userDataDir = path.join(SESSION_DIR, 'browser-data');
-  if (!fs.existsSync(userDataDir)) {
-    fs.mkdirSync(userDataDir, { recursive: true });
-  }
+  const statePath = path.join(SESSION_DIR, 'state.json');
+  const hasUserData = fs.existsSync(userDataDir);
+  const hasState = fs.existsSync(statePath);
 
   // Khi headed (login), dùng ít args hơn để tránh crash trên Windows
   const args = headless ? CHROMIUM_ARGS : [
@@ -103,6 +142,25 @@ async function launchBrowser(headless = true) {
     '--no-first-run',
     '--disable-extensions',
   ];
+
+  if (headless && !hasUserData && hasState) {
+    const browser = await chromium.launch({
+      headless,
+      args,
+    });
+    const context = await browser.newContext({
+      storageState: statePath,
+      viewport: { width: 800, height: 600 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+      locale: 'en-US',
+    });
+    const page = await context.newPage();
+    return { browser, context, page };
+  }
+
+  if (!fs.existsSync(userDataDir)) {
+    fs.mkdirSync(userDataDir, { recursive: true });
+  }
 
   // Dùng launchPersistentContext thay vì launch() + newContext()
   // Giữ tất cả cookies, localStorage, Cloudflare challenge tokens
@@ -592,13 +650,12 @@ async function cmdExtract() {
  * Cập nhật API key trong .env file (KHÔNG restart bot)
  */
 function updateEnvKey(newKey) {
-  if (!fs.existsSync(ENV_PATH)) {
-    log(`⚠️ .env not found at ${ENV_PATH}`);
-    return false;
-  }
-
-  let env = fs.readFileSync(ENV_PATH, 'utf8');
+  let env = '';
   let updated = false;
+
+  if (fs.existsSync(ENV_PATH)) {
+    env = fs.readFileSync(ENV_PATH, 'utf8');
+  }
 
   // Update MORRENUS_API_KEY
   if (env.includes('MORRENUS_API_KEY=')) {
@@ -606,7 +663,7 @@ function updateEnvKey(newKey) {
     updated = true;
   }
 
-  // Update MORRENUS_API_KEYS (có thể chứa nhiều key, set key mới làm primary)
+  // Update MORRENUS_API_KEYS (can contain multiple keys; set new key as primary)
   if (env.includes('MORRENUS_API_KEYS=')) {
     env = env.replace(/MORRENUS_API_KEYS=.*/g, `MORRENUS_API_KEYS=${newKey}`);
     updated = true;
@@ -614,18 +671,31 @@ function updateEnvKey(newKey) {
 
   if (updated) {
     fs.writeFileSync(ENV_PATH, env);
-    log(`✅ .env updated with new key.`);
+    log(`[INFO] .env updated with new key.`);
+  }
 
-    // Ghi key mới vào file riêng để bot có thể hot-reload
-    const keyFile = path.join(__dirname, '..', '.morrenus_active_key');
-    fs.writeFileSync(keyFile, newKey);
-    log(`✅ Active key written to .morrenus_active_key`);
+  const wroteKeyFile = (() => {
+    try {
+      const dir = path.dirname(KEY_FILE_PATH);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(KEY_FILE_PATH, newKey);
+      log(`[INFO] Active key written to ${KEY_FILE_PATH}`);
+      return true;
+    } catch (e) {
+      log(`[WARN] Failed to write key file: ${e.message}`);
+      return false;
+    }
+  })();
 
-    // 🌐 Auto-sync key lên Render (nếu có URL và ADMIN_TOKEN)
+  if (updated || wroteKeyFile) {
     syncKeyToRender(newKey).catch(() => {});
   }
 
-  return updated;
+  if (!updated && !fs.existsSync(ENV_PATH)) {
+    log(`[INFO] .env not found at ${ENV_PATH} (ok on Render).`);
+  }
+
+  return updated || wroteKeyFile;
 }
 
 /**
@@ -636,14 +706,16 @@ async function syncKeyToRender(newKey) {
   try {
     // Đọc env config
     const envContent = fs.existsSync(ENV_PATH) ? fs.readFileSync(ENV_PATH, 'utf8') : '';
-    
+
     // Lấy Render URL (PUBLIC_BASE_URL hoặc RENDER_URL)
     const renderUrlMatch = envContent.match(/(?:RENDER_URL|PUBLIC_BASE_URL)=(.+)/);
-    const renderUrl = renderUrlMatch ? renderUrlMatch[1].trim() : null;
-    
+    const renderUrl = process.env.RENDER_URL
+      || process.env.PUBLIC_BASE_URL
+      || (renderUrlMatch ? renderUrlMatch[1].trim() : null);
+
     // Lấy ADMIN_TOKEN
     const adminTokenMatch = envContent.match(/ADMIN_TOKEN=(.+)/);
-    const adminToken = adminTokenMatch ? adminTokenMatch[1].trim() : null;
+    const adminToken = process.env.ADMIN_TOKEN || (adminTokenMatch ? adminTokenMatch[1].trim() : null);
 
     if (!renderUrl || !adminToken || renderUrl.includes('localhost')) {
       log('ℹ️ Render sync skipped (no remote URL or ADMIN_TOKEN)');
@@ -716,3 +788,4 @@ COMMANDS[command]()
     log(`Fatal error: ${e.message}`);
     process.exit(1);
   });
+

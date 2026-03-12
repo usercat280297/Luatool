@@ -15,7 +15,8 @@
     "build:rust:checksum": "node scripts/engines/build_checksum_rust.js",
     "smoke:engine": "node scripts/engines/smoke_test.js",
     "smoke:steamdb": "node scripts/engines/smoke_test.js --target=steamdb",
-    "smoke:checksum": "node scripts/engines/smoke_checksum.js"
+    "smoke:checksum": "node scripts/engines/smoke_checksum.js",
+    "postinstall": "node scripts/ensure_playwright.js"
   },
   "keywords": [
     "discord",

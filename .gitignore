@@ -48,3 +48,9 @@ logs/
 Thumbs.db
 online_fix/
 .trae/document
+.playwright-session/
+morrenus_apikeys_page.html
+temp_cookie.txt
+database.backup.json
+__pycache__/
+*.pyc
