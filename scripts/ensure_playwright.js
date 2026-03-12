@@ -19,6 +19,12 @@ if (!shouldInstall) {
   process.exit(0);
 }
 
+if (isRender && !process.env.PLAYWRIGHT_BROWSERS_PATH) {
+  // Force install into node_modules/.cache so it ships with the deploy artifact.
+  process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
+  console.log('[Playwright] PLAYWRIGHT_BROWSERS_PATH=0 (local cache).');
+}
+
 const withDeps = process.env.PLAYWRIGHT_WITH_DEPS === '1' && !isRender;
 const installCommand = withDeps
   ? 'npx playwright install --with-deps chromium'

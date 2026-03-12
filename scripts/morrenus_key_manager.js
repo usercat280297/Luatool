@@ -32,8 +32,17 @@ const DATA_ROOT = process.env.BOT_DATA_DIR
   || process.env.RENDER_DISK_MOUNT_PATH
   || path.join(__dirname, '..');
 
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH && process.env.RENDER_DISK_MOUNT_PATH) {
-  process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(DATA_ROOT, 'playwright-browsers');
+const isRender = Boolean(process.env.RENDER)
+  || Boolean(process.env.RENDER_SERVICE_ID)
+  || Boolean(process.env.RENDER_EXTERNAL_URL);
+
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+  if (process.env.RENDER_DISK_MOUNT_PATH) {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(DATA_ROOT, 'playwright-browsers');
+  } else if (isRender) {
+    // Store browsers in node_modules/.cache so it ships with the deploy artifact.
+    process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
+  }
 }
 
 // ========== CONFIG ==========
