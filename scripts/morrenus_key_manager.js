@@ -454,34 +454,57 @@ async function cmdGenerate() {
       const revokeResult = await page.evaluate(async () => {
         const res = await fetch('/api-keys/revoke-key', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          credentials: 'include',
         });
-        return await res.json();
+        const text = await res.text();
+        let json = null;
+        try { json = JSON.parse(text); } catch (_) {}
+        return { status: res.status, ok: res.ok, json, text };
       });
-      if (revokeResult.success) {
+      const revokeOk = revokeResult?.json?.success || revokeResult?.ok;
+      if (revokeOk) {
         log('   ✅ Old key revoked.');
         await page.waitForTimeout(1000);
       } else {
-        log(`   ⚠️ Revoke failed: ${revokeResult.error || JSON.stringify(revokeResult)}`);
+        const detail = revokeResult?.json?.error || revokeResult?.json?.message || revokeResult?.text || JSON.stringify(revokeResult);
+        log(`   ⚠️ Revoke failed (status ${revokeResult?.status || 'n/a'}): ${String(detail).slice(0, 200)}`);
         log('   Trying Generate anyway...');
       }
     }
 
     // Generate key mới bằng API call (bắt được api_key trong response!)
     log('🔄 Generating new key via API...');
-    const genResult = await page.evaluate(async () => {
-      const res = await fetch('/api-keys/generate-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      return await res.json();
-    });
+    const tryGenerate = async (endpoint) => {
+      return await page.evaluate(async (url) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({})
+        });
+        const text = await res.text();
+        let json = null;
+        try { json = JSON.parse(text); } catch (_) {}
+        return { status: res.status, ok: res.ok, json, text };
+      }, endpoint);
+    };
 
-    if (genResult.success && genResult.api_key) {
-      const newKey = genResult.api_key;
+    let genResult = await tryGenerate('/api-keys/generate-key');
+    if (!genResult?.json?.api_key && !genResult?.json?.success) {
+      const fallbackEndpoints = ['/api-keys/generate', '/api-keys/create', '/api-keys/new'];
+      for (const endpoint of fallbackEndpoints) {
+        log(`   ↪️ Trying fallback endpoint: ${endpoint}`);
+        genResult = await tryGenerate(endpoint);
+        if (genResult?.json?.api_key || genResult?.json?.success) break;
+      }
+    }
+
+    const genPayload = genResult?.json || {};
+    if ((genPayload.success || genResult?.ok) && genPayload.api_key) {
+      const newKey = genPayload.api_key;
       log(`✅ NEW KEY GENERATED: ${newKey.substring(0, 30)}...`);
-      log(`   Expires: ${genResult.expires_at || 'N/A'}`);
+      log(`   Expires: ${genPayload.expires_at || 'N/A'}`);
 
       // Cập nhật .env và hot-reload file
       updateEnvKey(newKey);
@@ -492,7 +515,8 @@ async function cmdGenerate() {
       // Output cho caller (bot integration / machine parsing)
       console.log(`NEW_KEY=${newKey}`);
     } else {
-      log(`❌ Generate failed: ${genResult.error || JSON.stringify(genResult)}`);
+      const detail = genPayload.error || genPayload.message || genResult?.text || JSON.stringify(genResult);
+      log(`❌ Generate failed (status ${genResult?.status || 'n/a'}): ${String(detail).slice(0, 300)}`);
       // Screenshot debug
       await page.screenshot({ path: path.join(SESSION_DIR, 'debug_generate.png') });
       log(`   Screenshot: ${SESSION_DIR}/debug_generate.png`);

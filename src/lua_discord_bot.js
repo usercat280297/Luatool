@@ -997,6 +997,7 @@ ensureMorrenusSessionFromEnv();
 let morrenusAutoGenerateInProgress = false;
 let morrenusLastAutoGenerateAttempt = 0;
 const MORRENUS_AUTO_GENERATE_COOLDOWN_MS = 300000; // 5 min cooldown giữa các lần generate
+let morrenusLastGenerateResult = null; // summary string
 
 // === AUTO-REGEN CONFIG ===
 const MORRENUS_AUTO_REGEN_ON_LIMIT = process.env.MORRENUS_AUTO_REGEN_ON_LIMIT !== 'false'; // default true
@@ -1239,13 +1240,15 @@ async function morrenusAutoGenerateKey() {
       },
     });
 
-    console.log('[Morrenus] Playwright output:', output.substring(0, 500));
+    const outputPreview = output.substring(0, 800);
+    console.log('[Morrenus] Playwright output:', outputPreview);
 
     // Parse output for NEW_KEY=...
     const keyMatch = output.match(/NEW_KEY=(smm_[a-f0-9]+)/);
     if (keyMatch) {
       const newKey = keyMatch[1];
       console.log(`[Morrenus] ✅ New key generated: ${newKey.substring(0, 20)}...`);
+      morrenusLastGenerateResult = 'OK';
 
       // Hot-reload the new key immediately (fallback: write key file + update pool)
       let hotReloaded = morrenusHotReloadKey();
@@ -1276,11 +1279,20 @@ async function morrenusAutoGenerateKey() {
     // Check for session expired
     if (output.includes('SESSION_EXPIRED') || output.includes('Session expired')) {
       console.log('[Morrenus] ❌ Playwright session expired. Run: node scripts/morrenus_key_manager.js login');
+      morrenusLastGenerateResult = 'SESSION_EXPIRED';
+    }
+
+    const failMatch = output.match(/Generate failed: ([^\n\r]+)/i);
+    if (failMatch) {
+      morrenusLastGenerateResult = `GENERATE_FAILED: ${failMatch[1].trim().slice(0, 180)}`;
+    } else if (!morrenusLastGenerateResult) {
+      morrenusLastGenerateResult = 'FAILED_UNKNOWN';
     }
 
     return null;
   } catch (e) {
     console.error(`[Morrenus] ❌ Auto-generate failed: ${e.message}`);
+    morrenusLastGenerateResult = `ERROR: ${e.message}`;
     return null;
   } finally {
     morrenusAutoGenerateInProgress = false;
@@ -5311,8 +5323,9 @@ app.get('/morrenus-status', (req, res) => {
       limitThreshold: MORRENUS_AUTO_REGEN_LIMIT_THRESHOLD,
       checkIntervalMs: MORRENUS_AUTO_REGEN_CHECK_INTERVAL_MS,
       lastCheckAt: morrenusLastRegenCheck ? new Date(morrenusLastRegenCheck).toISOString() : null,
-      generateInProgress: morrenusAutoGenerateInProgress,
-      lastGenerateAttempt: morrenusLastAutoGenerateAttempt ? new Date(morrenusLastAutoGenerateAttempt).toISOString() : null,
+    generateInProgress: morrenusAutoGenerateInProgress,
+    lastGenerateAttempt: morrenusLastAutoGenerateAttempt ? new Date(morrenusLastAutoGenerateAttempt).toISOString() : null,
+    lastGenerateResult: morrenusLastGenerateResult,
       hasPlaywrightSession: fs.existsSync(path.join(MORRENUS_SESSION_DIR, 'browser-data')) || fs.existsSync(path.join(MORRENUS_SESSION_DIR, 'state.json')),
       keyExpiry: morrenusKeyExpiry ? morrenusKeyExpiry.toISOString() : null,
     },
