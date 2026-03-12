@@ -998,6 +998,7 @@ let morrenusAutoGenerateInProgress = false;
 let morrenusLastAutoGenerateAttempt = 0;
 const MORRENUS_AUTO_GENERATE_COOLDOWN_MS = 300000; // 5 min cooldown giữa các lần generate
 let morrenusLastGenerateResult = null; // summary string
+let morrenusLastStatusCheckError = null;
 
 // === AUTO-REGEN CONFIG ===
 const MORRENUS_AUTO_REGEN_ON_LIMIT = process.env.MORRENUS_AUTO_REGEN_ON_LIMIT !== 'false'; // default true
@@ -1021,8 +1022,8 @@ async function morrenusCheckKeyStatusViaPlaywright() {
   if (!fs.existsSync(scriptPath)) return null;
 
   try {
-    const { execSync } = require('child_process');
-    const output = execSync(`node "${scriptPath}" status`, {
+    const { spawnSync } = require('child_process');
+    const result = spawnSync('node', [scriptPath, 'status'], {
       timeout: 60000,
       encoding: 'utf8',
       cwd: path.join(__dirname, '..'),
@@ -1032,6 +1033,14 @@ async function morrenusCheckKeyStatusViaPlaywright() {
         MORRENUS_KEY_FILE,
       },
     });
+
+    const output = `${result.stdout || ''}${result.stderr || ''}`;
+    if (result.status !== 0) {
+      const shortOutput = output.substring(0, 800).trim();
+      morrenusLastStatusCheckError = shortOutput || `Status command failed (code ${result.status})`;
+      console.warn('[Morrenus] ⚠️ Status check failed output:', morrenusLastStatusCheckError);
+      return null;
+    }
 
     // Parse STATUS_JSON=...
     const jsonMatch = output.match(/STATUS_JSON=({.*})/);
@@ -1069,6 +1078,7 @@ async function morrenusCheckKeyStatusViaPlaywright() {
     return null;
   } catch (e) {
     console.warn(`[Morrenus] ⚠️ Status check failed: ${e.message}`);
+    morrenusLastStatusCheckError = `ERROR: ${e.message}`;
     return null;
   }
 }
@@ -5326,6 +5336,7 @@ app.get('/morrenus-status', (req, res) => {
     generateInProgress: morrenusAutoGenerateInProgress,
     lastGenerateAttempt: morrenusLastAutoGenerateAttempt ? new Date(morrenusLastAutoGenerateAttempt).toISOString() : null,
     lastGenerateResult: morrenusLastGenerateResult,
+    lastStatusCheckError: morrenusLastStatusCheckError,
       hasPlaywrightSession: fs.existsSync(path.join(MORRENUS_SESSION_DIR, 'browser-data')) || fs.existsSync(path.join(MORRENUS_SESSION_DIR, 'state.json')),
       keyExpiry: morrenusKeyExpiry ? morrenusKeyExpiry.toISOString() : null,
     },
