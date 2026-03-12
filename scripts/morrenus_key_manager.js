@@ -24,7 +24,6 @@
  *   - Dùng minimal viewport (800x600)
  */
 
-const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
@@ -44,6 +43,8 @@ if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
     process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
   }
 }
+
+const { chromium } = require('playwright');
 
 // ========== CONFIG ==========
 const BASE_URL = 'https://manifest.morrenus.xyz';
