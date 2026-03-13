@@ -175,17 +175,53 @@ async function launchBrowser(headless = true) {
 
   // Dùng launchPersistentContext thay vì launch() + newContext()
   // Giữ tất cả cookies, localStorage, Cloudflare challenge tokens
-  const context = await chromium.launchPersistentContext(userDataDir, {
-    headless,
-    args,
-    viewport: { width: 800, height: 600 },
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-    locale: 'en-US',
-  });
+  try {
+    const context = await chromium.launchPersistentContext(userDataDir, {
+      headless,
+      args,
+      viewport: { width: 800, height: 600 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+      locale: 'en-US',
+    });
 
-  const page = context.pages()[0] || await context.newPage();
+    const page = context.pages()[0] || await context.newPage();
+    return { browser: context, context, page };
+  } catch (error) {
+    if (headless) throw error;
+    log(`⚠️ Persistent context failed: ${error.message}`);
 
-  return { browser: context, context, page };
+    // Retry once with a clean user-data dir (Windows can lock/corrupt it)
+    try {
+      if (fs.existsSync(userDataDir)) {
+        fs.rmSync(userDataDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(userDataDir, { recursive: true });
+
+      const context = await chromium.launchPersistentContext(userDataDir, {
+        headless,
+        args,
+        viewport: { width: 800, height: 600 },
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        locale: 'en-US',
+      });
+
+      const page = context.pages()[0] || await context.newPage();
+      return { browser: context, context, page };
+    } catch (retryError) {
+      log(`⚠️ Persistent retry failed: ${retryError.message}`);
+    }
+
+    // Fallback: non-persistent context (still saves storageState after login)
+    const browser = await chromium.launch({ headless, args });
+    const context = await browser.newContext({
+      storageState: hasState ? statePath : undefined,
+      viewport: { width: 800, height: 600 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+      locale: 'en-US',
+    });
+    const page = await context.newPage();
+    return { browser, context, page };
+  }
 }
 
 /**
