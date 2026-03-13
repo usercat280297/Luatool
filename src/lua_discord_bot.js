@@ -790,6 +790,7 @@ const MORRENUS_RATE_LIMIT_WAIT_MAX_MS = parsePositiveInt(process.env.MORRENUS_RA
 
 // Per-key tracking state
 const morrenusKeyState = new Map(); // key -> { used, dateKey, exhausted, lastError, lastStatusCode, rateLimitResetAt }
+const morrenusDisabledKeys = new Set(); // auth-failed keys to ignore until replaced
 
 function getMorrenusKeyDateKey() {
   return new Date().toISOString().split('T')[0]; // YYYY-MM-DD UTC
@@ -833,6 +834,7 @@ function recordMorrenusKeyUsage(apiKey, statusCode, error = null) {
   } else if (statusCode === 401 || statusCode === 403) {
     state.exhausted = true;
     state.lastError = error || `Auth error (${statusCode})`;
+    morrenusDisabledKeys.add(apiKey);
     log('WARN', `Morrenus key auth failed (${statusCode})`, {
       keyPrefix: apiKey.substring(0, 12) + '...',
     });
@@ -857,6 +859,7 @@ function recordMorrenusKeyUsage(apiKey, statusCode, error = null) {
 }
 
 function isMorrenusKeyAvailable(apiKey) {
+  if (morrenusDisabledKeys.has(apiKey)) return false;
   const state = getMorrenusKeyStats(apiKey);
 
   // Reset if rate limit period has passed
@@ -938,6 +941,7 @@ function getMorrenusKeyPoolStatus() {
   const dateKey = getMorrenusKeyDateKey();
   const keys = pool.map((key, idx) => {
     const state = getMorrenusKeyStats(key);
+    const disabled = morrenusDisabledKeys.has(key);
     return {
       index: idx + 1,
       keyPrefix: key.substring(0, 12) + '...' + key.substring(key.length - 6),
@@ -949,11 +953,13 @@ function getMorrenusKeyPoolStatus() {
       lastStatusCode: state.lastStatusCode,
       lastError: state.lastError,
       rateLimitResetAt: state.rateLimitResetAt ? new Date(state.rateLimitResetAt).toISOString() : null,
+      disabled,
       available: isMorrenusKeyAvailable(key),
     };
   });
 
-  const totalRemaining = keys.reduce((sum, k) => sum + k.remaining, 0);
+  const totalRemainingAll = keys.reduce((sum, k) => sum + k.remaining, 0);
+  const totalRemaining = keys.reduce((sum, k) => sum + (k.available ? k.remaining : 0), 0);
   const availableKeys = keys.filter(k => k.available).length;
   const nextReset = getMorrenusNextResetTime();
 
@@ -961,6 +967,7 @@ function getMorrenusKeyPoolStatus() {
     totalKeys: pool.length,
     availableKeys,
     totalRemaining,
+    totalRemainingAll,
     totalDailyLimit: MORRENUS_DAILY_LIMIT * pool.length,
     nextResetAt: nextReset ? new Date(nextReset).toISOString() : null,
     warningThreshold: MORRENUS_QUOTA_WARNING_THRESHOLD,
@@ -1207,6 +1214,7 @@ function morrenusHotReloadKey() {
     }
 
     // Reset state cho key mới
+    morrenusDisabledKeys.delete(newKey);
     morrenusKeyState.delete(newKey);
 
     console.log(`[Morrenus] 🔄 Hot-reloaded new key: ${newKey.substring(0, 15)}... (replacing ${oldKey ? oldKey.substring(0, 15) + '...' : 'none'})`);
@@ -1298,6 +1306,7 @@ async function morrenusAutoGenerateKey() {
           existing.push(newKey);
           CONFIG.MORRENUS_API_KEYS = existing.join(',');
         }
+        morrenusDisabledKeys.delete(newKey);
         morrenusKeyState.delete(newKey);
         console.log('[Morrenus] 🔧 Applied new key directly to pool (fallback).');
       }
@@ -3047,7 +3056,7 @@ function isZipBuffer(buffer) {
     buffer[0] === 0x50 && buffer[1] === 0x4B;
 }
 
-async function fetchAndStoreManifestFromMorrenus(appId) {
+async function fetchAndStoreManifestFromMorrenus(appId, retryAttempt = 0) {
   const keyPool = getMorrenusApiKeyPool();
   if (keyPool.length === 0) {
     return {
@@ -3240,6 +3249,14 @@ async function fetchAndStoreManifestFromMorrenus(appId) {
   }
 
   if (allAuthOrRate || hasAuthError) {
+    if (retryAttempt < 1) {
+      const autoKey = await morrenusAutoGenerateKey();
+      if (autoKey) {
+        console.log(`[Morrenus] 🔄 Retrying after auth error with new key for appId=${appId}`);
+        return fetchAndStoreManifestFromMorrenus(appId, retryAttempt + 1);
+      }
+    }
+
     return {
       ok: false,
       code: 'AUTH_ERROR',
@@ -5451,6 +5468,7 @@ app.post('/update-morrenus-key', express.json(), (req, res) => {
   existing.push(newKey);
   CONFIG.MORRENUS_API_KEYS = existing.join(',');
   morrenusKeyState.delete(newKey); // Reset state
+  morrenusDisabledKeys.delete(newKey);
 
   // Save to hot-reload file
   try {
