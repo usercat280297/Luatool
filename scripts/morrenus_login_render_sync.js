@@ -136,7 +136,7 @@ async function updateRunningInstance(base64) {
     return;
   }
 
-  const res = await fetch(`${renderUrl.replace(/\\/+$/, '')}/update-morrenus-session`, {
+  const res = await fetch(`${renderUrl.replace(/\/+$/, '')}/update-morrenus-session`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
