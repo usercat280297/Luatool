@@ -16,6 +16,7 @@
  *   node scripts/morrenus_login_render_sync.js --no-login
  */
 
+require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
