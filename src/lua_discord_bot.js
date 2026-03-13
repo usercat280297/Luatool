@@ -5467,6 +5467,43 @@ app.post('/update-morrenus-key', express.json(), (req, res) => {
   });
 });
 
+// POST /update-morrenus-session - update Playwright session state (base64)
+// Body: { "stateB64": "..." } or { "state_b64": "...", "admin_token": "..." }
+app.post('/update-morrenus-session', express.json({ limit: '3mb' }), (req, res) => {
+  const token = req.headers['x-admin-token'] || req.body?.admin_token;
+  if (token !== CONFIG.ADMIN_TOKEN) {
+    return res.status(403).json({ error: 'Invalid admin token. Send X-Admin-Token header or admin_token in body.' });
+  }
+
+  const stateB64 = String(req.body?.stateB64 || req.body?.state_b64 || '').trim();
+  if (!stateB64) {
+    return res.status(400).json({ error: 'Missing stateB64.' });
+  }
+
+  let decoded;
+  try {
+    decoded = Buffer.from(stateB64, 'base64').toString('utf8');
+  } catch (error) {
+    return res.status(400).json({ error: `Invalid base64: ${error.message}` });
+  }
+
+  if (!decoded.trim().startsWith('{')) {
+    return res.status(400).json({ error: 'Session JSON invalid (must start with "{").' });
+  }
+
+  try {
+    const sessionFile = path.join(MORRENUS_SESSION_DIR, 'state.json');
+    const dir = path.dirname(sessionFile);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(sessionFile, decoded);
+    morrenusLastStatusCheckError = null;
+    console.log('[Morrenus] ✅ Session updated via API.');
+    return res.status(200).json({ message: 'Session updated', path: sessionFile });
+  } catch (error) {
+    return res.status(500).json({ error: `Failed to write session: ${error.message}` });
+  }
+});
+
 // POST /trigger-morrenus-generate - Trigger auto-generate key mới (cần Playwright session)
 app.post('/trigger-morrenus-generate', async (req, res) => {
   const token = req.headers['x-admin-token'] || req.body?.admin_token;
