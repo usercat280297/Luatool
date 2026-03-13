@@ -248,7 +248,26 @@ const HELP_SLASH_COMMAND = {
   options: []
 };
 
-const SLASH_COMMAND_DEFINITIONS = [GEN_SLASH_COMMAND, GET_SLASH_COMMAND, HELP_SLASH_COMMAND];
+const MORRENUS_SLASH_COMMAND = {
+  name: 'morrenus',
+  description: 'Admin: Morrenus key status/regen',
+  dm_permission: false,
+  defaultMemberPermissions: PermissionFlagsBits.Administrator,
+  options: [
+    {
+      type: ApplicationCommandOptionType.String,
+      name: 'action',
+      description: 'Action to perform',
+      required: true,
+      choices: [
+        { name: 'status', value: 'status' },
+        { name: 'regen', value: 'regen' },
+      ]
+    }
+  ]
+};
+
+const SLASH_COMMAND_DEFINITIONS = [GEN_SLASH_COMMAND, GET_SLASH_COMMAND, HELP_SLASH_COMMAND, MORRENUS_SLASH_COMMAND];
 
 const AUTOCOMPLETE_LIMIT = 25;
 const AUTOCOMPLETE_CACHE_TTL = 60 * 1000;
@@ -1729,6 +1748,12 @@ function truncateChoiceName(name, appId) {
   }
 
   return `${normalized.slice(0, maxNameLength - 3)}...${suffix}`;
+}
+
+function truncateText(text, maxLength = 120) {
+  const safe = String(text || '');
+  if (safe.length <= maxLength) return safe;
+  return `${safe.slice(0, Math.max(0, maxLength - 3))}...`;
 }
 
 function calculateMatchScore(query, candidate) {
@@ -3930,6 +3955,51 @@ async function handleHelpSlashCommand(interaction) {
   });
 }
 
+async function handleMorrenusSlashCommand(interaction) {
+  const userId = interaction.user?.id || '';
+  const isAllowed = isAdmin(userId) || interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAllowed) {
+    return interaction.reply({
+      content: `${ICONS.cross} Only admins can use this command.`,
+      ephemeral: true
+    });
+  }
+
+  const action = interaction.options.getString('action', true);
+  if (action === 'status') {
+    const status = getMorrenusKeyPoolStatus();
+    const hasSession = fs.existsSync(path.join(MORRENUS_SESSION_DIR, 'browser-data'))
+      || fs.existsSync(path.join(MORRENUS_SESSION_DIR, 'state.json'));
+    const lines = [
+      `Keys: ${status.totalKeys} total, ${status.availableKeys} available`,
+      `Remaining: ${status.totalRemaining}/${status.totalDailyLimit}`,
+      `Last generate: ${morrenusLastGenerateResult || 'null'}`,
+      `Last status error: ${morrenusLastStatusCheckError ? truncateText(morrenusLastStatusCheckError, 160) : 'none'}`,
+      `Session: ${hasSession ? 'OK' : 'missing'}`,
+    ];
+
+    status.keys.forEach((key) => {
+      lines.push(`- #${key.index} ${key.keyPrefix} remaining=${key.remaining} exhausted=${key.exhausted} last=${key.lastStatusCode || 'n/a'}`);
+    });
+
+    return interaction.reply({ content: lines.join('\n'), ephemeral: true });
+  }
+
+  if (action === 'regen') {
+    await interaction.deferReply({ ephemeral: true });
+    const newKey = await morrenusAutoGenerateKey();
+    const status = getMorrenusKeyPoolStatus();
+    const baseLines = [
+      newKey
+        ? `${ICONS.check} Generated new key: ${newKey.substring(0, 15)}...`
+        : `${ICONS.cross} Auto-generate failed: ${morrenusLastGenerateResult || 'UNKNOWN'}`,
+      `Keys: ${status.totalKeys} total, ${status.availableKeys} available`,
+      `Remaining: ${status.totalRemaining}/${status.totalDailyLimit}`,
+    ];
+    return interaction.editReply({ content: baseLines.join('\n') });
+  }
+}
+
 async function handleGetLegacyCommand(message, rawInput) {
   const input = String(rawInput || '').trim();
   if (!input) {
@@ -4268,6 +4338,11 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.commandName === HELP_SLASH_COMMAND.name) {
       await handleHelpSlashCommand(interaction);
+      return;
+    }
+
+    if (interaction.commandName === MORRENUS_SLASH_COMMAND.name) {
+      await handleMorrenusSlashCommand(interaction);
       return;
     }
   } catch (error) {
@@ -4995,6 +5070,7 @@ client.once('clientReady', async () => {
   console.log(`📊 Legacy command prefix: ${enableMessageContentIntent ? CONFIG.COMMAND_PREFIX : `${CONFIG.COMMAND_PREFIX} (disabled in slash-only mode)`}`);
   console.log(`Slash command: /${GEN_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
   console.log(`Slash command: /${GET_SLASH_COMMAND.name} appid:<Steam App ID or game name>`);
+  console.log(`Slash command (admin): /${MORRENUS_SLASH_COMMAND.name} action:<status|regen>`);
   console.log(`📝 Message Content Intent: ${enableMessageContentIntent ? 'ENABLED' : 'DISABLED (slash-only mode)'}`);
   const allGames = scanAllGames();
   console.log(`🎯 Total available games: ${global.gameStats?.uniqueGames || allGames.length} (${global.gameStats?.totalFiles || 'N/A'} files)`);
