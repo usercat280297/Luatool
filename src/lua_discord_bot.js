@@ -2915,6 +2915,10 @@ async function handleGameCommand(message, appId) {
       }
     }
 
+    if (isInteractionFlow) {
+      appendQuickGuideField(embed, appId);
+    }
+
     if (message.canEmbed === false) {
       responsePayload.content = `${ICONS.warning} Missing permission: **Embed Links**.`;
       responsePayload.embeds = [];
@@ -3765,6 +3769,21 @@ function buildProcessingEmbed(displayName, appId) {
       'This may take a few seconds depending on game size.'
     )
     .setFooter({ text: 'Solus Gen | Preparing accurate game data and manifests' });
+}
+
+function appendQuickGuideField(embed, appId) {
+  const fields = embed.data?.fields || [];
+  if (fields.length >= 24) return;
+
+  embed.addFields({
+    name: 'Hướng dẫn nhanh',
+    value: [
+      '`/gen appid:<id-hoặc-tên-game>` - Lấy file lua/package',
+      `Nếu chưa có file, dùng \`/get appid:${appId}\` rồi /gen lại`,
+      '`/help` - Xem hướng dẫn đầy đủ',
+    ].join('\n'),
+    inline: false
+  });
 }
 
 function buildGetProcessingEmbed(displayName, appId) {
