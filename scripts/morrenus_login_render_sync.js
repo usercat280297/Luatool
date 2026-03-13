@@ -159,7 +159,7 @@ async function updateRunningInstance(base64) {
     const login = spawnSync('node', [path.join(__dirname, 'morrenus_key_manager.js'), 'login'], {
       stdio: 'inherit',
       cwd: ROOT,
-      env: process.env,
+      env: { ...process.env, MORRENUS_LOCAL_LOGIN: 'true' },
     });
     if (login.status !== 0) {
       fail(`Login failed with code ${login.status}`);

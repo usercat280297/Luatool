@@ -34,8 +34,9 @@ const DATA_ROOT = process.env.BOT_DATA_DIR
 const isRender = Boolean(process.env.RENDER)
   || Boolean(process.env.RENDER_SERVICE_ID)
   || Boolean(process.env.RENDER_EXTERNAL_URL);
+const forceLocalLogin = String(process.env.MORRENUS_LOCAL_LOGIN || '').toLowerCase() === 'true';
 
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH && !forceLocalLogin) {
   if (process.env.RENDER_DISK_MOUNT_PATH) {
     process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(DATA_ROOT, 'playwright-browsers');
   } else if (isRender) {
