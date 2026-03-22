@@ -303,7 +303,8 @@ const loginState = {
   readyAt: null,
   inProgress: false,
   lastRestCheckAt: null,
-  lastGatewayUrl: null
+  lastGatewayUrl: null,
+  nextRetryAt: null
 };
 
 let loginRetryTimer = null;
@@ -5267,8 +5268,9 @@ function scheduleLoginRetry(nextRetries, reason, delayOverrideMs = null) {
   }
 
   const delay = Number.isFinite(delayOverrideMs) && delayOverrideMs > 0
-    ? Math.min(delayOverrideMs, CONFIG.DISCORD_LOGIN_RETRY_MAX_DELAY_MS)
+    ? delayOverrideMs
     : getLoginRetryDelayMs(nextRetries);
+  loginState.nextRetryAt = new Date(Date.now() + delay).toISOString();
   console.log(
     `⏳ Retrying Discord login in ${Math.round(delay / 1000)}s (attempt ${nextRetries + 1})` +
     (reason ? ` - ${reason}` : '')
@@ -5276,6 +5278,7 @@ function scheduleLoginRetry(nextRetries, reason, delayOverrideMs = null) {
 
   loginRetryTimer = setTimeout(() => {
     loginRetryTimer = null;
+    loginState.nextRetryAt = null;
     attemptLogin(nextRetries);
   }, delay);
 }
@@ -5349,8 +5352,11 @@ async function attemptLogin(retries = 0) {
     } catch (error) {
       if (error?.code === 'DISCORD_RATE_LIMIT') {
         loginState.lastError = `Discord REST precheck rate limited: ${error.message}`;
-        console.error('\n⚠️ Discord REST precheck rate limited. Continuing with direct Discord login attempt.\n');
+        console.error('\n⚠️ Discord REST precheck rate limited. Backing off before next login attempt.\n');
         console.error('Error:', error.message);
+        loginState.inProgress = false;
+        scheduleLoginRetry(retries + 1, 'discord rest rate limited', (error.retryAfterMs || 60000) + 5000);
+        return;
       } else {
         loginState.lastError = `Discord REST precheck failed: ${error.message}`;
         console.error('\n⚠️ Discord REST precheck failed. Continuing with direct Discord login attempt.\n');
@@ -5410,6 +5416,7 @@ app.get('/health', (req, res) => {
       readyAt: loginState.readyAt,
       lastLoginError: loginState.lastError,
       loginInProgress: loginState.inProgress,
+      nextRetryAt: loginState.nextRetryAt,
       lastRestCheckAt: loginState.lastRestCheckAt,
       gatewayUrl: loginState.lastGatewayUrl
     },
